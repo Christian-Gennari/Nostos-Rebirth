@@ -1,15 +1,5 @@
-import {
-  Component,
-  inject,
-  OnInit,
-  signal,
-  computed,
-  effect,
-  ViewChild,
-  HostListener,
-  ElementRef,
-} from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { Component, inject, OnInit, OnDestroy, signal, computed, effect, ViewChild, HostListener, ElementRef } from '@angular/core';
+import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -62,7 +52,7 @@ import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
   templateUrl: './reader-shell.component.html',
   styleUrl: './reader-shell.component.css',
 })
-export class ReaderShell implements OnInit {
+export class ReaderShell implements OnInit, OnDestroy {
   constructor() {
     effect(() => {
     const bookId = this.book()?.id;
@@ -163,7 +153,10 @@ export class ReaderShell implements OnInit {
   notesOpen = signal(false);
   tocOpen = signal(false);
   ready = signal(false);
-  private sourceNavigationConsumed = false;
+  private pendingGroundedSourceTarget: ReaderSourceTarget | null = null;
+  private observedGroundedSourceKey: string | null | undefined;
+  private sourceNavigationGeneration = 0;
+  private sourceNavigationSubscription: { unsubscribe(): void } | null = null;
   highlightMode = signal(false);
   /**
    * The book's highlighter pen (issue #208). Remembered per BOOK, like the
@@ -241,6 +234,7 @@ export class ReaderShell implements OnInit {
 
   ngOnInit() {
     this.loadConcepts();
+    this.watchGroundedSourceNavigation();
 
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
@@ -251,7 +245,7 @@ export class ReaderShell implements OnInit {
           this.loadNotes(b.id);
           setTimeout(() => {
             this.ready.set(true);
-            this.navigateGroundedSource();
+            this.navigateGroundedSource(this.sourceNavigationGeneration);
           }, 100);
         },
         error: () => this.loading.set(false),
@@ -259,18 +253,50 @@ export class ReaderShell implements OnInit {
     }
   }
 
+  ngOnDestroy(): void {
+    this.sourceNavigationSubscription?.unsubscribe();
+    this.sourceNavigationGeneration++;
+    this.pendingGroundedSourceTarget = null;
+  }
 
-  private navigateGroundedSource(attempt = 0): void {
-    if (this.sourceNavigationConsumed) return;
-
-    const params = this.route.snapshot.queryParamMap;
-    // Older tests and embedded hosts can supply a minimal ActivatedRoute
-    // snapshot without queryParamMap. In that case there is simply no grounded
-    // source navigation to consume.
-    if (!params) {
-      this.sourceNavigationConsumed = true;
+  private watchGroundedSourceNavigation(): void {
+    // Real Angular routes expose queryParamMap as a live observable. Keep the
+    // snapshot fallback for lightweight embedded/test hosts that only provide
+    // a minimal ActivatedRoute shape.
+    const queryParamMap = this.route.queryParamMap;
+    if (queryParamMap?.subscribe) {
+      this.sourceNavigationSubscription = queryParamMap.subscribe((params) => {
+        this.onGroundedSourceParams(params);
+      });
       return;
     }
+
+    this.onGroundedSourceParams(this.route.snapshot.queryParamMap);
+  }
+
+  private onGroundedSourceParams(params: ParamMap | null | undefined): void {
+    const target = this.parseGroundedSourceTarget(params);
+    const key = target ? JSON.stringify(target) : null;
+
+    // Query-param emissions can include unrelated reader state. Re-navigate only
+    // when the grounded target itself changes. Clearing the source params resets
+    // the observed key, so browser back/forward can consume the same citation
+    // again later.
+    if (key === this.observedGroundedSourceKey) return;
+
+    this.observedGroundedSourceKey = key;
+    this.sourceNavigationGeneration++;
+    this.pendingGroundedSourceTarget = target;
+
+    if (target && this.ready()) {
+      this.navigateGroundedSource(this.sourceNavigationGeneration);
+    }
+  }
+
+  private parseGroundedSourceTarget(
+    params: ParamMap | null | undefined,
+  ): ReaderSourceTarget | null {
+    if (!params) return null;
 
     const sourcePage = Number(params.get('sourcePage'));
     const sourceCfi = params.get('sourceCfi');
@@ -279,17 +305,18 @@ export class ReaderShell implements OnInit {
     const sourceOffsetRaw = params.get('sourceOffset');
     const sourceExcerpt = params.get('sourceExcerpt');
 
-    let target: ReaderSourceTarget | null = null;
     if (Number.isInteger(sourcePage) && sourcePage > 0) {
-      target = {
+      return {
         type: 'pdf',
         pdfPage: sourcePage,
         pdfPageLabel: params.get('sourcePageLabel'),
       };
-    } else if (sourceCfi || sourceHref) {
+    }
+
+    if (sourceCfi || sourceHref) {
       const spine = sourceSpineRaw === null ? null : Number(sourceSpineRaw);
       const offset = sourceOffsetRaw === null ? null : Number(sourceOffsetRaw);
-      target = {
+      return {
         type: 'epub',
         epubCfi: sourceCfi,
         epubResourceHref: sourceHref,
@@ -299,20 +326,25 @@ export class ReaderShell implements OnInit {
       };
     }
 
-    if (!target) {
-      this.sourceNavigationConsumed = true;
-      return;
-    }
+    return null;
+  }
+
+  private navigateGroundedSource(generation: number, attempt = 0): void {
+    // A newer query-param target supersedes any delayed retry from an older one.
+    if (generation !== this.sourceNavigationGeneration) return;
+
+    const target = this.pendingGroundedSourceTarget;
+    if (!target) return;
 
     const reader = this.activeReader();
     if (!reader?.goToSource) {
       if (attempt < 12) {
-        setTimeout(() => this.navigateGroundedSource(attempt + 1), 50);
+        setTimeout(() => this.navigateGroundedSource(generation, attempt + 1), 50);
       }
       return;
     }
 
-    this.sourceNavigationConsumed = true;
+    this.pendingGroundedSourceTarget = null;
     void reader.goToSource(target);
   }
 

@@ -18,7 +18,20 @@ export interface PageHighlight {
   pageNumber: number;
   rects: HighlightRect[];
   id?: string;
+  colour?: HighlightColour;
 }
+
+export type PdfHighlightCapture =
+  | {
+      status: 'captured';
+      pageNumber: number;
+      rects: HighlightRect[];
+      selectedText: string;
+    }
+  | {
+      status: 'cross-page';
+      selectedText: string;
+    };
 
 @Injectable({
   providedIn: 'root',
@@ -45,6 +58,8 @@ export class PdfAnnotationManager {
     }
 
     highlights.forEach((h) => {
+      const markColour = h.colour ?? colour;
+
       // --- NEW: Create a group container for this specific note ---
       const group = document.createElement('div');
       group.className = 'highlight-group';
@@ -57,8 +72,8 @@ export class PdfAnnotationManager {
         div.className = 'highlight-box';
         // Per BOX, not per layer: this leaves room for marks made with different
         // pens on one page without a repaint.
-        div.style.setProperty('--hl', highlightFillRef(colour));
-        div.style.setProperty('--hl-hover', `var(${highlightFillVar(colour)}-hover)`);
+        div.style.setProperty('--hl', highlightFillRef(markColour));
+        div.style.setProperty('--hl-hover', `var(${highlightFillVar(markColour)}-hover)`);
         div.style.left = `${rect.left * 100}%`;
         div.style.top = `${rect.top * 100}%`;
         div.style.width = `${rect.width * 100}%`;
@@ -71,11 +86,7 @@ export class PdfAnnotationManager {
   }
 
 
-  captureHighlight(keepSelection = false): {
-    pageNumber: number;
-    rects: HighlightRect[];
-    selectedText: string;
-  } | null {
+  captureHighlight(keepSelection = false): PdfHighlightCapture | null {
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
       return null;
@@ -85,13 +96,24 @@ export class PdfAnnotationManager {
     const selectedText = selection.toString().trim();
     if (!selectedText) return null;
 
-    const textLayer = this.getClosestTextLayer(range.startContainer);
-    if (!textLayer) return null;
+    const startTextLayer = this.getClosestTextLayer(range.startContainer);
+    const endTextLayer = this.getClosestTextLayer(range.endContainer);
+    if (!startTextLayer || !endTextLayer) return null;
 
-    const pageNumber = this.getPageNumberFromLayer(textLayer);
-    if (!pageNumber) return null;
+    const startPageNumber = this.getPageNumberFromLayer(startTextLayer);
+    const endPageNumber = this.getPageNumberFromLayer(endTextLayer);
+    if (!startPageNumber || !endPageNumber) return null;
 
-    const pageRect = textLayer.getBoundingClientRect();
+    // A single persisted PDF highlight currently owns one physical page. Never
+    // normalize rectangles from page N+1 against page N: that creates plausible
+    // looking but false provenance. Reject cross-page marks until the storage
+    // model deliberately supports page-scoped geometry.
+    if (startPageNumber !== endPageNumber) {
+      if (!keepSelection) selection.removeAllRanges();
+      return { status: 'cross-page', selectedText };
+    }
+
+    const pageRect = startTextLayer.getBoundingClientRect();
     const rects = Array.from(range.getClientRects()).map((r) => ({
       left: (r.left - pageRect.left) / pageRect.width,
       top: (r.top - pageRect.top) / pageRect.height,
@@ -104,10 +126,29 @@ export class PdfAnnotationManager {
     }
 
     return {
-      pageNumber,
+      status: 'captured',
+      pageNumber: startPageNumber,
       rects,
       selectedText,
     };
+  }
+
+  /**
+   * Return the CURRENT native PDF selection for Ask Nostos. This deliberately
+   * does not depend on highlight mode: selection is reader context, not an
+   * annotation side effect.
+   */
+  captureSelectionText(): string | null {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null;
+
+    const range = selection.getRangeAt(0);
+    const startTextLayer = this.getClosestTextLayer(range.startContainer);
+    const endTextLayer = this.getClosestTextLayer(range.endContainer);
+    if (!startTextLayer || !endTextLayer) return null;
+
+    const selectedText = selection.toString().trim();
+    return selectedText || null;
   }
 
   captureNoteLocation(): {
