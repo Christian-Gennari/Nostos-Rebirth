@@ -22,6 +22,7 @@ public class NostosDbContext : DbContext
     public DbSet<BookModel> Books => Set<BookModel>();
     public DbSet<WorkModel> Works => Set<WorkModel>();
     public DbSet<WritingModel> Writings => Set<WritingModel>();
+    public DbSet<WritingNoteModel> WritingNotes => Set<WritingNoteModel>();
 
     public DbSet<NoteModel> Notes => Set<NoteModel>();
     public DbSet<CollectionModel> Collections => Set<CollectionModel>();
@@ -286,6 +287,29 @@ public class NostosDbContext : DbContext
         modelBuilder.Entity<BookCollectionModel>().HasIndex(bc => bc.CollectionId);
 
         modelBuilder.Entity<WritingModel>().HasIndex(w => w.ParentId);
+
+        // --- WRITING ↔ CHOSEN SOURCE NOTES MEMBERSHIP ---
+        // Both sides cascade: deleting a writing (or folder) removes membership
+        // rows; deleting a note removes its membership rows; and deleting a book
+        // cascades to its notes, which would throw an FK violation if NoteId were
+        // restrictive. NoteConceptModel is the precedent here.
+        modelBuilder.Entity<WritingNoteModel>(e =>
+        {
+            e.HasKey(wn => new { wn.WritingId, wn.NoteId });
+
+            e.HasOne(wn => wn.Writing)
+                .WithMany()
+                .HasForeignKey(wn => wn.WritingId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(wn => wn.Note)
+                .WithMany()
+                .HasForeignKey(wn => wn.NoteId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // The PK backs WritingId-first lookups; this index backs NoteId lookups.
+            e.HasIndex(wn => wn.NoteId);
+        });
 
         // --- EXTERNALLY ACQUIRED BOOK PROVENANCE (issue #166) ---
         // One optional row per book, in its own table: provider identity is not

@@ -141,6 +141,52 @@ public static class WritingsEndpoints
             }
         );
 
+        // GET: Fetch kept source notes for a writing document
+        group.MapGet(
+            "/{writingId}/notes",
+            async (Guid writingId, IWritingRepository repo) =>
+            {
+                var notes = await repo.GetKeptNotesAsync(writingId);
+                if (notes is null)
+                    return Results.NotFound();
+
+                return Results.Ok(notes.Select(wn => wn.ToDto()));
+            }
+        );
+
+        // POST: Keep a source note available for a writing document
+        group.MapPost(
+            "/{writingId}/notes",
+            async (Guid writingId, AddWritingSourceDto dto, IWritingRepository repo) =>
+            {
+                var result = await repo.AddKeptNoteAsync(writingId, dto.NoteId);
+                return result.Status switch
+                {
+                    AddKeptNoteStatus.WritingNotFound => Results.NotFound(),
+                    AddKeptNoteStatus.NoteNotFound => Results.NotFound(),
+                    AddKeptNoteStatus.WritingIsFolder => Results.BadRequest("Cannot keep notes on a folder."),
+                    AddKeptNoteStatus.AlreadyExists => Results.Ok(result.WritingNote!.ToDto()),
+                    AddKeptNoteStatus.Success => Results.Created(
+                        $"/api/writings/{writingId}/notes/{dto.NoteId}",
+                        result.WritingNote!.ToDto()),
+                    _ => Results.StatusCode(500)
+                };
+            }
+        );
+
+        // DELETE: Remove a kept source note from a writing document
+        group.MapDelete(
+            "/{writingId}/notes/{noteId}",
+            async (Guid writingId, Guid noteId, IWritingRepository repo) =>
+            {
+                var writingExists = await repo.RemoveKeptNoteAsync(writingId, noteId);
+                if (!writingExists)
+                    return Results.NotFound();
+
+                return Results.NoContent();
+            }
+        );
+
         return routes;
     }
 }

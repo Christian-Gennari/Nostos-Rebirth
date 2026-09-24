@@ -431,6 +431,17 @@ public sealed class PortableArchiveService(
                 x.AcquiredAt))
             .ToList();
 
+        var writingNotes = (await _db.WritingNotes
+            .AsNoTracking()
+            .OrderBy(x => x.WritingId)
+            .ThenBy(x => x.NoteId)
+            .ToListAsync(ct))
+            .Select(x => new PortableWritingNote(
+                x.WritingId,
+                x.NoteId,
+                x.AddedAt))
+            .ToList();
+
         var assistant = await _db.AssistantSettings
             .AsNoTracking()
             .SingleOrDefaultAsync(ct);
@@ -450,7 +461,8 @@ public sealed class PortableArchiveService(
                 ? null
                 : new PortableAssistantSettings(
                     assistant.CaptureProcessingMode,
-                    assistant.UpdatedAtUtc));
+                    assistant.UpdatedAtUtc),
+            writingNotes);
     }
 
     private static PortableBook ToPortableBook(BookModel book)
@@ -856,7 +868,7 @@ public sealed class PortableArchiveService(
                 + $"This build supports version {PortableArchiveFormat.Version}.");
         }
 
-        if (manifest.DataVersion != PortableArchiveFormat.DataVersion)
+        if (manifest.DataVersion is not (1 or 2))
         {
             throw new PortableArchiveException(
                 "unsupported_data_version",
@@ -1014,7 +1026,7 @@ public sealed class PortableArchiveService(
 
     private static void ValidatePortableData(PortableLibraryData data)
     {
-        if (data.Version != PortableArchiveFormat.DataVersion)
+        if (data.Version is not (1 or 2))
         {
             throw new PortableArchiveException(
                 "unsupported_data_version",
@@ -1029,7 +1041,8 @@ public sealed class PortableArchiveService(
             || data.Concepts is null
             || data.NoteConcepts is null
             || data.Writings is null
-            || data.BookAcquisitions is null)
+            || data.BookAcquisitions is null
+            || (data.Version == 2 && data.WritingNotes is null))
         {
             throw new PortableArchiveException(
                 "malformed_data",
@@ -1176,6 +1189,24 @@ public sealed class PortableArchiveService(
             }
         }
 
+        var writingNoteKeys = new HashSet<(Guid WritingId, Guid NoteId)>();
+        foreach (var link in data.WritingNotes ?? [])
+        {
+            if (!writingIds.Contains(link.WritingId) || !noteIds.Contains(link.NoteId))
+            {
+                throw new PortableArchiveException(
+                    "malformed_relationship",
+                    "Portable archive contains a writing/note link with a missing endpoint.");
+            }
+
+            if (!writingNoteKeys.Add((link.WritingId, link.NoteId)))
+            {
+                throw new PortableArchiveException(
+                    "duplicate_relationship",
+                    "Portable archive contains a duplicate writing/note link.");
+            }
+        }
+
         foreach (var writing in data.Writings)
         {
             if (!Enum.TryParse<WritingType>(writing.Type, ignoreCase: true, out _))
@@ -1240,6 +1271,7 @@ public sealed class PortableArchiveService(
             || await _db.Concepts.AnyAsync(ct)
             || await _db.NoteConcepts.AnyAsync(ct)
             || await _db.Writings.AnyAsync(ct)
+            || await _db.WritingNotes.AnyAsync(ct)
             || await _db.BookAcquisitions.AnyAsync(ct)
             || await _db.AssistantSettings.AnyAsync(
                 x => x.CaptureProcessingMode != null,
@@ -1448,6 +1480,21 @@ public sealed class PortableArchiveService(
             });
         }
 
+        if (data.WritingNotes is not null)
+        {
+            foreach (var source in data.WritingNotes)
+            {
+                _db.WritingNotes.Add(new WritingNoteModel
+                {
+                    WritingId = source.WritingId,
+                    Writing = writings[source.WritingId],
+                    NoteId = source.NoteId,
+                    Note = notes[source.NoteId],
+                    AddedAt = source.AddedAt,
+                });
+            }
+        }
+
         foreach (var source in data.BookAcquisitions)
         {
             _db.BookAcquisitions.Add(new BookAcquisitionModel
@@ -1567,6 +1614,22 @@ public sealed class PortableArchiveService(
             throw new PortableArchiveException(
                 "integrity_failed",
                 "Imported Note/Concept links do not match the archive.");
+        }
+
+        var expectedWritingNotes = (source.WritingNotes ?? [])
+            .Select(x => (x.WritingId, x.NoteId))
+            .ToHashSet();
+        var actualWritingNotes = (await _db.WritingNotes
+            .AsNoTracking()
+            .Select(x => new { x.WritingId, x.NoteId })
+            .ToListAsync(ct))
+            .Select(x => (x.WritingId, x.NoteId))
+            .ToHashSet();
+        if (!expectedWritingNotes.SetEquals(actualWritingNotes))
+        {
+            throw new PortableArchiveException(
+                "integrity_failed",
+                "Imported Writing/Note links do not match the archive.");
         }
 
         var sourceBooks = source.Books.ToDictionary(x => x.Id);
