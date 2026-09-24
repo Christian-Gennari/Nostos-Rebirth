@@ -42,7 +42,7 @@ wrong one is a visible bug even though both look plausible in isolation:
 
 **Choose by affordance, not by looks.** If the row carries a count *and* hover
 rename/delete, it is a `.tree-row` analogue — copy that. `.nav-item` is for a
-filter that only toggles a status and has no per-row actions. The Second Brain
+filter that only toggles a status and has no per-row actions. The Brain
 index is a collections analogue (count + rename + delete), so it follows
 `.tree-row`; copying `.nav-item` gave it a pill and a shadow with no counterpart
 and left the actions at 34×32 with 15px glyphs.
