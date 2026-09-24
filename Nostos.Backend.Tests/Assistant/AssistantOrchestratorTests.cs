@@ -1456,7 +1456,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
 
         var h = CreateHarness(bookText: search);
         h.Llm
-            .CallsTool("book_text_search", $"""{{"query":"retrieved passage","bookIds":["{bookId}"]}}""")
+            .CallsTool("book_text_search", $"{{\"query\":\"retrieved passage\",\"bookIds\":[\"{bookId}\"]}}")
             .Returns("The retrieved passage supports that.");
 
         var response = await h.Orchestrator.HandleTurnAsync(Turn(
