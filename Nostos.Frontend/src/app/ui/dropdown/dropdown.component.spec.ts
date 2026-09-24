@@ -15,7 +15,7 @@ import {
       ariaLabel="Format"
       [options]="options"
       [value]="value"
-      [appearance]="appearance"
+      [appearance]="appearance()"
       [disabled]="disabled()"
       (valueChange)="value = $event"
     />
@@ -23,7 +23,7 @@ import {
 })
 class DropdownHarnessComponent {
   value = 'epub';
-  appearance: DropdownAppearance = 'field';
+  readonly appearance = signal<DropdownAppearance>('field');
   readonly disabled = signal(false);
   readonly options: readonly DropdownOption[] = [
     { value: 'epub', label: 'EPUB' },
@@ -57,7 +57,7 @@ describe('DropdownComponent', () => {
   });
 
   it('supports the subtle toolbar appearance without changing native semantics', () => {
-    fixture.componentInstance.appearance = 'subtle';
+    fixture.componentInstance.appearance.set('subtle');
     fixture.detectChanges();
 
     const host = fixture.nativeElement.querySelector('app-dropdown') as HTMLElement;
