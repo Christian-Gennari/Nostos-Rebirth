@@ -40,8 +40,8 @@ public sealed class PortableArchiveServiceTests
 
         scheduler.Scheduled.Should().BeEquivalentTo(
         [
-            (ids.EpubBookId, "source.epub"),
-            (ids.PdfBookId, "source.pdf"),
+            (ids.EpubBookId, "book.epub"),
+            (ids.PdfBookId, "book.pdf"),
         ]);
     }
 
