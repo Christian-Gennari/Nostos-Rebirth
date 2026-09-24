@@ -550,13 +550,20 @@ public sealed class BookTextSearchService(
             ct);
 
         var bookMap = books.ToDictionary(book => book.Id);
-        var selected = new Dictionary<(Guid BookId, string Hash, string Version, int Ordinal), BookTextIndexedChunk>();
+        var selected = new List<BookTextIndexedChunk>();
+        var selectedKeys = new HashSet<(Guid BookId, string Hash, string Version, int Ordinal)>();
+
+        void AddSelected(BookTextIndexedChunk chunk)
+        {
+            var key = (chunk.BookId, chunk.SourceSha256, chunk.ExtractorVersion, chunk.Ordinal);
+            if (selectedKeys.Add(key))
+                selected.Add(chunk);
+        }
 
         foreach (var hit in hits)
         {
             var chunk = hit.Chunk;
-            var key = (chunk.BookId, chunk.SourceSha256, chunk.ExtractorVersion, chunk.Ordinal);
-            selected.TryAdd(key, chunk);
+            AddSelected(chunk);
 
             if (radius > 0 && selected.Count < maxPassages * 3)
             {
@@ -568,11 +575,11 @@ public sealed class BookTextSearchService(
                     radius,
                     ct);
 
-                foreach (var neighbor in neighbors)
+                foreach (var neighbor in neighbors
+                    .OrderBy(neighbor => Math.Abs(neighbor.Ordinal - chunk.Ordinal))
+                    .ThenBy(neighbor => neighbor.Ordinal))
                 {
-                    selected.TryAdd(
-                        (neighbor.BookId, neighbor.SourceSha256, neighbor.ExtractorVersion, neighbor.Ordinal),
-                        neighbor);
+                    AddSelected(neighbor);
                 }
             }
 
@@ -583,9 +590,7 @@ public sealed class BookTextSearchService(
         var passages = new List<BookTextSearchPassage>(maxPassages);
         var totalChars = 0;
 
-        foreach (var chunk in selected.Values
-            .OrderBy(chunk => ids.IndexOf(chunk.BookId))
-            .ThenBy(chunk => chunk.Ordinal))
+        foreach (var chunk in selected)
         {
             if (!bookMap.TryGetValue(chunk.BookId, out var book))
                 continue;
