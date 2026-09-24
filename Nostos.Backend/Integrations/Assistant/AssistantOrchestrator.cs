@@ -5,6 +5,7 @@ using Nostos.Backend.Services.Ai;
 using Nostos.Backend.Services.Library;
 using Nostos.Shared.Dtos;
 using Nostos.Product.Services.Ai;
+using Nostos.Product.BookText;
 
 namespace Nostos.Backend.Integrations.Assistant;
 
@@ -116,6 +117,7 @@ public sealed class AssistantOrchestrator(
     public const string BookPromptKind = "book";
 
     private const string CaptureCapability = "notes_capture";
+    private const string BookTextCapability = "book_text_search";
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -158,6 +160,7 @@ public sealed class AssistantOrchestrator(
 
         var suggestions = new List<AssistantSuggestionDto>();
         var executedCapabilities = new List<string>();
+        var sourceReferences = new List<AssistantSourceReferenceDto>();
         var planSteps = new List<AssistantPlanStep>();
         AssistantAnchorPromptDto? anchorPrompt = null;
         string? acknowledgement = null;
@@ -366,6 +369,11 @@ public sealed class AssistantOrchestrator(
                 if (result.Success && capability.Trust == AssistantTrustClass.Suggest)
                 {
                     MergeSuggestions(suggestions, ExtractSuggestions(capability.Name, result.Data));
+
+                    if (string.Equals(capability.Name, BookTextCapability, StringComparison.Ordinal))
+                    {
+                        sourceReferences.AddRange(ExtractBookTextSources(result.Data));
+                    }
                 }
 
                 if (result.Success
@@ -459,7 +467,8 @@ public sealed class AssistantOrchestrator(
             suggestions,
             pendingPlan,
             capturedNoteId,
-            executedCapabilities);
+            executedCapabilities,
+            sourceReferences);
     }
 
     private Task CompleteUsageAsync(
@@ -657,6 +666,69 @@ public sealed class AssistantOrchestrator(
             && id.ValueKind == JsonValueKind.String
                 ? id.GetString()
                 : null;
+    }
+
+
+    private static IEnumerable<AssistantSourceReferenceDto> ExtractBookTextSources(JsonElement? data)
+    {
+        if (data is not { ValueKind: JsonValueKind.Object } element)
+            yield break;
+
+        BookTextSearchResponse? response;
+        try
+        {
+            response = JsonSerializer.Deserialize<BookTextSearchResponse>(
+                element.GetRawText(),
+                JsonOptions);
+        }
+        catch (JsonException)
+        {
+            yield break;
+        }
+
+        if (response is null)
+            yield break;
+
+        foreach (var passage in response.Passages)
+        {
+            var locators = passage.SourceSegments
+                .Select(segment => segment.Locator switch
+                {
+                    PdfBookTextSourceLocator pdf => new AssistantSourceLocatorDto(
+                        Type: "pdf",
+                        PdfPageIndex: pdf.PageIndex,
+                        PdfPageLabel: pdf.PageLabel,
+                        StartTextOffset: pdf.StartTextOffset,
+                        EndTextOffset: pdf.EndTextOffset),
+                    EpubBookTextSourceLocator epub => new AssistantSourceLocatorDto(
+                        Type: "epub",
+                        EpubSpineIndex: epub.SpineIndex,
+                        EpubResourceHref: epub.ResourceHref,
+                        EpubCfi: epub.Cfi,
+                        StartTextOffset: epub.StartTextOffset,
+                        EndTextOffset: epub.EndTextOffset),
+                    AudioBookTextSourceLocator audio => new AssistantSourceLocatorDto(
+                        Type: "audio",
+                        StartTextOffset: checked((int)Math.Min(int.MaxValue, audio.StartMs)),
+                        EndTextOffset: checked((int)Math.Min(int.MaxValue, audio.EndMs))),
+                    _ => null,
+                })
+                .Where(locator => locator is not null)
+                .Cast<AssistantSourceLocatorDto>()
+                .ToList();
+
+            if (locators.Count == 0)
+                continue;
+
+            yield return new AssistantSourceReferenceDto(
+                passage.BookId,
+                passage.BookTitle,
+                passage.BookAuthor,
+                passage.Format.ToString().ToLowerInvariant(),
+                passage.SourceSha256,
+                passage.Text,
+                locators);
+        }
     }
 
     private static int? ReadInt(JsonElement obj, string name) =>
