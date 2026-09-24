@@ -30,7 +30,7 @@ describe('ConceptInputComponent concept linking', () => {
     fixture = TestBed.createComponent(ConceptInputComponent);
     component = fixture.componentInstance;
     changed = vi.fn();
-    component.registerOnChange(changed);
+    component.registerOnChange(changed as (value: string) => void);
     fixture.detectChanges();
     textarea = fixture.nativeElement.querySelector('textarea');
   });
