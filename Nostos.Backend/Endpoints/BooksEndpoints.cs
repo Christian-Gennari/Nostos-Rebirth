@@ -6,7 +6,8 @@ using Nostos.Backend.Services.Library;
 using Nostos.Shared.Dtos;
 using Nostos.Shared.Enums;
 using Nostos.Product.Composition;
-using Nostos.Product.Http;\nusing Nostos.Product.BookText;
+using Nostos.Product.Http;
+using Nostos.Product.BookText;
 
 namespace Nostos.Backend.Endpoints;
 
@@ -292,7 +293,8 @@ public static class BooksEndpoints
                 if (LibraryHttpMapper.MapError(result) is { } error)
                     return error;
 
-                await bookText.DeleteAsync(id, ct);\n                await storage.DeleteBookFilesAsync(id, ct);
+                await bookText.DeleteAsync(id, ct);
+                await storage.DeleteBookFilesAsync(id, ct);
                 return Results.NoContent();
             }
         );
