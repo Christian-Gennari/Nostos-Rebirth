@@ -389,23 +389,27 @@ describe('EpubReader theme-following normalization', () => {
     expect(contents.document.body.classList.contains('nostos-dark')).toBe(true);
   });
 
-  it('font size persists per book and is reapplied on open', async () => {
+  it('font size persists reader-wide and adopts the old per-book value', async () => {
     await setupComponent();
 
     const component = fixture.componentInstance;
     component.zoomIn();
     component.zoomIn();
-    expect(localStorage.getItem('nostos.epub-font-size.book-1')).toBe('120');
+    expect(localStorage.getItem('nostos.epub-font-size')).toBe('120');
+    expect(localStorage.getItem('nostos.epub-font-size.book-1')).toBeNull();
 
-    // Reopen: the remembered size is applied to the fresh rendition.
+    // A legacy per-book value is adopted when no reader-wide size exists.
+    localStorage.removeItem('nostos.epub-font-size');
+    localStorage.setItem('nostos.epub-font-size.book-2', '130');
     fixture.destroy();
     fixture = TestBed.createComponent(EpubReader);
-    fixture.componentRef.setInput('bookId', 'book-1');
+    fixture.componentRef.setInput('bookId', 'book-2');
     fixture.detectChanges();
     await new Promise((resolve) => setTimeout(resolve, 0));
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(renditions[1].themes.fontSize).toHaveBeenCalledWith('120%');
+    expect(localStorage.getItem('nostos.epub-font-size')).toBe('130');
+    expect(renditions[1].themes.fontSize).toHaveBeenCalledWith('130%');
   });
 
   it('coalesces a burst of text-size steps into two re-paginations', async () => {
@@ -600,7 +604,7 @@ describe('typographyCss', () => {
 
   it('overrides the typeface per choice', () => {
     const css = typographyCss({ fontFamily: 'serif', lineHeight: 2.0, margin: 'wide' });
-    expect(css).toContain('font-family:Newsreader, Georgia, serif !important');
+    expect(css).toContain('font-family:Georgia, "Times New Roman", Times, serif !important');
     expect(css).toContain('line-height:2 !important');
     expect(css).not.toContain('padding');
   });
@@ -753,12 +757,15 @@ describe('EpubReader typography persistence', () => {
   it('reset restores publisher defaults', () => {
     const component = fixture.componentInstance;
     component.setTypography({ fontFamily: 'mono', margin: 'wide' });
+    component.zoomIn();
     component.resetTypography();
     expect(component.typography()).toEqual({
       fontFamily: 'default',
       lineHeight: 1.6,
       margin: 'normal',
     });
+    expect(component.fontSizePercent()).toBe(100);
+    expect(localStorage.getItem('nostos.epub-font-size')).toBe('100');
   });
 
   it('writes the rules into newly rendered sections', () => {
@@ -768,7 +775,7 @@ describe('EpubReader typography persistence', () => {
     const doc = makeDocument();
     (component as unknown as { upsertTypographyStyle: (d: Document) => void }).upsertTypographyStyle(doc);
     const style = doc.getElementById('nostos-typography');
-    expect(style?.textContent).toContain('font-family:Newsreader, Georgia, serif !important');
+    expect(style?.textContent).toContain('font-family:Georgia, "Times New Roman", Times, serif !important');
     expect(style?.textContent).not.toContain('padding');
   });
 
