@@ -58,7 +58,7 @@ export class AssistantComponent {
   readonly assistant = inject(AssistantService);
   readonly voice = inject(AssistantVoiceService);
   private readonly status = inject(AssistantStatusService);
-  private readonly router = inject(Router);
+  private readonly router = inject(Router, { optional: true });
   private readonly preferences = inject(LibraryPreferencesService);
   private readonly host = inject(ElementRef<HTMLElement>);
   private readonly composer = viewChild<ElementRef<HTMLTextAreaElement>>('composer');
@@ -214,7 +214,9 @@ export class AssistantComponent {
       return;
     }
 
-    void this.router.navigate(['/reader', source.bookId], { queryParams });
+    if (this.router) {
+      void this.router.navigate(['/reader', source.bookId], { queryParams });
+    }
   }
 
   /** The visible recorder clock, e.g. "0:07". */
