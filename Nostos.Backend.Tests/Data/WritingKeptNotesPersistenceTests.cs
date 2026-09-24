@@ -307,4 +307,38 @@ public sealed class WritingKeptNotesPersistenceTests : IClassFixture<SqliteTestF
         list!.Should().ContainSingle();
         list!.Single().NoteId.Should().Be(note.Id);
     }
+
+    // 7. multiple kept notes come back in chronological accretion order (AddedAt ASC,
+    //    then NoteId) — the display contract the Studio's "For this writing" list relies on.
+    [Fact]
+    public async Task GetKeptNotes_MultipleNotes_ReturnsInAddedAtAscendingOrder()
+    {
+        var dbPath = _fixture.CreateDatabasePath();
+        using var db = _fixture.CreateContext(dbPath);
+        var (book, note1, doc) = SeedStandardGraph(db);
+
+        var note2 = new NoteModel { Id = Guid.NewGuid(), BookId = book.Id, Book = book, Content = "Second note", CreatedAt = DateTime.UtcNow.AddDays(-1) };
+        var note3 = new NoteModel { Id = Guid.NewGuid(), BookId = book.Id, Book = book, Content = "Third note", CreatedAt = DateTime.UtcNow };
+        db.Notes.AddRange(note2, note3);
+        await db.SaveChangesAsync();
+
+        var repo = new WritingRepository(db);
+        (await repo.AddKeptNoteAsync(doc.Id, note1.Id)).Status.Should().Be(AddKeptNoteStatus.Success);
+        (await repo.AddKeptNoteAsync(doc.Id, note2.Id)).Status.Should().Be(AddKeptNoteStatus.Success);
+        (await repo.AddKeptNoteAsync(doc.Id, note3.Id)).Status.Should().Be(AddKeptNoteStatus.Success);
+
+        // Pin explicit, scrambled timestamps so the assertion tests the ORDER BY,
+        // not the clock resolution of three back-to-back inserts.
+        var baseTime = new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+        var rows = await db.WritingNotes.Where(wn => wn.WritingId == doc.Id).ToListAsync();
+        rows.Single(wn => wn.NoteId == note2.Id).AddedAt = baseTime;                    // kept first
+        rows.Single(wn => wn.NoteId == note3.Id).AddedAt = baseTime.AddMinutes(1);      // kept second
+        rows.Single(wn => wn.NoteId == note1.Id).AddedAt = baseTime.AddMinutes(2);      // kept last
+        await db.SaveChangesAsync();
+
+        using var freshDb = _fixture.CreateContext(dbPath);
+        var list = await new WritingRepository(freshDb).GetKeptNotesAsync(doc.Id);
+
+        list!.Select(wn => wn.NoteId).Should().ContainInOrder(note2.Id, note3.Id, note1.Id);
+    }
 }
