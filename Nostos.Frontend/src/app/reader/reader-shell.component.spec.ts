@@ -2,8 +2,8 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { Component, forwardRef, input, output, signal } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import { of } from 'rxjs';
+import { ActivatedRoute, convertToParamMap, ParamMap, provideRouter } from '@angular/router';
+import { BehaviorSubject, of } from 'rxjs';
 
 // @ts-expect-error — no @types/node in this repo; vitest resolves node:fs at
 // runtime. Used only for static source guards (the shell stylesheet).
@@ -195,6 +195,7 @@ const audiobook = {
 } as Book;
 
 const booksGetSpy = vi.fn();
+let routeQueryParamMap$: BehaviorSubject<ParamMap>;
 
 // jsdom does not implement matchMedia; the shell registers a change listener.
 function mockMatchMedia() {
@@ -217,6 +218,9 @@ function mockMatchMedia() {
 async function configureReaderShell(
   queryParams: Record<string, string | number> = {},
 ): Promise<ComponentFixture<ReaderShell>> {
+  const initialQueryParamMap = convertToParamMap(queryParams);
+  routeQueryParamMap$ = new BehaviorSubject<ParamMap>(initialQueryParamMap);
+
   TestBed.overrideComponent(ReaderShell, {
     remove: {
       imports: [PdfReader, EpubReader, ConceptInputComponent, NoteCardComponent],
@@ -233,8 +237,9 @@ async function configureReaderShell(
         useValue: {
           snapshot: {
             paramMap: convertToParamMap({ id: 'book-1' }),
-            queryParamMap: convertToParamMap(queryParams),
+            queryParamMap: initialQueryParamMap,
           },
+          queryParamMap: routeQueryParamMap$.asObservable(),
         },
       },
       {
@@ -298,6 +303,90 @@ describe('ReaderShell grounded book-text source navigation', () => {
     fixture.destroy();
   });
 
+  it('re-navigates an already-mounted PDF when the grounded target changes', async () => {
+    const pdfBook = { ...audiobook, id: 'book-1', type: 'ebook', fileName: 'source.pdf' } as Book;
+    booksGetSpy.mockReturnValue(of(pdfBook));
+
+    const fixture = await configureReaderShell({
+      sourcePage: 9,
+      sourcePageLabel: '7',
+    });
+    fixture.detectChanges();
+    fixture.detectChanges();
+
+    const stub = fixture.debugElement.query(By.directive(PdfReaderStub))
+      .componentInstance as PdfReaderStub;
+    (fixture.componentInstance as unknown as { pdfReader: PdfReaderStub }).pdfReader = stub;
+
+    await new Promise((resolve) => setTimeout(resolve, 130));
+    fixture.detectChanges();
+    expect(stub.goToSource).toHaveBeenCalledTimes(1);
+
+    stub.goToSource.mockClear();
+    routeQueryParamMap$.next(
+      convertToParamMap({
+        sourcePage: 14,
+        sourcePageLabel: '12',
+      }),
+    );
+
+    expect(stub.goToSource).toHaveBeenCalledTimes(1);
+    expect(stub.goToSource).toHaveBeenLastCalledWith({
+      type: 'pdf',
+      pdfPage: 14,
+      pdfPageLabel: '12',
+    });
+
+    // An unrelated query-param change must not replay the same source target.
+    routeQueryParamMap$.next(
+      convertToParamMap({
+        sourcePage: 14,
+        sourcePageLabel: '12',
+        panel: 'notes',
+      }),
+    );
+    expect(stub.goToSource).toHaveBeenCalledTimes(1);
+
+    fixture.destroy();
+  });
+
+  it('re-consumes a prior PDF citation when same-book source params navigate away and back', async () => {
+    const pdfBook = { ...audiobook, id: 'book-1', type: 'ebook', fileName: 'source.pdf' } as Book;
+    booksGetSpy.mockReturnValue(of(pdfBook));
+
+    const fixture = await configureReaderShell({
+      sourcePage: 9,
+      sourcePageLabel: '7',
+    });
+    fixture.detectChanges();
+    fixture.detectChanges();
+
+    const stub = fixture.debugElement.query(By.directive(PdfReaderStub))
+      .componentInstance as PdfReaderStub;
+    (fixture.componentInstance as unknown as { pdfReader: PdfReaderStub }).pdfReader = stub;
+
+    await new Promise((resolve) => setTimeout(resolve, 130));
+    fixture.detectChanges();
+    stub.goToSource.mockClear();
+
+    routeQueryParamMap$.next(convertToParamMap({ sourcePage: 14, sourcePageLabel: '12' }));
+    routeQueryParamMap$.next(convertToParamMap({ sourcePage: 9, sourcePageLabel: '7' }));
+
+    expect(stub.goToSource).toHaveBeenCalledTimes(2);
+    expect(stub.goToSource).toHaveBeenNthCalledWith(1, {
+      type: 'pdf',
+      pdfPage: 14,
+      pdfPageLabel: '12',
+    });
+    expect(stub.goToSource).toHaveBeenNthCalledWith(2, {
+      type: 'pdf',
+      pdfPage: 9,
+      pdfPageLabel: '7',
+    });
+
+    fixture.destroy();
+  });
+
   it('passes grounded EPUB CFI plus structural fallback to the EPUB reader', async () => {
     const epubBook = { ...audiobook, id: 'book-1', type: 'ebook', fileName: 'source.epub' } as Book;
     booksGetSpy.mockReturnValue(of(epubBook));
@@ -325,6 +414,51 @@ describe('ReaderShell grounded book-text source navigation', () => {
       epubSpineIndex: 2,
       epubTextOffset: 314,
       excerpt: 'A uniquely grounded passage.',
+    });
+
+    fixture.destroy();
+  });
+
+  it('re-consumes changed grounded EPUB params on an already-mounted reader', async () => {
+    const epubBook = { ...audiobook, id: 'book-1', type: 'ebook', fileName: 'source.epub' } as Book;
+    booksGetSpy.mockReturnValue(of(epubBook));
+
+    const fixture = await configureReaderShell({
+      sourceCfi: 'epubcfi(/6/4!/4/2/6:0)',
+      sourceHref: 'chapter-2.xhtml',
+      sourceSpine: 2,
+      sourceOffset: 314,
+      sourceExcerpt: 'First grounded passage.',
+    });
+    fixture.detectChanges();
+    fixture.detectChanges();
+
+    await new Promise((resolve) => setTimeout(resolve, 130));
+    fixture.detectChanges();
+
+    const stub = fixture.debugElement.query(By.directive(EpubReaderStub))
+      .componentInstance as EpubReaderStub;
+    expect(stub.goToSource).toHaveBeenCalledTimes(1);
+    stub.goToSource.mockClear();
+
+    routeQueryParamMap$.next(
+      convertToParamMap({
+        sourceCfi: 'epubcfi(/6/6!/4/2/8:0)',
+        sourceHref: 'chapter-3.xhtml',
+        sourceSpine: 3,
+        sourceOffset: 512,
+        sourceExcerpt: 'Second grounded passage.',
+      }),
+    );
+
+    expect(stub.goToSource).toHaveBeenCalledTimes(1);
+    expect(stub.goToSource).toHaveBeenCalledWith({
+      type: 'epub',
+      epubCfi: 'epubcfi(/6/6!/4/2/8:0)',
+      epubResourceHref: 'chapter-3.xhtml',
+      epubSpineIndex: 3,
+      epubTextOffset: 512,
+      excerpt: 'Second grounded passage.',
     });
 
     fixture.destroy();
