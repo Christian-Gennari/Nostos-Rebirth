@@ -255,11 +255,13 @@ public static class BooksEndpoints
                     return error;
 
                 var state = await index.GetStateAsync(id, ct);
-                return Results.Ok(state ?? new
-                {
-                    bookId = id,
-                    status = "NotIndexed",
-                });
+                return state is null
+                    ? Results.Ok(new
+                    {
+                        bookId = id,
+                        status = "NotIndexed",
+                    })
+                    : Results.Ok(state);
             }
         );
 
