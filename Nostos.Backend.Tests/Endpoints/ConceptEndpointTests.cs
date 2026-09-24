@@ -75,17 +75,16 @@ public sealed class ConceptEndpointTests : IClassFixture<LibraryEndpointFactory>
         var related = await Client.GetFromJsonAsync<RelatedConceptDto[]>(
             $"/api/concepts/{anchor.Id}/related");
 
-        related.Should().Equal(
-            new RelatedConceptDto(
-                concepts.Single(c => c.Name == sharedName).Id,
-                sharedName,
-                2,
-                bothShared),
-            new RelatedConceptDto(
-                concepts.Single(c => c.Name == occasionalName).Id,
-                occasionalName,
-                1,
-                occasionalShared));
+        related.Should().HaveCount(2);
+        related![0].Id.Should().Be(concepts.Single(c => c.Name == sharedName).Id);
+        related[0].Name.Should().Be(sharedName);
+        related[0].SharedNotes.Should().Be(2);
+        related[0].SharedNoteIds.Should().Equal(bothShared);
+
+        related[1].Id.Should().Be(concepts.Single(c => c.Name == occasionalName).Id);
+        related[1].Name.Should().Be(occasionalName);
+        related[1].SharedNotes.Should().Be(1);
+        related[1].SharedNoteIds.Should().Equal(occasionalShared);
 
         var unknown = await Client.GetAsync($"/api/concepts/{Guid.NewGuid()}/related");
         unknown.StatusCode.Should().Be(HttpStatusCode.OK);
