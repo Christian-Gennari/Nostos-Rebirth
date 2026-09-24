@@ -17,18 +17,20 @@
     -->
     <header class="brain-header">
       <div class="brain-header-title">
-        <h1>Brain</h1>
-        <span appBadge class="badge-count">{{ filteredConcepts().length }}</span>
+        <div class="brain-header-heading">
+          <h1>Brain</h1>
+          @if (conceptStats(); as stats) {
+          <span class="index-stats">
+            {{ stats.totalConcepts }} {{ stats.totalConcepts === 1 ? 'concept' : 'concepts' }} ·
+            {{ stats.totalReferences }}
+            {{ stats.totalReferences === 1 ? 'reference' : 'references' }}
+          </span>
+          }
+        </div>
+        <p class="brain-header-purpose">Revisit what you noticed. See what connects.</p>
         <span class="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
           Showing {{ filteredConcepts().length }} of {{ concepts().length }} concepts
         </span>
-        @if (conceptStats(); as stats) {
-        <span class="index-stats">
-          {{ stats.totalConcepts }} {{ stats.totalConcepts === 1 ? 'concept' : 'concepts' }} ·
-          {{ stats.totalReferences }}
-          {{ stats.totalReferences === 1 ? 'reference' : 'references' }}
-        </span>
-        }
       </div>
 
       <div class="brain-header-tools">
@@ -165,7 +167,6 @@
 
       <div class="brain-section-header">
         <h2 class="brain-section-title">Concepts</h2>
-        <span class="brain-section-count">{{ filteredConcepts().length }}</span>
       </div>
 
       <div
