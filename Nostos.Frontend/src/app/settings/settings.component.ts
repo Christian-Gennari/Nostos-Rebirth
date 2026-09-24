@@ -1,6 +1,7 @@
 import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { firstValueFrom } from 'rxjs';
 
 import { BackupService } from '../core/services/backup.service';
 import { OpdsService } from '../core/services/opds.service';
@@ -31,6 +32,11 @@ import {
 import { AiProviderService } from '../core/services/ai-provider.service';
 import { DeploymentCapabilitiesService } from '../core/services/deployment-capabilities.service';
 import { DeploymentCapabilities } from '../core/dtos/deployment-capabilities.dtos';
+import { CloudAiRefillService } from '../core/services/cloud-ai-refill.service';
+import {
+  CloudAiRefillPack,
+  CloudManagedAiUsage,
+} from '../core/dtos/cloud-ai-refill.dtos';
 import {
   AiProviderKind,
   AiProviderSection,
@@ -189,6 +195,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
   private preferences = inject(LibraryPreferencesService);
   private aiProvider = inject(AiProviderService);
   private deploymentCapabilitiesService = inject(DeploymentCapabilitiesService);
+  private cloudAiRefills = inject(CloudAiRefillService);
 
   /** Which settings surface is visible. This is local UI state, not a route. */
   readonly activeSettingsSection = signal<SettingsSection>('library');
@@ -221,6 +228,12 @@ export class SettingsComponent implements OnInit, OnDestroy {
   );
   readonly managedVoiceTranscription = computed(
     () => this.deploymentCapabilities()?.managedVoiceTranscription === true,
+  );
+  readonly managedAiUsageAvailable = computed(
+    () =>
+      this.deploymentCapabilities()?.deploymentMode === 'Cloud' &&
+      this.deploymentCapabilities()?.managedAi === true &&
+      this.deploymentCapabilities()?.usageMeteringAvailable === true,
   );
   readonly hasLibrarySettings = computed(
     () =>
@@ -348,6 +361,47 @@ export class SettingsComponent implements OnInit, OnDestroy {
     () => this.aiSaving() || this.aiLoadingKind() !== null || this.aiTestingKind() !== null,
   );
 
+  // --- Managed Cloud AI allowance / refills ----------------------------
+  // These endpoints exist only in the official Cloud host. They are never
+  // touched until the runtime capability response explicitly advertises them.
+  readonly managedAiUsage = signal<CloudManagedAiUsage | null>(null);
+  readonly managedAiUsageFailed = signal(false);
+  readonly aiRefillPacks = signal<CloudAiRefillPack[]>([]);
+  readonly aiRefillPacksFailed = signal(false);
+  readonly aiRefillCheckoutBusy = signal<string | null>(null);
+
+  readonly managedAiUsageCopy = computed(() => {
+    switch (this.managedAiUsage()?.state) {
+      case 'normal':
+        return 'Your included Ask Nostos allowance is available.';
+      case 'near_limit':
+        return 'Your included Ask Nostos allowance is nearly used.';
+      case 'using_refill':
+        return 'Your included allowance is used. Ask Nostos is using purchased refill capacity.';
+      case 'exhausted':
+        return 'Your included allowance is used. Add an AI refill to continue, or wait for your monthly allowance to renew.';
+      case 'not_included':
+        return 'Managed Ask Nostos usage is not included with this account.';
+      case 'temporarily_unavailable':
+        return 'Managed Ask Nostos usage is temporarily unavailable.';
+      default:
+        return 'Ask Nostos usage is managed with your Cloud plan.';
+    }
+  });
+
+  readonly managedAiRefillCopy = computed(() => {
+    switch (this.managedAiUsage()?.refill.state) {
+      case 'active':
+        return 'Purchased AI refill capacity is available after your included allowance is used.';
+      case 'low':
+        return 'Your purchased AI refill capacity is running low.';
+      case 'empty':
+        return 'You do not currently have purchased AI refill capacity.';
+      default:
+        return 'AI refills are not currently offered for this account.';
+    }
+  });
+
   status = signal<BackupStatus>({
     isEnabled: false,
     provider: 'Local',
@@ -410,6 +464,13 @@ export class SettingsComponent implements OnInit, OnDestroy {
           if (capabilities.deploymentMode === 'Cloud') this.loadManagedOpdsAccess();
         }
         if (capabilities.canConfigureAiProvider) this.loadAiProvider();
+        if (
+          capabilities.deploymentMode === 'Cloud' &&
+          capabilities.managedAi &&
+          capabilities.usageMeteringAvailable
+        ) {
+          this.loadManagedAiUsage();
+        }
 
         this.assistantStatus.refresh();
         this.assistantSettings.refresh();
@@ -515,6 +576,46 @@ export class SettingsComponent implements OnInit, OnDestroy {
         this.toast.error('Could not disable e-reader access.');
       },
     });
+  }
+
+  // --- Managed Cloud AI allowance / refills ----------------------------
+
+  loadManagedAiUsage(): void {
+    this.cloudAiRefills.getUsage().subscribe({
+      next: (usage) => {
+        this.managedAiUsage.set(usage);
+        this.managedAiUsageFailed.set(false);
+      },
+      error: () => {
+        this.managedAiUsage.set(null);
+        this.managedAiUsageFailed.set(true);
+      },
+    });
+
+    this.cloudAiRefills.getPacks().subscribe({
+      next: ({ packs }) => {
+        this.aiRefillPacks.set(packs);
+        this.aiRefillPacksFailed.set(false);
+      },
+      error: () => {
+        this.aiRefillPacks.set([]);
+        this.aiRefillPacksFailed.set(true);
+      },
+    });
+  }
+
+  async buyAiRefill(packId: string): Promise<void> {
+    if (this.aiRefillCheckoutBusy() !== null) return;
+
+    this.aiRefillCheckoutBusy.set(packId);
+    try {
+      const checkout = await firstValueFrom(this.cloudAiRefills.createCheckout(packId));
+      globalThis.location.assign(checkout.checkoutUrl);
+    } catch {
+      this.toast.error('Could not start AI refill checkout.');
+    } finally {
+      this.aiRefillCheckoutBusy.set(null);
+    }
   }
 
   // --- AI provider card -------------------------------------------------
