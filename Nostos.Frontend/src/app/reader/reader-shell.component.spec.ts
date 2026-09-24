@@ -3,7 +3,7 @@ import { By } from '@angular/platform-browser';
 import { Component, forwardRef, input, output, signal } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { ActivatedRoute, convertToParamMap, ParamMap, provideRouter } from '@angular/router';
-import { BehaviorSubject, of } from 'rxjs';
+import { BehaviorSubject, Subject, of, throwError } from 'rxjs';
 
 // @ts-expect-error — no @types/node in this repo; vitest resolves node:fs at
 // runtime. Used only for static source guards (the shell stylesheet).
@@ -199,6 +199,7 @@ const audiobook = {
 
 const booksGetSpy = vi.fn();
 let routeQueryParamMap$: BehaviorSubject<ParamMap>;
+let routeParamMap$: BehaviorSubject<ParamMap>;
 
 // jsdom does not implement matchMedia; the shell registers a change listener.
 function mockMatchMedia() {
@@ -222,7 +223,9 @@ async function configureReaderShell(
   queryParams: Record<string, string | number> = {},
 ): Promise<ComponentFixture<ReaderShell>> {
   const initialQueryParamMap = convertToParamMap(queryParams);
+  const initialParamMap = convertToParamMap({ id: 'book-1' });
   routeQueryParamMap$ = new BehaviorSubject<ParamMap>(initialQueryParamMap);
+  routeParamMap$ = new BehaviorSubject<ParamMap>(initialParamMap);
 
   TestBed.overrideComponent(ReaderShell, {
     remove: {
@@ -239,9 +242,10 @@ async function configureReaderShell(
         provide: ActivatedRoute,
         useValue: {
           snapshot: {
-            paramMap: convertToParamMap({ id: 'book-1' }),
+            paramMap: initialParamMap,
             queryParamMap: initialQueryParamMap,
           },
+          paramMap: routeParamMap$.asObservable(),
           queryParamMap: routeQueryParamMap$.asObservable(),
         },
       },
@@ -332,6 +336,7 @@ describe('ReaderShell grounded book-text source navigation', () => {
         sourcePageLabel: '12',
       }),
     );
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(stub.goToSource).toHaveBeenCalledTimes(1);
     expect(stub.goToSource).toHaveBeenLastCalledWith({
@@ -348,6 +353,7 @@ describe('ReaderShell grounded book-text source navigation', () => {
         panel: 'notes',
       }),
     );
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(stub.goToSource).toHaveBeenCalledTimes(1);
 
     fixture.destroy();
@@ -373,7 +379,9 @@ describe('ReaderShell grounded book-text source navigation', () => {
     stub.goToSource.mockClear();
 
     routeQueryParamMap$.next(convertToParamMap({ sourcePage: 14, sourcePageLabel: '12' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
     routeQueryParamMap$.next(convertToParamMap({ sourcePage: 9, sourcePageLabel: '7' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(stub.goToSource).toHaveBeenCalledTimes(2);
     expect(stub.goToSource).toHaveBeenNthCalledWith(1, {
@@ -382,6 +390,45 @@ describe('ReaderShell grounded book-text source navigation', () => {
       pdfPageLabel: '12',
     });
     expect(stub.goToSource).toHaveBeenNthCalledWith(2, {
+      type: 'pdf',
+      pdfPage: 9,
+      pdfPageLabel: '7',
+    });
+
+    fixture.destroy();
+  });
+
+  it('rebinds a reused Reader when a grounded source changes the route book id', async () => {
+    const pdfBook = { ...audiobook, type: 'ebook', fileName: 'source.pdf' } as Book;
+    booksGetSpy.mockImplementation((id: string) => of({ ...pdfBook, id } as Book));
+
+    const fixture = await configureReaderShell({
+      sourcePage: 9,
+      sourcePageLabel: '7',
+    });
+    fixture.detectChanges();
+    fixture.detectChanges();
+
+    const stub = fixture.debugElement.query(By.directive(PdfReaderStub))
+      .componentInstance as PdfReaderStub;
+    (fixture.componentInstance as unknown as { pdfReader: PdfReaderStub }).pdfReader = stub;
+
+    await new Promise((resolve) => setTimeout(resolve, 130));
+    fixture.detectChanges();
+    expect(stub.goToSource).toHaveBeenCalledTimes(1);
+    stub.goToSource.mockClear();
+
+    routeParamMap$.next(convertToParamMap({ id: 'book-2' }));
+    fixture.detectChanges();
+
+    expect(booksGetSpy).toHaveBeenLastCalledWith('book-2');
+    expect(stub.bookId()).toBe('book-2');
+
+    await new Promise((resolve) => setTimeout(resolve, 130));
+    fixture.detectChanges();
+
+    expect(stub.goToSource).toHaveBeenCalledTimes(1);
+    expect(stub.goToSource).toHaveBeenCalledWith({
       type: 'pdf',
       pdfPage: 9,
       pdfPageLabel: '7',
@@ -453,6 +500,7 @@ describe('ReaderShell grounded book-text source navigation', () => {
         sourceExcerpt: 'Second grounded passage.',
       }),
     );
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(stub.goToSource).toHaveBeenCalledTimes(1);
     expect(stub.goToSource).toHaveBeenCalledWith({
@@ -464,6 +512,92 @@ describe('ReaderShell grounded book-text source navigation', () => {
       excerpt: 'Second grounded passage.',
     });
 
+    fixture.destroy();
+  });
+});
+
+describe('ReaderShell shared save and load ownership (#479)', () => {
+  beforeEach(() => {
+    booksGetSpy.mockReset();
+    localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
+    mockMatchMedia();
+  });
+
+  it('keeps quick-note Save single-flight and preserves the draft after failure', async () => {
+    booksGetSpy.mockReturnValue(of(audiobook));
+    const fixture = await configureReaderShell();
+    fixture.detectChanges();
+    fixture.detectChanges();
+
+    const notes = TestBed.inject(NotesService) as unknown as {
+      create: ReturnType<typeof vi.fn>;
+    };
+    const first = new Subject<Note>();
+    notes.create.mockReturnValueOnce(first.asObservable());
+
+    const component = fixture.componentInstance;
+    component.quickNoteContent.set('Remember this passage');
+    component.saveQuickNote();
+    component.saveQuickNote();
+
+    expect(notes.create).toHaveBeenCalledTimes(1);
+    expect(component.quickNoteSaving()).toBe(true);
+
+    first.error(new Error('offline'));
+    expect(component.quickNoteSaving()).toBe(false);
+    expect(component.quickNoteContent()).toBe('Remember this passage');
+
+    const retry = new Subject<Note>();
+    notes.create.mockReturnValueOnce(retry.asObservable());
+    component.saveQuickNote();
+
+    expect(notes.create).toHaveBeenCalledTimes(2);
+    expect(component.quickNoteSaving()).toBe(true);
+
+    retry.next({
+      id: 'note-retry',
+      bookId: 'book-1',
+      content: 'Remember this passage',
+      createdAt: '2026-09-24T12:00:00Z',
+    } as Note);
+    retry.complete();
+
+    expect(component.quickNoteSaving()).toBe(false);
+    expect(component.quickNoteContent()).toBe('');
+    fixture.destroy();
+  });
+
+  it('keeps an initial Book-load failure visible, actionable, and retryable', async () => {
+    booksGetSpy.mockReturnValueOnce(throwError(() => new Error('offline')));
+    const fixture = await configureReaderShell();
+    fixture.detectChanges();
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance;
+    const layout = fixture.nativeElement.querySelector('.reader-layout') as HTMLElement;
+    expect(layout.classList.contains('ready')).toBe(true);
+
+    const error = fixture.nativeElement.querySelector(
+      '[data-testid="reader-load-error"]',
+    ) as HTMLElement;
+    expect(error).toBeTruthy();
+    expect(error.textContent).toContain('Couldn’t open this book');
+    expect(error.textContent).toContain('Retry');
+
+    booksGetSpy.mockReturnValueOnce(of(audiobook));
+    const retry = Array.from(error.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
+      .find((button) => button.textContent?.trim() === 'Retry');
+    expect(retry).toBeTruthy();
+    retry!.click();
+    fixture.detectChanges();
+
+    expect(booksGetSpy).toHaveBeenCalledTimes(2);
+    await new Promise((resolve) => setTimeout(resolve, 130));
+    fixture.detectChanges();
+
+    expect(component.loadError()).toBeNull();
+    expect(component.ready()).toBe(true);
     fixture.destroy();
   });
 });
@@ -626,7 +760,7 @@ describe('ReaderShell toolbar contract (theme system removed)', () => {
     // five controls and left the book title 78px ("Being an…").
     expect(header.filter((t) => t === 'Highlight mode')).toHaveLength(0);
     // Back lives with the title it returns to, not with the page keys.
-    expect(header.filter((t) => t === 'Back to Library')).toHaveLength(1);
+    expect(header.filter((t) => t === 'Book details')).toHaveLength(1);
     // And nothing about turning pages is up here.
     expect(header.filter((t) => t === 'Previous' || t === 'Next')).toHaveLength(0);
 
