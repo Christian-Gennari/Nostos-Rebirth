@@ -7,7 +7,7 @@ import { SettingsComponent } from './settings.component';
 import { BackupService } from '../core/services/backup.service';
 import { OpdsService } from '../core/services/opds.service';
 import { ToastService } from '../core/services/toast.service';
-import { OpdsInfo } from '../core/dtos/opds.dtos';
+import { ManagedOpdsAccess, OpdsInfo } from '../core/dtos/opds.dtos';
 import {
   LIBRARY_PREFERENCES_STORAGE_KEY,
   LibraryPreferencesService,
@@ -38,6 +38,7 @@ const selfHostedCapabilities: DeploymentCapabilities = {
   usesCloudStorage: false,
   supportsLocalBackupConfiguration: true,
   supportsPrivateNetworkAccess: true,
+  supportsEreaderAccess: true,
   usageMeteringAvailable: false,
 };
 
@@ -50,6 +51,7 @@ const cloudCapabilities: DeploymentCapabilities = {
   usesCloudStorage: true,
   supportsLocalBackupConfiguration: false,
   supportsPrivateNetworkAccess: false,
+  supportsEreaderAccess: true,
   usageMeteringAvailable: true,
 };
 
@@ -65,8 +67,49 @@ const remoteInfo: OpdsInfo = {
   localOnly: false,
 };
 
+const managedDisabled: ManagedOpdsAccess = {
+  enabled: false,
+  username: null,
+  password: null,
+  createdAtUtc: null,
+  rotatedAtUtc: null,
+  revokedAtUtc: null,
+};
+
+const managedEnabled: ManagedOpdsAccess = {
+  enabled: true,
+  username: 'reader-example',
+  password: null,
+  createdAtUtc: '2026-09-24T17:00:00Z',
+  rotatedAtUtc: '2026-09-24T17:00:00Z',
+  revokedAtUtc: null,
+};
+
+const managedIssued: ManagedOpdsAccess = {
+  ...managedEnabled,
+  password: 'one-time-reader-password',
+};
+
+const managedRotated: ManagedOpdsAccess = {
+  ...managedEnabled,
+  password: 'replacement-reader-password',
+  rotatedAtUtc: '2026-09-24T18:00:00Z',
+};
+
 const opdsServiceMock = {
   getInfo: vi.fn(() => of(remoteInfo)),
+  getManagedAccess: vi.fn((): Observable<ManagedOpdsAccess> => of(managedDisabled)),
+  enableManagedAccess: vi.fn((): Observable<ManagedOpdsAccess> => of(managedIssued)),
+  rotateManagedPassword: vi.fn((): Observable<ManagedOpdsAccess> => of(managedRotated)),
+  revokeManagedAccess: vi.fn(
+    (): Observable<ManagedOpdsAccess> =>
+      of({
+        ...managedEnabled,
+        enabled: false,
+        password: null,
+        revokedAtUtc: '2026-09-24T19:00:00Z',
+      }),
+  ),
 };
 
 /**
@@ -191,6 +234,21 @@ describe('SettingsComponent backup-only surface', () => {
     capabilitiesServiceMock.get.mockReturnValue(of(selfHostedCapabilities));
     opdsServiceMock.getInfo.mockClear();
     opdsServiceMock.getInfo.mockReturnValue(of(remoteInfo));
+    opdsServiceMock.getManagedAccess.mockClear();
+    opdsServiceMock.getManagedAccess.mockReturnValue(of(managedDisabled));
+    opdsServiceMock.enableManagedAccess.mockClear();
+    opdsServiceMock.enableManagedAccess.mockReturnValue(of(managedIssued));
+    opdsServiceMock.rotateManagedPassword.mockClear();
+    opdsServiceMock.rotateManagedPassword.mockReturnValue(of(managedRotated));
+    opdsServiceMock.revokeManagedAccess.mockClear();
+    opdsServiceMock.revokeManagedAccess.mockReturnValue(
+      of({
+        ...managedEnabled,
+        enabled: false,
+        password: null,
+        revokedAtUtc: '2026-09-24T19:00:00Z',
+      }),
+    );
     toastMock.error.mockClear();
     toastMock.success.mockClear();
     assistantStatusMock.available.set(true);
@@ -348,25 +406,27 @@ describe('SettingsComponent backup-only surface', () => {
     expect(aiProviderServiceMock.get).not.toHaveBeenCalled();
   });
 
-  it('uses Cloud capabilities even on the test host and hides server-owner plumbing', () => {
+  it('keeps Cloud Library settings for managed e-reader access without server-owner plumbing', () => {
     capabilitiesServiceMock.get.mockReturnValueOnce(of(cloudCapabilities));
     backupServiceMock.getStatus.mockClear();
     backupServiceMock.getSettings.mockClear();
     backupServiceMock.getHistory.mockClear();
     opdsServiceMock.getInfo.mockClear();
+    opdsServiceMock.getManagedAccess.mockClear();
     aiProviderServiceMock.get.mockClear();
 
     render();
 
     expect(fixture.componentInstance.deploymentCapabilities()?.deploymentMode).toBe('Cloud');
-    expect(fixture.componentInstance.activeSettingsSection()).toBe('assistant');
+    expect(fixture.componentInstance.activeSettingsSection()).toBe('library');
     expect(
       fixture.debugElement
         .queryAll(By.css('.settings-nav-copy'))
         .map((item) => item.nativeElement.textContent.trim()),
-    ).toEqual(['Assistant', 'Appearance']);
+    ).toEqual(['Library & data', 'Assistant', 'Appearance']);
 
-    expect(fixture.nativeElement.querySelector('#library-data')).toBeNull();
+    expect(fixture.nativeElement.querySelector('#library-data')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="ereader-access-card"]')).toBeTruthy();
     expect(fixture.nativeElement.querySelector('[data-testid="ai-provider-settings-card"]')).toBeNull();
     expect(fixture.nativeElement.querySelector('#ai-llm-base-url')).toBeNull();
     expect(fixture.nativeElement.querySelector('#ai-llm-model')).toBeNull();
@@ -375,13 +435,9 @@ describe('SettingsComponent backup-only surface', () => {
     expect(fixture.nativeElement.querySelector('#ai-stt-model')).toBeNull();
     expect(fixture.nativeElement.querySelector('#ai-stt-api-key')).toBeNull();
 
-    expect(assistantCard()).not.toBeNull();
-    expect(captureModeDropdown()).not.toBeNull();
-    expect(
-      fixture.nativeElement.querySelector('[data-testid="managed-voice-transcription-toggle"]'),
-    ).toBeTruthy();
-
     const pageText = (fixture.nativeElement.textContent ?? '').replace(/\s+/g, ' ');
+    expect(pageText).toContain('E-reader access');
+    expect(pageText).toContain('never your Nostos account password');
     expect(pageText).not.toContain('Import from Disk');
     expect(pageText).not.toContain('Tailscale');
     expect(pageText).not.toContain('Opds:Enabled');
@@ -390,7 +446,8 @@ describe('SettingsComponent backup-only surface', () => {
     expect(backupServiceMock.getStatus).not.toHaveBeenCalled();
     expect(backupServiceMock.getSettings).not.toHaveBeenCalled();
     expect(backupServiceMock.getHistory).not.toHaveBeenCalled();
-    expect(opdsServiceMock.getInfo).not.toHaveBeenCalled();
+    expect(opdsServiceMock.getInfo).toHaveBeenCalledTimes(1);
+    expect(opdsServiceMock.getManagedAccess).toHaveBeenCalledTimes(1);
     expect(aiProviderServiceMock.get).not.toHaveBeenCalled();
   });
 
@@ -565,6 +622,137 @@ describe('SettingsComponent backup-only surface', () => {
 
     expect(cardBodyText()).toContain('Could not read this setting');
     expect(fixture.nativeElement.querySelector('.catalog-url')).toBeNull();
+  });
+
+  it('shows the managed Cloud enable state and catalog without fabricating credentials', () => {
+    capabilitiesServiceMock.get.mockReturnValueOnce(of(cloudCapabilities));
+    opdsServiceMock.getManagedAccess.mockReturnValueOnce(of(managedDisabled));
+
+    render();
+
+    expect(catalogUrlText()).toBe(remoteInfo.catalogUrl);
+    expect(fixture.nativeElement.querySelector('[data-testid="managed-opds-disabled"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[data-testid="enable-managed-opds"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.managed-opds-username')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.managed-opds-password')).toBeNull();
+  });
+
+  it('shows and copies a newly-created managed password only from the create response', async () => {
+    capabilitiesServiceMock.get.mockReturnValueOnce(of(cloudCapabilities));
+    opdsServiceMock.getManagedAccess.mockReturnValueOnce(of(managedDisabled));
+    const writeText = vi.fn(() => Promise.resolve());
+    installClipboard(writeText);
+
+    render();
+
+    (fixture.nativeElement.querySelector(
+      '[data-testid="enable-managed-opds"]',
+    ) as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(opdsServiceMock.enableManagedAccess).toHaveBeenCalledTimes(1);
+    expect(
+      (fixture.nativeElement.querySelector('.managed-opds-username') as HTMLElement).textContent,
+    ).toContain(managedIssued.username);
+    expect(
+      (fixture.nativeElement.querySelector('.managed-opds-password') as HTMLElement).textContent,
+    ).toContain(managedIssued.password);
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="managed-opds-one-time-secret"]'),
+    ).toBeTruthy();
+
+    (fixture.nativeElement.querySelector(
+      '[data-testid="copy-managed-opds-details"]',
+    ) as HTMLButtonElement).click();
+    await flush();
+
+    expect(writeText).toHaveBeenCalledWith(
+      `Catalog: ${remoteInfo.catalogUrl}\nUsername: ${managedIssued.username}\nPassword: ${managedIssued.password}`,
+    );
+  });
+
+  it('does not pretend it can reveal an existing managed password later', () => {
+    capabilitiesServiceMock.get.mockReturnValueOnce(of(cloudCapabilities));
+    opdsServiceMock.getManagedAccess.mockReturnValueOnce(of(managedEnabled));
+
+    render();
+
+    expect(fixture.nativeElement.querySelector('.managed-opds-password')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="copy-managed-opds-details"]')).toBeNull();
+    expect(cardBodyText()).toContain('password is not shown again');
+    expect(cardBodyText()).toContain('regenerate it');
+  });
+
+  it('regenerates the managed password and explains that the old password stops working', () => {
+    capabilitiesServiceMock.get.mockReturnValueOnce(of(cloudCapabilities));
+    opdsServiceMock.getManagedAccess.mockReturnValueOnce(of(managedEnabled));
+
+    render();
+
+    (fixture.nativeElement.querySelector(
+      '[data-testid="rotate-managed-opds-password"]',
+    ) as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(opdsServiceMock.rotateManagedPassword).toHaveBeenCalledTimes(1);
+    expect(
+      (fixture.nativeElement.querySelector('.managed-opds-password') as HTMLElement).textContent,
+    ).toContain(managedRotated.password);
+    expect(cardBodyText()).toContain('immediately disconnects readers');
+  });
+
+  it('requires confirmation before revoking managed e-reader access', () => {
+    capabilitiesServiceMock.get.mockReturnValueOnce(of(cloudCapabilities));
+    opdsServiceMock.getManagedAccess.mockReturnValueOnce(of(managedEnabled));
+
+    render();
+
+    (fixture.nativeElement.querySelector(
+      '[data-testid="revoke-managed-opds"]',
+    ) as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.pendingOpdsRevoke()).toBe(true);
+    expect(opdsServiceMock.revokeManagedAccess).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('.confirm-modal-card')).toBeTruthy();
+
+    fixture.componentInstance.confirmManagedOpdsRevoke();
+    fixture.detectChanges();
+
+    expect(opdsServiceMock.revokeManagedAccess).toHaveBeenCalledTimes(1);
+    expect(fixture.componentInstance.pendingOpdsRevoke()).toBe(false);
+    expect(fixture.nativeElement.querySelector('[data-testid="managed-opds-disabled"]')).toBeTruthy();
+  });
+
+  it('fails closed when managed credential state cannot be read', () => {
+    capabilitiesServiceMock.get.mockReturnValueOnce(of(cloudCapabilities));
+    opdsServiceMock.getManagedAccess.mockReturnValueOnce(
+      throwError(() => new Error('managed OPDS offline')),
+    );
+
+    render();
+
+    expect(cardBodyText()).toContain('Could not read this setting');
+    expect(fixture.nativeElement.querySelector('.managed-opds-username')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="enable-managed-opds"]')).toBeNull();
+  });
+
+  it('keeps the current managed state when a management request fails', () => {
+    capabilitiesServiceMock.get.mockReturnValueOnce(of(cloudCapabilities));
+    opdsServiceMock.getManagedAccess.mockReturnValueOnce(of(managedDisabled));
+    opdsServiceMock.enableManagedAccess.mockReturnValueOnce(
+      throwError(() => new Error('enable failed')),
+    );
+
+    render();
+
+    (fixture.nativeElement.querySelector(
+      '[data-testid="enable-managed-opds"]',
+    ) as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(toastMock.error).toHaveBeenCalledWith('Could not enable e-reader access.');
+    expect(fixture.nativeElement.querySelector('[data-testid="managed-opds-disabled"]')).toBeTruthy();
   });
 
   // ------------------------------------------------------------------
