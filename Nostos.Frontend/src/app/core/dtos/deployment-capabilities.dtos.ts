@@ -9,5 +9,6 @@ export interface DeploymentCapabilities {
   usesCloudStorage: boolean;
   supportsLocalBackupConfiguration: boolean;
   supportsPrivateNetworkAccess: boolean;
+  supportsEreaderAccess: boolean;
   usageMeteringAvailable: boolean;
 }

@@ -33,6 +33,7 @@ public static class DeploymentCapabilitiesEndpoints
             UsesCloudStorage: deployment.Capabilities.UsesCloudStorage,
             SupportsLocalBackupConfiguration: deployment.Capabilities.SupportsLocalBackupConfiguration,
             SupportsPrivateNetworkAccess: deployment.Capabilities.SupportsPrivateNetworkAccess,
+            SupportsEreaderAccess: deployment.Capabilities.SupportsEreaderAccess,
             UsageMeteringAvailable: deployment.Capabilities.UsageMeteringAvailable);
 }
 
@@ -45,4 +46,5 @@ public sealed record DeploymentCapabilitiesResponse(
     bool UsesCloudStorage,
     bool SupportsLocalBackupConfiguration,
     bool SupportsPrivateNetworkAccess,
+    bool SupportsEreaderAccess,
     bool UsageMeteringAvailable);

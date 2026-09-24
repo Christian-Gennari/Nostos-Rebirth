@@ -40,6 +40,7 @@ describe('DeploymentCapabilitiesService', () => {
       usesCloudStorage: false,
       supportsLocalBackupConfiguration: true,
       supportsPrivateNetworkAccess: true,
+      supportsEreaderAccess: true,
       usageMeteringAvailable: false,
     });
 
@@ -47,6 +48,7 @@ describe('DeploymentCapabilitiesService', () => {
     expect(result.deploymentMode).toBe('SelfHosted');
     expect(result.canConfigureAiProvider).toBe(true);
     expect(result.managedAi).toBe(false);
+    expect(result.supportsEreaderAccess).toBe(true);
   });
 
   it('replays one server-authoritative result instead of refetching per consumer', async () => {
@@ -62,6 +64,7 @@ describe('DeploymentCapabilitiesService', () => {
       usesCloudStorage: true,
       supportsLocalBackupConfiguration: false,
       supportsPrivateNetworkAccess: false,
+      supportsEreaderAccess: true,
       usageMeteringAvailable: true,
     });
 
@@ -83,6 +86,7 @@ describe('DeploymentCapabilitiesService', () => {
       usesCloudStorage: true,
       supportsLocalBackupConfiguration: false,
       supportsPrivateNetworkAccess: false,
+      supportsEreaderAccess: true,
       usageMeteringAvailable: true,
     });
     await firstPromise;
@@ -98,6 +102,7 @@ describe('DeploymentCapabilitiesService', () => {
       usesCloudStorage: false,
       supportsLocalBackupConfiguration: true,
       supportsPrivateNetworkAccess: true,
+      supportsEreaderAccess: true,
       usageMeteringAvailable: false,
     });
 

@@ -26,6 +26,7 @@ public sealed record DeploymentCapabilities(
     bool UsesCloudStorage,
     bool SupportsLocalBackupConfiguration,
     bool SupportsPrivateNetworkAccess,
+    bool SupportsEreaderAccess,
     bool UsageMeteringAvailable);
 
 /// <summary>
@@ -68,6 +69,7 @@ public sealed record DeploymentDescriptor(
                     UsesCloudStorage: false,
                     SupportsLocalBackupConfiguration: true,
                     SupportsPrivateNetworkAccess: true,
+                    SupportsEreaderAccess: true,
                     UsageMeteringAvailable: false)),
 
             DeploymentMode.Cloud => new(
@@ -80,6 +82,7 @@ public sealed record DeploymentDescriptor(
                     UsesCloudStorage: true,
                     SupportsLocalBackupConfiguration: false,
                     SupportsPrivateNetworkAccess: false,
+                    SupportsEreaderAccess: true,
                     UsageMeteringAvailable: true)),
 
             _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unsupported Nostos deployment mode."),

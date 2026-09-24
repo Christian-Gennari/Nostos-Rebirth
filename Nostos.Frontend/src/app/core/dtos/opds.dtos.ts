@@ -9,3 +9,14 @@ export interface OpdsInfo {
   /** True when the address is a loopback one (localhost, 127.x, ::1), so no other device can reach it. */
   localOnly: boolean;
 }
+
+
+/** Managed hosted e-reader credential state. Password is one-time response material. */
+export interface ManagedOpdsAccess {
+  enabled: boolean;
+  username: string | null;
+  password: string | null;
+  createdAtUtc: string | null;
+  rotatedAtUtc: string | null;
+  revokedAtUtc: string | null;
+}
