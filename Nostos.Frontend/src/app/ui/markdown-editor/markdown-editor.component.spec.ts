@@ -46,12 +46,14 @@ describe('MarkdownEditorComponent', () => {
   let emitted: string[];
   let wordCountEmissions: number[];
   let wordCountValue: number;
+  let registeredEditorEvents: string[];
 
   function installTinyMceMock() {
     initCalls = [];
     removedEditors = [];
     editors = [];
     wordCountValue = 42;
+    registeredEditorEvents = [];
 
     (globalThis as Record<string, unknown>)['tinymce'] = {
       init: (config: InitConfig) => {
@@ -61,7 +63,10 @@ describe('MarkdownEditorComponent', () => {
         const fire = (event: string) => listeners.get(event)?.();
         const editor: EditorMock = {
           on: (event, cb) => {
-            for (const e of event.split(/\s+/)) listeners.set(e, cb);
+            for (const e of event.split(/\s+/)) {
+              registeredEditorEvents.push(e);
+              listeners.set(e, cb);
+            }
           },
           getContent: () => content,
           setContent: (html) => {
@@ -108,6 +113,15 @@ describe('MarkdownEditorComponent', () => {
   it('initializes once with the constant oxide skin', () => {
     expect(initCalls).toHaveLength(1);
     expect(initCalls[0].skin).toBe('oxide');
+  });
+
+  it('applies the iframe theme at PreInit and themes transient loading surfaces', () => {
+    expect(registeredEditorEvents).toContain('PreInit');
+
+    const css = componentCss();
+    expect(css).toContain(':host > textarea');
+    expect(css).toContain('background: var(--editor-ui-bg, var(--bg-surface))');
+    expect(css).toContain('.tox .tox-throbber');
   });
 
   it('uses the final chrome config: plugins, toolbar, quickbars, no menubar/statusbar', () => {
