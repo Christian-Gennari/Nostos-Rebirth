@@ -25,7 +25,7 @@ import { BooksService } from '../../core/services/books.service';
 import { ThemeService, Theme } from '../../core/services/theme.service';
 import { Book as BookDto } from '../../core/dtos/book.dtos';
 import { IReader, ReaderProgress, ReaderSourceTarget, TocItem } from '../reader.interface';
-import { isTypingTarget, pageActionForKey } from '../reader-keyboard';
+import { isInteractiveTarget, isTypingTarget, pageActionForKey } from '../reader-keyboard';
 import { AssistantContextService } from '../../ui/assistant/assistant-context.service';
 
 /**
@@ -883,7 +883,7 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
 
     const onKeydown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
-      if (isTypingTarget(event.target)) return;
+      if (isTypingTarget(event.target) || isInteractiveTarget(event.target)) return;
 
       const action = pageActionForKey(event);
       if (!action) return;
