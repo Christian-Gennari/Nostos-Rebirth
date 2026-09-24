@@ -4,6 +4,7 @@ using Nostos.Backend.Services.Library;
 using Nostos.Backend.Services.Notes;
 using Nostos.Shared.Dtos;
 using Nostos.Shared.Enums;
+using Nostos.Product.BookText;
 
 namespace Nostos.Backend.Integrations.Assistant;
 
@@ -32,11 +33,19 @@ public static partial class AssistantCapabilities
     public static IReadOnlyList<AssistantCapability> Build(
         INoteService notes,
         ILibraryService library,
-        IConceptRepository concepts) =>
-        BuildLibraryBookCapabilities(library)
+        IConceptRepository concepts,
+        IBookTextSearchService? bookText = null)
+    {
+        var capabilities = BuildLibraryBookCapabilities(library)
             .Concat(BuildKnowledgeCapabilities(notes, concepts))
             .Concat(BuildCollectionAndCaptureCapabilities(notes, library))
             .ToList();
+
+        if (bookText is not null)
+            capabilities.AddRange(BuildBookTextCapabilities(bookText));
+
+        return capabilities;
+    }
 
 
     // ------------------------------------------------------------------
