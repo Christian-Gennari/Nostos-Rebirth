@@ -52,7 +52,7 @@ public sealed class BookTextSqliteIndexTests : IDisposable
                     new PdfBookTextSourceLocator(4, "1", 0, 64)),
             ]);
 
-        await index.ReplaceReadyAsync(revision, [chunk], chunk.Text.Length);
+        Assert.True(await index.ReplaceReadyAsync(revision, [chunk], chunk.Text.Length, work!.Attempt));
 
         var hits = await index.SearchAsync("lantern searchable", [bookId], 10);
         Assert.Single(hits);
