@@ -69,6 +69,7 @@ class PdfReaderStub {
    * of its own.
    */
   findBarVisible = signal(false);
+  textCapability = signal<'unknown' | 'available' | 'unavailable'>('available');
   toggleSearch = () => this.findBarVisible.update((v) => !v);
   /**
    * The IReader surface the shell needs to render the pager for a PDF. Without
@@ -80,6 +81,7 @@ class PdfReaderStub {
     label?: string;
     pageNumber?: number;
     pageCount?: number;
+    pageLabel?: string | null;
     percentage: number;
   }>({ label: '', percentage: 0 });
   currentLocationTarget = signal<unknown>(null);
