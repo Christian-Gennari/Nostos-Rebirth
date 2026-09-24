@@ -25,6 +25,7 @@ vi.mock('epubjs', () => ({ default: vi.fn() }));
 describe('EpubReader highlight-mode lifecycle (issue #16)', () => {
   let fixture: ComponentFixture<EpubReader>;
   let log: string[];
+  let lastRendition: any;
 
   const notesService = {
     list: vi.fn(() => of([])),
@@ -75,7 +76,11 @@ describe('EpubReader highlight-mode lifecycle (issue #16)', () => {
 
   beforeEach(async () => {
     log = [];
-    vi.mocked(ePub).mockImplementation(() => createFakeBook().book as never);
+    vi.mocked(ePub).mockImplementation(() => {
+      const fake = createFakeBook();
+      lastRendition = fake.rendition;
+      return fake.book as never;
+    });
     vi.stubGlobal(
       'ResizeObserver',
       class {
@@ -107,6 +112,26 @@ describe('EpubReader highlight-mode lifecycle (issue #16)', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     await new Promise((resolve) => setTimeout(resolve, 0));
   }
+
+  it('applies a grounded CFI received before the opening display settles', async () => {
+    fixture = TestBed.createComponent(EpubReader);
+    fixture.componentRef.setInput('bookId', 'book-1');
+    fixture.detectChanges();
+
+    await fixture.componentInstance.goToSource({
+      type: 'epub',
+      epubCfi: 'epubcfi(/6/8!/4/2:0)',
+      epubResourceHref: 'chapter-2.xhtml',
+      epubSpineIndex: 2,
+      epubTextOffset: 120,
+      excerpt: 'Grounded passage',
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(lastRendition.display).toHaveBeenCalledWith('epubcfi(/6/8!/4/2:0)');
+  });
 
   it('initializes the annotation manager before rendition.display()', async () => {
     const initSpy = vi
