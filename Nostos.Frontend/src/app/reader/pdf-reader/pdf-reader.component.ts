@@ -244,6 +244,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   savedHighlights: PageHighlight[] = [];
 
   private pendingHighlight: PendingPdfHighlight | null = null;
+  private commitInFlight = false;
   highlightWarning = signal<string | null>(null);
 
   // --- IReader Implementation ---
@@ -688,7 +689,11 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
 
   onTextSelection() {
     this.onNativeSelectionChange();
-    if (!this.highlightMode() || this.textCapability() === 'unavailable') return;
+    if (
+      this.commitInFlight
+      || !this.highlightMode()
+      || this.textCapability() === 'unavailable'
+    ) return;
 
     const highlight = this.highlightService.captureHighlight(true);
     if (!highlight) return;
@@ -771,6 +776,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
     }
 
     const p = this.pendingHighlight;
+    this.commitInFlight = true;
     const newHighlight: PageHighlight = {
       id: p.tempId,
       pageNumber: p.pageNumber,
@@ -800,6 +806,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
           if (index !== -1) {
             this.savedHighlights[index].id = createdNote.id;
           }
+          this.commitInFlight = false;
           this.pendingHighlight = null;
           this.noteCreated.emit();
         },
@@ -808,6 +815,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
           this.repaintPage(p.pageNumber);
           // Preserve the exact capture. The shared shell deliberately keeps its
           // confirmation open after failure, so Save must retry this same mark.
+          this.commitInFlight = false;
           this.pendingHighlight = p;
           this.commitFailed.emit();
         },
@@ -815,6 +823,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   }
 
   discardHighlight() {
+    if (this.commitInFlight) return;
     this.clearNativeSelection();
     this.pendingHighlight = null;
     this.highlightWarning.set(null);

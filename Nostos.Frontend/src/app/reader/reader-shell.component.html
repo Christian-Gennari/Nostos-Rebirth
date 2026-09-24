@@ -115,6 +115,7 @@
               variant="secondary"
               class="reader-confirm-action"
               (click)="discardHighlight()"
+              [disabled]="highlightSaving()"
             >
               Cancel
             </button>
