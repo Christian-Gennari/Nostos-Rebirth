@@ -2,85 +2,124 @@
   position: absolute;
   bottom: 100%;
   left: 0;
-  margin-bottom: 0.5rem;
   z-index: 1000;
-
-  /* Matches the width of the textarea container */
-  width: 100%;
-  max-height: 240px;
-  overflow-y: auto;
-
+  width: min(100%, 460px);
+  max-height: min(360px, 55vh);
+  margin-bottom: 0.5rem;
+  overflow: hidden;
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-
-  /* A nice, floating elevation shadow (Tailwind-style) */
-  box-shadow:
-    0 10px 15px -3px rgba(0, 0, 0, 0.08),
-    0 4px 6px -2px rgba(0, 0, 0, 0.04);
-
-  padding: 0.35rem;
-
-  /* Subtle entry animation */
-  animation: scaleIn 0.1s ease-out forwards;
-  transform-origin: top center;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
 }
 
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.98) translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
+.picker-search {
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.picker-search input {
+  width: 100%;
+  min-height: 40px;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  outline: none;
+  background: var(--bg-body);
+  color: var(--color-text-main);
+  font: inherit;
+}
+
+.picker-search input:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+}
+
+.picker-list {
+  max-height: 230px;
+  padding: 0.35rem;
+  overflow-y: auto;
 }
 
 .item {
-  padding: 0.6rem 0.75rem;
-  font-size: 0.9rem;
-  font-family: 'Hanken Grotesk', sans-serif;
-  color: var(--color-text-muted);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background-color 0.1s ease, color 0.1s ease;
-
-  /* Ensure text doesn't overflow weirdly */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  width: 100%;
+  min-height: 40px;
+  padding: 0.55rem 0.7rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-family: 'Hanken Grotesk', sans-serif;
+  font-size: 0.9rem;
+  text-align: left;
 }
 
-/* Mouse Hover */
-.item:hover {
-  background-color: var(--bg-hover);
+.item:hover,
+.item.active {
+  background: var(--bg-hover);
   color: var(--color-text-main);
 }
 
-/* Keyboard Active State (Arrow Keys) */
 .item.active {
-  background-color: var(--bg-hover);
-  color: var(--color-accent); /* Uses your blue brand color */
-  font-weight: var(--fw-medium);
-  border-left: 4px solid var(--color-accent); /* Adds a little indicator on the left */
+  box-shadow: inset 3px 0 0 var(--color-accent);
 }
 
-/* Scrollbar to match global theme */
-.autocomplete-panel::-webkit-scrollbar {
-  width: 6px;
+.create-item {
+  margin-top: 0.25rem;
+  border-top: 1px solid var(--border-light);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  color: var(--color-brand-accent);
 }
-.autocomplete-panel::-webkit-scrollbar-track {
+
+.picker-empty {
+  padding: 0.85rem 0.7rem;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+}
+
+.picker-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0.6rem;
+  border-top: 1px solid var(--border-light);
+  color: var(--color-text-light);
+  font-size: 0.72rem;
+}
+
+.picker-cancel {
+  min-height: 36px;
+  padding: 0 0.55rem;
+  border: 0;
   background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font: inherit;
 }
-.autocomplete-panel::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 3px;
+
+.picker-cancel:hover,
+.picker-cancel:focus-visible {
+  color: var(--color-text-main);
+  text-decoration: underline;
 }
-.autocomplete-panel::-webkit-scrollbar-thumb:hover {
-  background: var(--scrollbar-thumb-hover);
+
+@media (max-width: 768px) {
+  .autocomplete-panel {
+    width: 100%;
+    max-height: min(420px, 65vh);
+  }
+
+  .item,
+  .picker-search input,
+  .picker-cancel {
+    min-height: 44px;
+  }
+
+  .picker-foot span {
+    display: none;
+  }
 }
