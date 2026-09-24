@@ -12,7 +12,7 @@ import { ConceptAutocompleteService } from '../ui/concept-autocomplete-panel/con
 // DTOs & Interfaces
 import { Note, noteNavigationTarget } from '../core/dtos/note.dtos';
 import { IReader, ReaderSourceTarget, TocItem } from './reader.interface';
-import { isTypingTarget, pageActionForKey } from './reader-keyboard';
+import { isInteractiveTarget, isTypingTarget, pageActionForKey } from './reader-keyboard';
 import {
   DEFAULT_HIGHLIGHT_COLOUR,
   HIGHLIGHT_COLOURS,
@@ -724,13 +724,6 @@ export class ReaderShell implements OnInit, OnDestroy {
     if (target?.isConnected) setTimeout(() => target.focus(), 0);
   }
 
-  private isInteractiveTarget(target: EventTarget | null): boolean {
-    const element = target instanceof Element ? target : null;
-    if (!element) return false;
-    return !!element.closest(
-      'button, a[href], [role="button"], [role="link"], [role="switch"], [role="checkbox"], [role="menuitem"], [tabindex]:not([tabindex="-1"])',
-    );
-  }
 
   private showSaveFeedback(message: string): void {
     if (this.saveFeedbackTimer) clearTimeout(this.saveFeedbackTimer);
@@ -744,7 +737,7 @@ export class ReaderShell implements OnInit, OnDestroy {
   @HostListener('document:keydown', ['$event'])
   onDocumentKeydown(event: KeyboardEvent): void {
     if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
-    if (isTypingTarget(event.target) || this.isInteractiveTarget(event.target)) return;
+    if (isTypingTarget(event.target) || isInteractiveTarget(event.target)) return;
 
     if (event.key === 'Escape') {
       // Overlays close in the order they stack: the typography panel rides on
