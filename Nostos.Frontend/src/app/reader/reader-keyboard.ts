@@ -42,7 +42,6 @@ export function isTypingTarget(target: EventTarget | null): boolean {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || element.isContentEditable === true;
 }
 
-
 /**
  * True when reader-level paging must leave the focused control alone. This is
  * broader than text entry: Space activates buttons/links/toggles natively and
