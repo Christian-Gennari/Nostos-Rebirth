@@ -2,9 +2,14 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { computed, signal } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { Router } from '@angular/router';
 
 import { AssistantComponent } from './assistant.component';
-import { AssistantService, AssistantTurnResponse } from './assistant.service';
+import {
+  AssistantService,
+  AssistantSourceReferenceDto,
+  AssistantTurnResponse,
+} from './assistant.service';
 import { AssistantStatusService } from './assistant-status.service';
 import { LibraryPreferencesService } from '../../core/services/library-preferences.service';
 import {
@@ -102,12 +107,14 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
   let fake: ReturnType<typeof fakeContextService>;
   let voice: ReturnType<typeof fakeVoiceService>;
   let status: ReturnType<typeof fakeStatusService>;
+  let router: { navigate: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     localStorage.clear();
     fake = fakeContextService({ surface: 'reader', route: '/read/b1', bookId: 'b1' });
     voice = fakeVoiceService();
     status = fakeStatusService(true);
+    router = { navigate: vi.fn(() => Promise.resolve(true)) };
 
     await TestBed.configureTestingModule({
       imports: [AssistantComponent],
@@ -115,6 +122,7 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
         { provide: AssistantContextService, useValue: fake },
         { provide: AssistantVoiceService, useValue: voice },
         { provide: AssistantStatusService, useValue: status },
+        { provide: Router, useValue: router },
         provideHttpClient(),
         provideHttpClientTesting(),
       ],
@@ -132,6 +140,71 @@ describe('AssistantComponent (Cmd/Ctrl+J)', () => {
 
   afterEach(() => {
     http.verify();
+  });
+
+  it('opens a grounded PDF source on /read with physical page and logical label kept separate', () => {
+    const source: AssistantSourceReferenceDto = {
+      bookId: 'book-pdf',
+      bookTitle: 'Grounded PDF',
+      bookAuthor: 'Author',
+      format: 'pdf',
+      sourceSha256: 'a'.repeat(64),
+      excerpt: 'Grounded evidence.',
+      locators: [
+        {
+          type: 'pdf',
+          pdfPageIndex: 8,
+          pdfPageLabel: '7',
+        },
+      ],
+    };
+
+    fixture.componentInstance.openSource(source);
+
+    expect(router.navigate).toHaveBeenCalledWith(
+      ['/read', 'book-pdf'],
+      {
+        queryParams: {
+          sourcePage: 9,
+          sourcePageLabel: '7',
+        },
+      },
+    );
+  });
+
+  it('opens a grounded EPUB source on /read with CFI and structural fallback data', () => {
+    const source: AssistantSourceReferenceDto = {
+      bookId: 'book-epub',
+      bookTitle: 'Grounded EPUB',
+      bookAuthor: null,
+      format: 'epub',
+      sourceSha256: 'b'.repeat(64),
+      excerpt: 'A uniquely grounded passage from the imported EPUB.',
+      locators: [
+        {
+          type: 'epub',
+          epubCfi: 'epubcfi(/6/4!/4/2/6:0)',
+          epubResourceHref: 'chapter-2.xhtml',
+          epubSpineIndex: 2,
+          startTextOffset: 314,
+        },
+      ],
+    };
+
+    fixture.componentInstance.openSource(source);
+
+    expect(router.navigate).toHaveBeenCalledWith(
+      ['/read', 'book-epub'],
+      {
+        queryParams: {
+          sourceCfi: 'epubcfi(/6/4!/4/2/6:0)',
+          sourceHref: 'chapter-2.xhtml',
+          sourceSpine: 2,
+          sourceOffset: 314,
+          sourceExcerpt: source.excerpt,
+        },
+      },
+    );
   });
 
   it('renders the collapsed capsule trigger and toggles on click', () => {
