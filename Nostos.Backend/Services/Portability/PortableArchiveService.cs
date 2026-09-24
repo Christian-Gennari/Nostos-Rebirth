@@ -7,13 +7,15 @@ using Nostos.Backend.Data;
 using Nostos.Backend.Data.Models;
 using Nostos.Backend.Services.Library;
 using Nostos.Shared.Enums;
+using Nostos.Product.BookText;
 
 namespace Nostos.Backend.Services.Portability;
 
 public sealed class PortableArchiveService(
     NostosDbContext db,
     IBookAssetStorage assets,
-    ILogger<PortableArchiveService> logger)
+    ILogger<PortableArchiveService> logger,
+    IBookTextIngestionScheduler? bookTextScheduler = null)
     : IPortableArchiveService
 {
     private const int MaxArchiveEntries = 20_000;
@@ -34,6 +36,7 @@ public sealed class PortableArchiveService(
     private readonly NostosDbContext _db = db;
     private readonly IBookAssetStorage _assets = assets;
     private readonly ILogger<PortableArchiveService> _logger = logger;
+    private readonly IBookTextIngestionScheduler? _bookTextScheduler = bookTextScheduler;
 
     public async Task<PortableExportResult> ExportAsync(
         Stream destination,
@@ -239,6 +242,24 @@ public sealed class PortableArchiveService(
 
                 await transaction.CommitAsync(cancellationToken);
                 committed = true;
+
+                // Derived text/indexes are intentionally excluded from portable
+                // archives. Rebuild them from the authoritative imported source
+                // only after the archive transaction and media verification have
+                // succeeded, so a failed import cannot leave searchable ghosts.
+                if (_bookTextScheduler is not null)
+                {
+                    foreach (var media in staged.Media
+                        .Where(media => media.Descriptor.Kind == PortableArchiveFormat.BookMediaKind)
+                        .GroupBy(media => media.Descriptor.BookId)
+                        .Select(group => group.First()))
+                    {
+                        await _bookTextScheduler.ScheduleAsync(
+                            media.Descriptor.BookId,
+                            media.Descriptor.FileName,
+                            CancellationToken.None);
+                    }
+                }
 
                 return new PortableImportResult(
                     staged.Manifest.FormatVersion,
