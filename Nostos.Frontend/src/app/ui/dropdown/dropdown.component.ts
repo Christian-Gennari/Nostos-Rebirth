@@ -20,6 +20,7 @@ import type { NostosIconName } from '../icon/nostos-icons';
 
 export type DropdownSize = 'normal' | 'compact';
 export type DropdownAlignment = 'start' | 'end';
+export type DropdownAppearance = 'field' | 'subtle';
 
 export interface DropdownOption {
   readonly value: string;
@@ -46,6 +47,7 @@ let nextDropdownId = 0;
   host: {
     class: 'nostos-dropdown',
     '[class.nostos-dropdown--compact]': "controlSize() === 'compact'",
+    '[class.nostos-dropdown--subtle]': "appearance() === 'subtle'",
     '[class.nostos-dropdown--full]': 'fullWidth()',
     '[class.nostos-dropdown--disabled]': 'disabled()',
   },
@@ -133,9 +135,9 @@ let nextDropdownId = 0;
         min-width: 7.5rem;
         min-height: var(--control-h-touch);
         padding: 0.75rem 0.85rem;
-        border: 1px solid var(--control-border);
+        border: 1px solid var(--dropdown-border, var(--control-border));
         border-radius: var(--radius-md);
-        background: var(--bg-input);
+        background: var(--dropdown-bg, var(--bg-input));
         color: inherit;
         font: inherit;
         font-size: 0.95rem;
@@ -152,9 +154,19 @@ let nextDropdownId = 0;
       }
 
       :host(.nostos-dropdown--compact) .nostos-dropdown__trigger {
-        min-height: 40px;
-        padding: 0.65rem 0.8rem;
+        min-height: var(--dropdown-compact-height, 40px);
+        padding: var(--dropdown-compact-padding, 0.65rem 0.8rem);
         font-size: 0.9rem;
+      }
+
+      /* Low-chrome toolbar controls still read as controls through their label,
+         caret and hover/focus behaviour, so they use the app hairline instead of
+         the stronger form-field boundary. The popup itself is unchanged. */
+      :host(.nostos-dropdown--subtle) {
+        --dropdown-border: var(--border-color);
+        --dropdown-bg: transparent;
+        --dropdown-compact-height: 36px;
+        --dropdown-compact-padding: 0.5rem 0.7rem;
       }
 
       .nostos-dropdown__trigger:hover:not(:disabled) {
@@ -313,6 +325,7 @@ export class DropdownComponent {
   readonly ariaLabel = input<string | null>(null);
   readonly controlId = input<string | null>(null);
   readonly controlSize = input<DropdownSize>('normal');
+  readonly appearance = input<DropdownAppearance>('field');
   readonly align = input<DropdownAlignment>('start');
   readonly fullWidth = input(false);
   readonly disabled = input(false);

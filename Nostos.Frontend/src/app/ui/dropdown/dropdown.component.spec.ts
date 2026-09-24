@@ -1,7 +1,11 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { DropdownComponent, type DropdownOption } from './dropdown.component';
+import {
+  DropdownComponent,
+  type DropdownAppearance,
+  type DropdownOption,
+} from './dropdown.component';
 
 @Component({
   standalone: true,
@@ -11,6 +15,7 @@ import { DropdownComponent, type DropdownOption } from './dropdown.component';
       ariaLabel="Format"
       [options]="options"
       [value]="value"
+      [appearance]="appearance"
       [disabled]="disabled()"
       (valueChange)="value = $event"
     />
@@ -18,6 +23,7 @@ import { DropdownComponent, type DropdownOption } from './dropdown.component';
 })
 class DropdownHarnessComponent {
   value = 'epub';
+  appearance: DropdownAppearance = 'field';
   readonly disabled = signal(false);
   readonly options: readonly DropdownOption[] = [
     { value: 'epub', label: 'EPUB' },
@@ -48,6 +54,18 @@ describe('DropdownComponent', () => {
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
     expect(trigger.getAttribute('aria-label')).toBe('Format');
     expect(trigger.textContent).toContain('EPUB');
+  });
+
+  it('supports the subtle toolbar appearance without changing native semantics', () => {
+    fixture.componentInstance.appearance = 'subtle';
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement.querySelector('app-dropdown') as HTMLElement;
+    const trigger = host.querySelector('.nostos-dropdown__trigger') as HTMLButtonElement;
+
+    expect(host.classList.contains('nostos-dropdown--subtle')).toBe(true);
+    expect(trigger.getAttribute('role')).toBe('combobox');
+    expect(trigger.getAttribute('aria-haspopup')).toBe('listbox');
   });
 
   it('opens, selects an option, and restores focus to the trigger', async () => {

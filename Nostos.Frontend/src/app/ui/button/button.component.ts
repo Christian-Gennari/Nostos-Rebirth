@@ -5,7 +5,7 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
-export type ButtonSize = 'sm' | 'md';
+export type ButtonSize = 'sm' | 'md' | 'lg';
 
 /**
  * Canonical Nostos text/action button.
@@ -30,6 +30,7 @@ export type ButtonSize = 'sm' | 'md';
     '[class.nostos-button--ghost]': "variant() === 'ghost'",
     '[class.nostos-button--danger]': "variant() === 'danger'",
     '[class.nostos-button--sm]': "size() === 'sm'",
+    '[class.nostos-button--lg]': "size() === 'lg'",
     '[attr.aria-busy]': "busy() ? 'true' : null",
   },
   styles: [
@@ -122,6 +123,11 @@ export type ButtonSize = 'sm' | 'md';
       :host(.nostos-button--sm) {
         padding: 5px 10px;
         font-size: var(--text-xs);
+      }
+
+      :host(.nostos-button--lg) {
+        padding: 10px 18px;
+        font-size: 0.88rem;
       }
 
       @media (prefers-reduced-motion: reduce) {
