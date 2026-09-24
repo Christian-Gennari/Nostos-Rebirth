@@ -311,6 +311,14 @@ internal static class PortableArchiveTestSupport
             Concept = concept,
         });
         db.Writings.AddRange(studioFolder, studioDocument);
+        db.WritingNotes.Add(new WritingNoteModel
+        {
+            WritingId = studioDocument.Id,
+            Writing = studioDocument,
+            NoteId = note.Id,
+            Note = note,
+            AddedAt = now.AddDays(3),
+        });
         db.BookAcquisitions.Add(new BookAcquisitionModel
         {
             Id = Guid.NewGuid(),

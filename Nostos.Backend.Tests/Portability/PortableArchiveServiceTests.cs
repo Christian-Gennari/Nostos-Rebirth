@@ -75,7 +75,12 @@ public sealed class PortableArchiveServiceTests
         (await destination.Db.BookCollections.CountAsync()).Should().Be(3);
         (await destination.Db.NoteConcepts.CountAsync()).Should().Be(1);
         (await destination.Db.Writings.CountAsync()).Should().Be(2);
+        (await destination.Db.WritingNotes.CountAsync()).Should().Be(1);
         (await destination.Db.BookAcquisitions.CountAsync()).Should().Be(1);
+
+        var destinationKeptNote = await destination.Db.WritingNotes.AsNoTracking().SingleAsync();
+        destinationKeptNote.WritingId.Should().Be(ids.WritingDocumentId);
+        destinationKeptNote.NoteId.Should().Be(ids.NoteId);
 
         var epub = await destination.Db.Books
             .AsNoTracking()
@@ -200,6 +205,58 @@ public sealed class PortableArchiveServiceTests
         var exception = await action.Should().ThrowAsync<PortableArchiveException>();
         exception.Which.Code.Should().Be("unsupported_version");
         (await destination.Db.Books.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Import_rejects_unsupported_data_version_before_mutating_destination()
+    {
+        using var archive = await ExportFixtureAsync();
+        var entries = await ReadEntriesAsync(archive);
+        MutateJsonEntry(entries, "manifest.json", root =>
+        {
+            root["dataVersion"] = 999;
+        });
+        using var hostile = await BuildArchiveAsync(entries);
+
+        await using var destination = await LocalPortableTestLibrary.CreateAsync();
+        hostile.Position = 0;
+
+        var action = () => destination.Portability().ImportAsync(hostile);
+        var exception = await action.Should().ThrowAsync<PortableArchiveException>();
+        exception.Which.Code.Should().Be("unsupported_data_version");
+        (await destination.Db.Books.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Portable_archive_v1_without_writing_notes_imports_cleanly_with_empty_memberships()
+    {
+        using var archive = await ExportFixtureAsync();
+        var entries = await ReadEntriesAsync(archive);
+
+        // Turn this archive into a v1 archive: manifest dataVersion = 1, data.json version = 1, no writingNotes
+        MutateJsonEntry(entries, "manifest.json", root =>
+        {
+            root["dataVersion"] = 1;
+        });
+
+        MutateJsonEntry(entries, "data/library.json", root =>
+        {
+            root["version"] = 1;
+            root.Remove("writingNotes");
+        });
+
+        RehashDataDescriptor(entries);
+
+        using var v1Archive = await BuildArchiveAsync(entries);
+        await using var destination = await LocalPortableTestLibrary.CreateAsync();
+
+        var imported = await destination.Portability().ImportAsync(v1Archive);
+        imported.IntegrityVerified.Should().BeTrue();
+
+        (await destination.Db.Writings.CountAsync()).Should().Be(2);
+        (await destination.Db.Notes.CountAsync()).Should().Be(1);
+        (await destination.Db.WritingNotes.CountAsync()).Should().Be(0,
+            "v1 archive without writingNotes must import with empty memberships (backward-compatibility requirement)");
     }
 
     [Fact]

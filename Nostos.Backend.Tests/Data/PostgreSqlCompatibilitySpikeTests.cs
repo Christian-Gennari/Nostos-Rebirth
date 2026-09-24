@@ -52,6 +52,7 @@ public sealed class PostgreSqlCompatibilitySpikeTests
 
             var createScript = db.Database.GenerateCreateScript();
             createScript.Should().Contain("CREATE TABLE \"Books\"");
+            createScript.Should().Contain("CREATE TABLE \"WritingNotes\"");
             createScript.Should().Contain("uuid");
             createScript.Should().Contain("timestamp with time zone");
             createScript.Should().Contain("CK_LibraryCommandReceipts_Bounds");
@@ -159,6 +160,12 @@ public sealed class PostgreSqlCompatibilitySpikeTests
                 Concept = concept,
             });
             db.Writings.AddRange(writingFolder, writingDocument);
+            db.WritingNotes.Add(new WritingNoteModel
+            {
+                Writing = writingDocument,
+                Note = note,
+                AddedAt = createdAt,
+            });
             db.LibraryStates.Add(new LibraryState
             {
                 Id = LibraryState.WellKnownId,
@@ -228,6 +235,15 @@ public sealed class PostgreSqlCompatibilitySpikeTests
             writingDocument.ParentId.Should().Be(writingFolderId);
             writingDocument.Content.Should().Contain("first draft");
 
+            var keptNotes = await db.WritingNotes
+                .Include(wn => wn.Note)
+                .ThenInclude(n => n.Book)
+                .Where(wn => wn.WritingId == writingDocumentId)
+                .ToListAsync();
+            keptNotes.Should().ContainSingle();
+            keptNotes.Single().NoteId.Should().Be(noteId);
+            keptNotes.Single().AddedAt.Should().Be(createdAt);
+
             (await db.LibraryCommandReceipts.CountAsync(r =>
                     r.ClientId == "postgres-spike" && r.IdempotencyKey == "library-1"))
                 .Should().Be(1);
@@ -284,6 +300,36 @@ public sealed class PostgreSqlCompatibilitySpikeTests
 
             (await db.Writings.AnyAsync(w => w.Id == writingDocumentId))
                 .Should().BeFalse("the configured writing-tree cascade must be enforced by PostgreSQL");
+            (await db.WritingNotes.AnyAsync(wn => wn.WritingId == writingDocumentId))
+                .Should().BeFalse("deleting writing tree cascades to its kept note memberships on PostgreSQL");
+        }
+
+        await using (var db = new NostosDbContext(options))
+        {
+            var noteCascadeDoc = new WritingModel
+            {
+                Name = "Note cascade test doc",
+                Type = WritingType.Document,
+                CreatedAt = createdAt,
+                UpdatedAt = createdAt,
+            };
+            db.Writings.Add(noteCascadeDoc);
+            db.WritingNotes.Add(new WritingNoteModel
+            {
+                Writing = noteCascadeDoc,
+                NoteId = noteId,
+                AddedAt = createdAt,
+            });
+            await db.SaveChangesAsync();
+
+            // Deleting the note cascades away WritingNotes on PostgreSQL without touching the writing
+            var noteToDelete = await db.Notes.SingleAsync(n => n.Id == noteId);
+            db.Notes.Remove(noteToDelete);
+            await db.SaveChangesAsync();
+
+            (await db.WritingNotes.AnyAsync(wn => wn.WritingId == noteCascadeDoc.Id)).Should().BeFalse(
+                "deleting note cascades to its WritingNotes on PostgreSQL");
+            (await db.Writings.AnyAsync(w => w.Id == noteCascadeDoc.Id)).Should().BeTrue();
         }
     }
 }
