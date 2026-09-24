@@ -740,7 +740,6 @@ export class ReaderShell implements OnInit, OnDestroy {
   @HostListener('document:keydown', ['$event'])
   onDocumentKeydown(event: KeyboardEvent): void {
     if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
-    if (isTypingTarget(event.target) || isInteractiveTarget(event.target)) return;
 
     if (event.key === 'Escape') {
       // Overlays close in the order they stack: the typography panel rides on
@@ -765,6 +764,10 @@ export class ReaderShell implements OnInit, OnDestroy {
       }
       return;
     }
+
+    // Paging belongs to the reading surface. Space in particular must preserve
+    // native activation for buttons, links, toggles, source chips, and controls.
+    if (isTypingTarget(event.target) || isInteractiveTarget(event.target)) return;
 
     const action = pageActionForKey(event);
     if (!action) return;
