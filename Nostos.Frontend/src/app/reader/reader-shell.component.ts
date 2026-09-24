@@ -79,7 +79,7 @@ export class ReaderShell implements OnInit {
   @ViewChild(PdfReader) pdfReader?: PdfReader;
   @ViewChild(AudioReader) audioReader?: IReader;
 
-  private host = inject(ElementRef<HTMLElement>);
+  private host = inject<ElementRef<HTMLElement>>(ElementRef);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private booksService = inject(BooksService);
