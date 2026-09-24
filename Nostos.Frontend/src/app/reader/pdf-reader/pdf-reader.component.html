@@ -7,6 +7,12 @@
   @if (highlightWarning()) {
   <div class="pdf-reader-notice" role="status">{{ highlightWarning() }}</div>
   }
+  @if (textCapability() === 'unavailable') {
+  <div class="pdf-reader-notice" role="status">
+    No selectable text was detected in this PDF. The pages remain readable, but search,
+    highlighting, and text-grounded Ask Nostos are unavailable. OCR is not enabled.
+  </div>
+  }
   <div id="pdf-viewer-wrapper">
     <!-- Search: the library's own find bar, opened by Ctrl/Cmd+F from the reader,
          or by the header's Search control. Before this, Ctrl+F did nothing at all

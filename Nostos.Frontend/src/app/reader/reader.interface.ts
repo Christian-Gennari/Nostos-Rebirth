@@ -13,6 +13,8 @@ export interface ReaderProgress {
   tooltip?: string; // "1% ≈ 4 min" (The pop-up hint) (For ebook)
   pageNumber?: number; // Current page number (For PDF readers)
   pageCount?: number; // Total number of pages (For PDF readers)
+  /** Printed/logical PDF PageLabels value, presentation only; never a navigation key. */
+  pageLabel?: string | null;
 }
 
 export interface ReaderSourceTarget {

@@ -25,6 +25,7 @@ import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
 
 import { PdfAnnotationManager, PageHighlight } from './pdf-annotation-manager';
 import {
+  asHighlightColour,
   DEFAULT_HIGHLIGHT_COLOUR,
   HighlightColour,
 } from '../highlight-colours';
@@ -164,12 +165,20 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   findBarVisible = signal(false);
 
   /**
+   * Text-dependent PDF tools are unavailable for image-only/scanned documents.
+   * Unknown keeps the reader usable while detection runs or when pdf.js cannot
+   * expose text content; the visual pages are never hidden.
+   */
+  textCapability = signal<'unknown' | 'available' | 'unavailable'>('unknown');
+
+  /**
    * Open the find bar and put the caret in the field. Called by the shell's
    * header control, so search is reachable by touch — a keyboard shortcut alone
    * left it undiscoverable on a phone (issue #226 §2/§9). The Ctrl/Cmd+F handler
    * calls the same method.
    */
   openSearch(): void {
+    if (this.textCapability() === 'unavailable') return;
     this.findBarVisible.set(true);
     this.focusFindInput();
   }
@@ -273,6 +282,8 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   totalPages = 0;
   private pdfDocRef: any = null;
   private pendingGroundedSourcePage: number | null = null;
+  private pageLabels = signal<(string | null)[]>([]);
+  private sourcePageLabels = new Map<number, string>();
 
   /**
    * Continuous vertical scrolling instead of one page at a time.
@@ -386,6 +397,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
 
   goTo(target: string | number) {
     let targetPage = this.currentPage;
+    let targetYPercent: number | null = null;
 
     try {
       if (typeof target === 'number') {
@@ -393,6 +405,18 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
       } else if (typeof target === 'string' && target.trim().startsWith('{')) {
         const range = JSON.parse(target);
         if (range.pageNumber) targetPage = range.pageNumber;
+
+        const storedY = Number(range.yPercent);
+        if (Number.isFinite(storedY) && storedY > 0) {
+          targetYPercent = storedY;
+        } else if (Array.isArray(range.rects) && range.rects.length > 0) {
+          const rectTop = Math.min(
+            ...range.rects
+              .map((rect: { top?: unknown }) => Number(rect?.top))
+              .filter((top: number) => Number.isFinite(top)),
+          );
+          if (Number.isFinite(rectTop) && rectTop > 0) targetYPercent = rectTop;
+        }
       } else if (typeof target === 'string') {
         const page = parseInt(target, 10);
         if (!isNaN(page)) targetPage = page;
@@ -406,11 +430,19 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
       this.highlightWarning.set(null);
       this.currentPage = targetPage;
       this.updateProgressState(targetPage);
+      if (targetYPercent !== null) {
+        this.scrollToWithinPage(targetPage, targetYPercent);
+      }
     }
   }
 
   goToSource(target: ReaderSourceTarget): void {
     if (target.type !== 'pdf' || target.pdfPage === undefined) return;
+
+    const sourceLabel = target.pdfPageLabel?.trim();
+    if (sourceLabel) {
+      this.sourcePageLabels.set(target.pdfPage, sourceLabel);
+    }
 
     // ReaderShell can receive a grounded citation before pdf.js has emitted
     // pagesLoaded. goTo() rejects pages above totalPages=0, so remember this
@@ -510,6 +542,8 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
     if (doc && doc !== this.pdfDocRef) {
       this.pdfDocRef = doc;
       void this.loadPdfOutline(doc);
+      void this.loadPdfPageLabels(doc);
+      void this.detectTextCapability(doc);
     }
 
     if (this.pendingGroundedSourcePage !== null) {
@@ -535,7 +569,75 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
     const doc = (event as any).source?.pdfDocument ?? (event as any).pdfDocument ?? null;
     if (doc && doc !== this.pdfDocRef) {
       this.pdfDocRef = doc;
-      await this.loadPdfOutline(doc);
+      await Promise.all([
+        this.loadPdfOutline(doc),
+        this.loadPdfPageLabels(doc),
+        this.detectTextCapability(doc),
+      ]);
+    }
+  }
+
+  private async loadPdfPageLabels(pdfDoc: any): Promise<void> {
+    if (typeof pdfDoc?.getPageLabels !== 'function') return;
+
+    try {
+      const labels = await pdfDoc.getPageLabels();
+      this.pageLabels.set(
+        Array.isArray(labels)
+          ? labels.map((label) => (typeof label === 'string' && label.trim() ? label.trim() : null))
+          : [],
+      );
+      if (this.totalPages > 0) this.updateProgressState(this.currentPage);
+    } catch {
+      this.pageLabels.set([]);
+    }
+  }
+
+  /**
+   * Detect whether text-dependent tools are meaningful without parsing the
+   * entire document. A bounded, evenly distributed sample avoids turning a
+   * 900-page scan into a second ingestion pass while still handling blank cover
+   * pages in ordinary books.
+   */
+  private async detectTextCapability(pdfDoc: any): Promise<void> {
+    if (typeof pdfDoc?.getPage !== 'function' || this.totalPages <= 0) return;
+
+    const sampleCount = Math.min(this.totalPages, 8);
+    const pages = [
+      ...new Set(
+        Array.from({ length: sampleCount }, (_, index) =>
+          sampleCount === 1
+            ? 1
+            : 1 + Math.round((index * (this.totalPages - 1)) / (sampleCount - 1)),
+        ),
+      ),
+    ];
+
+    let inspected = 0;
+    for (const pageNumber of pages) {
+      try {
+        const page = await pdfDoc.getPage(pageNumber);
+        const textContent = await page.getTextContent();
+        inspected += 1;
+        const hasText = Array.isArray(textContent?.items)
+          && textContent.items.some(
+            (item: { str?: unknown }) => typeof item?.str === 'string' && item.str.trim().length > 0,
+          );
+        if (hasText) {
+          this.textCapability.set('available');
+          return;
+        }
+      } catch {
+        // An unreadable sample is not evidence that the PDF has no text.
+        this.textCapability.set('unknown');
+        return;
+      }
+    }
+
+    if (inspected > 0) {
+      this.textCapability.set('unavailable');
+      this.findBarVisible.set(false);
+      this.clearNativeSelection();
     }
   }
 
@@ -569,7 +671,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
 
     const pageHighlights = this.savedHighlights.filter((h) => h.pageNumber === event.pageNumber);
     const validHighlights = pageHighlights.filter((h) => h.rects && h.rects.length > 0);
-    this.highlightService.paint(textLayerDiv, validHighlights, this.highlightColour());
+    this.highlightService.paint(textLayerDiv, validHighlights, DEFAULT_HIGHLIGHT_COLOUR);
   }
 
   // --- Selection Logic ---
@@ -586,7 +688,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
 
   onTextSelection() {
     this.onNativeSelectionChange();
-    if (!this.highlightMode()) return;
+    if (!this.highlightMode() || this.textCapability() === 'unavailable') return;
 
     const highlight = this.highlightService.captureHighlight(true);
     if (!highlight) return;
@@ -636,6 +738,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
                 id: n.id,
                 pageNumber: range.pageNumber,
                 rects: range.rects || [],
+                colour: asHighlightColour(range.colour),
               } as PageHighlight;
             } catch {
               return null;
@@ -729,25 +832,70 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
     if (textLayer) {
       const pageHighlights = this.savedHighlights.filter((h) => h.pageNumber === pageNumber);
       const validHighlights = pageHighlights.filter((h) => h.rects && h.rects.length > 0);
-      this.highlightService.paint(textLayer, validHighlights, this.highlightColour());
+      this.highlightService.paint(textLayer, validHighlights, DEFAULT_HIGHLIGHT_COLOUR);
     }
   }
 
   private updateProgressState(page: number) {
     const percentage = this.totalPages > 0 ? Math.floor((page / this.totalPages) * 100) : 0;
+    const pageLabel = this.logicalPageLabel(page);
 
     this.assistantPage.set(page);
 
-    // Update the signal with the specific page numbers
+    // Physical PDF page remains authoritative for every navigation key. A
+    // printed/logical label is presentation only and is shown alongside it.
     this.progress.set({
-      label: `Page ${page} of ${this.totalPages}`,
+      label: pageLabel
+        ? `p. ${pageLabel} · PDF ${page} of ${this.totalPages}`
+        : `Page ${page} of ${this.totalPages}`,
       percentage,
       pageNumber: page,
       pageCount: this.totalPages,
+      pageLabel,
     });
 
     const location = JSON.stringify({ pageNumber: page, yPercent: 0, rects: [] });
     this.progressUpdater$.next({ location, percentage });
+  }
+
+  private logicalPageLabel(page: number): string | null {
+    const documentLabel = this.pageLabels()[page - 1]?.trim();
+    const sourceLabel = this.sourcePageLabels.get(page)?.trim();
+    const label = documentLabel || sourceLabel || null;
+    return label && label !== String(page) ? label : null;
+  }
+
+  /**
+   * Page navigation stays exact; this only refines the viewport after the page
+   * is present. It uses existing normalized y/rect data and retries briefly
+   * because continuous mode may render the destination page after the page
+   * binding changes.
+   */
+  private scrollToWithinPage(page: number, yPercent: number, attempt = 0): void {
+    setTimeout(() => {
+      const root = this.host.nativeElement;
+      const scrollport = root.querySelector('#viewerContainer') as HTMLElement | null;
+      const pageElement = root.querySelector(
+        `.page[data-page-number="${page}"]`,
+      ) as HTMLElement | null;
+
+      if (!scrollport || !pageElement) {
+        if (attempt < 8) this.scrollToWithinPage(page, yPercent, attempt + 1);
+        return;
+      }
+
+      const clampedY = Math.min(1, Math.max(0, yPercent));
+      const viewportRect = scrollport.getBoundingClientRect();
+      const pageRect = pageElement.getBoundingClientRect();
+      const readingOffset = Math.min(scrollport.clientHeight * 0.2, 120);
+      const top =
+        scrollport.scrollTop
+        + (pageRect.top - viewportRect.top)
+        + pageRect.height * clampedY
+        - readingOffset;
+
+      scrollport.scrollTo({ top: Math.max(0, top), behavior: 'auto' });
+    }, attempt === 0 ? 0 : 50);
   }
 
   private async mapPdfOutline(outline: any[], pdfDoc: any): Promise<TocItem[]> {

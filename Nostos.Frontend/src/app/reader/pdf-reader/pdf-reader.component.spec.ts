@@ -193,6 +193,8 @@ describe('PdfReader theme-following surround and page inversion (#259)', () => {
     expect(fixture.componentInstance.currentPage).toBe(9);
     expect(fixture.componentInstance.progress().pageNumber).toBe(9);
     expect(fixture.componentInstance.progress().pageCount).toBe(20);
+    expect(fixture.componentInstance.progress().pageLabel).toBe('7');
+    expect(fixture.componentInstance.progress().label).toBe('p. 7 · PDF 9 of 20');
   });
 
   it('binds theme and backgroundColor reactively, not as hardcoded strings', () => {
