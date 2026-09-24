@@ -412,7 +412,12 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
 
     try {
       await this.rendition.display(target.epubResourceHref);
-      const contents = (this.rendition.getContents?.() ?? []) as Contents[];
+      const rawContents = this.rendition.getContents?.();
+      const contents: Contents[] = Array.isArray(rawContents)
+        ? rawContents
+        : rawContents
+          ? [rawContents]
+          : [];
       const content =
         contents.find((candidate: any) => {
           const href = String(candidate?.section?.href ?? candidate?.document?.location?.pathname ?? '');
