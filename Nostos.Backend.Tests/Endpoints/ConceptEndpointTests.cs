@@ -52,10 +52,22 @@ public sealed class ConceptEndpointTests : IClassFixture<LibraryEndpointFactory>
         var sharedName = $"Related Shared {suffix}";
         var occasionalName = $"Related Occasional {suffix}";
 
-        await CreateBookWithNotesAsync(
+        var book = await CreateBookWithNotesAsync(
             $"[[{anchorName}]] [[{sharedName}]] [[{occasionalName}]]",
             $"[[{anchorName}]] [[{sharedName}]]",
             $"[[{anchorName}]]");
+
+        var notes = (await Client.GetFromJsonAsync<NoteDto[]>($"/api/books/{book.Id}/notes"))!;
+        var bothShared = notes
+            .Where(note => note.Content.Contains($"[[{sharedName}]]", StringComparison.Ordinal))
+            .Select(note => note.Id)
+            .OrderBy(id => id)
+            .ToList();
+        var occasionalShared = notes
+            .Where(note => note.Content.Contains($"[[{occasionalName}]]", StringComparison.Ordinal))
+            .Select(note => note.Id)
+            .OrderBy(id => id)
+            .ToList();
 
         var concepts = await GetConceptsAsync();
         var anchor = concepts.Single(c => c.Name == anchorName);
@@ -64,8 +76,16 @@ public sealed class ConceptEndpointTests : IClassFixture<LibraryEndpointFactory>
             $"/api/concepts/{anchor.Id}/related");
 
         related.Should().Equal(
-            new RelatedConceptDto(concepts.Single(c => c.Name == sharedName).Id, sharedName, 2),
-            new RelatedConceptDto(concepts.Single(c => c.Name == occasionalName).Id, occasionalName, 1));
+            new RelatedConceptDto(
+                concepts.Single(c => c.Name == sharedName).Id,
+                sharedName,
+                2,
+                bothShared),
+            new RelatedConceptDto(
+                concepts.Single(c => c.Name == occasionalName).Id,
+                occasionalName,
+                1,
+                occasionalShared));
 
         var unknown = await Client.GetAsync($"/api/concepts/{Guid.NewGuid()}/related");
         unknown.StatusCode.Should().Be(HttpStatusCode.OK);
