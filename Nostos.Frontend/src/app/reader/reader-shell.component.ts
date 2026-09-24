@@ -242,6 +242,7 @@ export class ReaderShell implements OnInit, OnDestroy {
   handleTocClick(item: TocItem) {
     this.activeReader()?.goTo(item.target);
     this.tocOpen.set(false);
+    this.restoreOverlayFocus();
   }
 
   isActive(item: TocItem): boolean {
