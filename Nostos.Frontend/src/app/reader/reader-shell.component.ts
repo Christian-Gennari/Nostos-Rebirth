@@ -12,7 +12,7 @@ import { ConceptAutocompleteService } from '../ui/concept-autocomplete-panel/con
 // DTOs & Interfaces
 import { Note, noteNavigationTarget } from '../core/dtos/note.dtos';
 import { IReader, ReaderSourceTarget, TocItem } from './reader.interface';
-import { isTypingTarget, pageActionForKey } from './reader-keyboard';
+import { isInteractiveTarget, isTypingTarget, pageActionForKey } from './reader-keyboard';
 import {
   DEFAULT_HIGHLIGHT_COLOUR,
   HIGHLIGHT_COLOURS,
@@ -81,7 +81,17 @@ export class ReaderShell implements OnInit, OnDestroy {
   typoOpen = signal(false);
 
   toggleTypo(): void {
-    this.typoOpen.update((v) => !v);
+    const opening = !this.typoOpen();
+    if (opening) {
+      this.rememberOverlayFocus();
+      this.tocOpen.set(false);
+      this.notesOpen.set(false);
+      this.typoOpen.set(true);
+      this.focusOverlay('.typo-panel button');
+      return;
+    }
+    this.typoOpen.set(false);
+    this.restoreOverlayFocus();
   }
 
   /**
@@ -150,6 +160,7 @@ export class ReaderShell implements OnInit, OnDestroy {
 
   book = signal<any>(null);
   loading = signal(true);
+  loadError = signal<string | null>(null);
   notesOpen = signal(false);
   tocOpen = signal(false);
   ready = signal(false);
@@ -157,6 +168,11 @@ export class ReaderShell implements OnInit, OnDestroy {
   private observedGroundedSourceKey: string | null | undefined;
   private sourceNavigationGeneration = 0;
   private sourceNavigationSubscription: { unsubscribe(): void } | null = null;
+  private bookNavigationSubscription: { unsubscribe(): void } | null = null;
+  private currentRouteBookId: string | null = null;
+  private bookLoadGeneration = 0;
+  private overlayReturnFocus: HTMLElement | null = null;
+  private saveFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
   highlightMode = signal(false);
   /**
    * The book's highlighter pen (issue #208). Remembered per BOOK, like the
@@ -170,6 +186,8 @@ export class ReaderShell implements OnInit, OnDestroy {
 
   dbNotes = signal<Note[]>([]);
   quickNoteContent = signal('');
+  quickNoteSaving = signal(false);
+  saveFeedback = signal<string | null>(null);
 
   /** Note id awaiting delete confirmation (asked through ConfirmModal). */
   pendingNoteDelete = signal<string | null>(null);
@@ -223,6 +241,7 @@ export class ReaderShell implements OnInit, OnDestroy {
   handleTocClick(item: TocItem) {
     this.activeReader()?.goTo(item.target);
     this.tocOpen.set(false);
+    this.restoreOverlayFocus();
   }
 
   isActive(item: TocItem): boolean {
@@ -234,29 +253,86 @@ export class ReaderShell implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.loadConcepts();
+    this.watchBookNavigation();
     this.watchGroundedSourceNavigation();
-
-    const id = this.route.snapshot.paramMap.get('id');
-    if (id) {
-      this.booksService.get(id).subscribe({
-        next: (b) => {
-          this.book.set(b);
-          this.loading.set(false);
-          this.loadNotes(b.id);
-          setTimeout(() => {
-            this.ready.set(true);
-            this.navigateGroundedSource(this.sourceNavigationGeneration);
-          }, 100);
-        },
-        error: () => this.loading.set(false),
-      });
-    }
   }
 
   ngOnDestroy(): void {
+    this.bookNavigationSubscription?.unsubscribe();
     this.sourceNavigationSubscription?.unsubscribe();
     this.sourceNavigationGeneration++;
+    this.bookLoadGeneration++;
     this.pendingGroundedSourceTarget = null;
+    if (this.saveFeedbackTimer) clearTimeout(this.saveFeedbackTimer);
+  }
+
+  private watchBookNavigation(): void {
+    const paramMap = this.route.paramMap;
+    if (paramMap?.subscribe) {
+      this.bookNavigationSubscription = paramMap.subscribe((params) => {
+        const id = params.get('id');
+        if (id && id !== this.currentRouteBookId) this.loadBook(id);
+      });
+      return;
+    }
+
+    const id = this.route.snapshot.paramMap.get('id');
+    if (id) this.loadBook(id);
+    else {
+      this.loading.set(false);
+      this.loadError.set('This reader link is missing a book.');
+    }
+  }
+
+  private loadBook(id: string): void {
+    this.currentRouteBookId = id;
+    const generation = ++this.bookLoadGeneration;
+
+    this.ready.set(false);
+    this.loading.set(true);
+    this.loadError.set(null);
+    this.book.set(null);
+    this.dbNotes.set([]);
+    this.pendingSelectionText.set(null);
+    this.highlightSaving.set(false);
+    this.quickNoteSaving.set(false);
+    this.tocOpen.set(false);
+    this.notesOpen.set(false);
+    this.typoOpen.set(false);
+
+    // The same locator can be valid for two different books. Reset the source
+    // key when the route book changes so a cross-book citation is consumed
+    // after the new reader binds rather than being mistaken for a duplicate.
+    this.observedGroundedSourceKey = undefined;
+    // ActivatedRoute.snapshot is already updated for the navigation when
+    // paramMap emits. Reading it here avoids briefly carrying the previous
+    // book's source query into the new reader if query params are also changing.
+    this.onGroundedSourceParams(this.route.snapshot.queryParamMap);
+
+    this.booksService.get(id).subscribe({
+      next: (b) => {
+        if (generation !== this.bookLoadGeneration) return;
+        this.book.set(b);
+        this.loading.set(false);
+        this.loadNotes(b.id);
+        setTimeout(() => {
+          if (generation !== this.bookLoadGeneration) return;
+          this.ready.set(true);
+          this.navigateGroundedSource(this.sourceNavigationGeneration);
+        }, 100);
+      },
+      error: () => {
+        if (generation !== this.bookLoadGeneration) return;
+        this.loading.set(false);
+        this.ready.set(false);
+        this.loadError.set('Nostos could not open this book.');
+      },
+    });
+  }
+
+  retryBookLoad(): void {
+    const id = this.currentRouteBookId ?? this.route.snapshot.paramMap.get('id');
+    if (id) this.loadBook(id);
   }
 
   private watchGroundedSourceNavigation(): void {
@@ -289,7 +365,14 @@ export class ReaderShell implements OnInit, OnDestroy {
     this.pendingGroundedSourceTarget = target;
 
     if (target && this.ready()) {
-      this.navigateGroundedSource(this.sourceNavigationGeneration);
+      const generation = this.sourceNavigationGeneration;
+      // Route reuse can emit query params just before the new :id. Defer one
+      // turn so a cross-book citation never navigates the old mounted reader.
+      setTimeout(() => {
+        if (generation !== this.sourceNavigationGeneration) return;
+        if (this.currentRouteBookId !== this.book()?.id) return;
+        this.navigateGroundedSource(generation);
+      }, 0);
     }
   }
 
@@ -370,18 +453,26 @@ export class ReaderShell implements OnInit, OnDestroy {
 
   handleNoteCreated() {
     const id = this.book()?.id;
-    if (id) {
-      this.loadNotes(id);
-      if (!this.notesOpen()) this.notesOpen.set(true);
-    }
-    // The bar closes only on confirmed persistence.
+    if (id) this.loadNotes(id);
+    // Saving a mark must leave the passage visible. Notes only opens when the
+    // reader explicitly asks for it.
     this.pendingSelectionText.set(null);
     this.highlightSaving.set(false);
+    this.showSaveFeedback('Highlight saved');
   }
 
   toggleNotes() {
-    this.notesOpen.update((v) => !v);
-    if (this.notesOpen()) this.tocOpen.set(false);
+    const opening = !this.notesOpen();
+    if (opening) {
+      this.rememberOverlayFocus();
+      this.tocOpen.set(false);
+      this.typoOpen.set(false);
+      this.notesOpen.set(true);
+      this.focusOverlay('.notes-panel.open .notes-header button');
+      return;
+    }
+    this.notesOpen.set(false);
+    this.restoreOverlayFocus();
   }
 
   /**
@@ -413,7 +504,10 @@ export class ReaderShell implements OnInit, OnDestroy {
   toggleHighlightFromPanel(): void {
     const turningOn = !this.highlightMode();
     this.toggleHighlightMode();
-    if (turningOn) this.notesOpen.set(false);
+    if (turningOn) {
+      this.notesOpen.set(false);
+      this.restoreOverlayFocus();
+    }
   }
 
   commitHighlight() {
@@ -440,10 +534,17 @@ export class ReaderShell implements OnInit, OnDestroy {
 
   toggleToc() {
     const opening = !this.tocOpen();
-    this.tocOpen.set(opening);
-    if (!opening) return;
+    if (!opening) {
+      this.tocOpen.set(false);
+      this.restoreOverlayFocus();
+      return;
+    }
 
+    this.rememberOverlayFocus();
     this.notesOpen.set(false);
+    this.typoOpen.set(false);
+    this.tocOpen.set(true);
+    this.focusOverlay('.toc-panel.open .panel-header button');
     if (this.fileType() === 'epub') {
       setTimeout(() => this.scrollActiveTocItemIntoView(), 0);
     }
@@ -473,18 +574,27 @@ export class ReaderShell implements OnInit, OnDestroy {
   }
 
   saveQuickNote() {
+    if (this.quickNoteSaving()) return;
     const content = this.quickNoteContent().trim();
     if (!content) return;
     const bookId = this.book()?.id;
     if (!bookId) return;
 
     const currentCfi = this.activeReader()?.getCurrentLocation() || undefined;
+    this.quickNoteSaving.set(true);
 
     this.notesService.create(bookId, { content, cfiRange: currentCfi }).subscribe({
       next: () => {
-        this.quickNoteContent.set('');
+        // Do not erase text typed while the request was in flight.
+        if (this.quickNoteContent().trim() === content) this.quickNoteContent.set('');
+        this.quickNoteSaving.set(false);
         this.loadNotes(bookId);
         this.loadConcepts();
+        this.showSaveFeedback('Note saved');
+      },
+      error: () => {
+        // The draft stays exactly where it was so a deliberate retry is safe.
+        this.quickNoteSaving.set(false);
       },
     });
   }
@@ -535,13 +645,20 @@ export class ReaderShell implements OnInit, OnDestroy {
     const target = noteNavigationTarget(note);
     if (reader && target !== null) {
       reader.goTo(target);
+      // A full-width phone drawer must not keep hiding the passage the user
+      // just asked to reveal. Closing on desktop is also the least surprising
+      // destination-jump behavior.
+      this.notesOpen.set(false);
+      this.restoreOverlayFocus();
     }
   }
 
   goBack() {
-    const id = this.book()?.id;
-    if (id) this.router.navigate(['/library', id]);
-    else this.router.navigate(['/library']);
+    const id = this.book()?.id ?? this.currentRouteBookId;
+    // This is an explicit destination, not browser history. replaceUrl avoids
+    // detail -> reader -> detail -> Back -> reader loops.
+    if (id) void this.router.navigate(['/library', id], { replaceUrl: true });
+    else void this.router.navigate(['/library'], { replaceUrl: true });
   }
 
   onPageInput(event: Event) {
@@ -593,31 +710,64 @@ export class ReaderShell implements OnInit, OnDestroy {
    * focused, PDF canvas focused, click-anywhere-then-key). Modifier chords and
    * text-entry targets are left alone.
    */
+  private rememberOverlayFocus(): void {
+    const active = document.activeElement;
+    this.overlayReturnFocus = active instanceof HTMLElement ? active : null;
+  }
+
+  private focusOverlay(selector: string): void {
+    setTimeout(() => {
+      this.host.nativeElement.querySelector<HTMLElement>(selector)?.focus();
+    }, 0);
+  }
+
+  private restoreOverlayFocus(): void {
+    const target = this.overlayReturnFocus;
+    this.overlayReturnFocus = null;
+    if (target?.isConnected) setTimeout(() => target.focus(), 0);
+  }
+
+  private showSaveFeedback(message: string): void {
+    if (this.saveFeedbackTimer) clearTimeout(this.saveFeedbackTimer);
+    this.saveFeedback.set(message);
+    this.saveFeedbackTimer = setTimeout(() => {
+      this.saveFeedback.set(null);
+      this.saveFeedbackTimer = null;
+    }, 1800);
+  }
+
   @HostListener('document:keydown', ['$event'])
   onDocumentKeydown(event: KeyboardEvent): void {
     if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
-    if (isTypingTarget(event.target)) return;
 
     if (event.key === 'Escape') {
       // Overlays close in the order they stack: the typography panel rides on
-      // top of the drawers, so it goes first. Typing targets are already out.
+      // top of the drawers, so it goes first. defaultPrevented still lets a
+      // focused control claim Escape before the shell sees it.
       if (this.typoOpen()) {
         this.typoOpen.set(false);
+        this.restoreOverlayFocus();
         event.preventDefault();
         return;
       }
       if (this.tocOpen()) {
         this.tocOpen.set(false);
+        this.restoreOverlayFocus();
         event.preventDefault();
         return;
       }
       if (this.notesOpen()) {
         this.notesOpen.set(false);
+        this.restoreOverlayFocus();
         event.preventDefault();
         return;
       }
       return;
     }
+
+    // Paging belongs to the reading surface. Space in particular must preserve
+    // native activation for buttons, links, toggles, source chips, and controls.
+    if (isTypingTarget(event.target) || isInteractiveTarget(event.target)) return;
 
     const action = pageActionForKey(event);
     if (!action) return;

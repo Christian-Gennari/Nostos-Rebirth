@@ -253,10 +253,18 @@
   padding: 0.75rem;
 }
 .toc-item {
+  display: flex;
+  justify-content: flex-start;
+  width: 100%;
   padding: 0.6rem 0.85rem;
+  border: 0;
   border-bottom: 1px solid var(--bg-hover);
   cursor: pointer;
+  font: inherit;
   font-size: 0.9rem;
+  text-align: left;
+  white-space: normal;
+  background: transparent;
   color: var(--color-text-main);
   border-radius: var(--radius-sm);
   transition:
@@ -266,6 +274,10 @@
 .toc-item:hover {
   background-color: var(--bg-hover);
   color: var(--color-primary);
+}
+.toc-item:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: -2px;
 }
 .toc-item.active {
   background-color: var(--bg-hover);
@@ -326,13 +338,51 @@
   border-color: var(--primary-fill);
 }
 
-.error {
+.reader-load-error {
+  margin: auto;
+  width: min(32rem, calc(100% - 2rem));
+  padding: 2rem;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  height: 100%;
+  gap: 0.75rem;
+  text-align: center;
   color: var(--color-text-muted);
-  font-style: italic;
+}
+.reader-load-error nostos-icon {
+  color: var(--color-text-light);
+}
+.reader-load-error h2 {
+  margin: 0;
+  font-family: 'Newsreader', serif;
+  font-size: 1.25rem;
+  color: var(--color-text-main);
+}
+.reader-load-error p {
+  margin: 0;
+  line-height: 1.5;
+}
+.reader-load-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.reader-save-feedback {
+  position: absolute;
+  left: 50%;
+  bottom: 1rem;
+  z-index: 55;
+  transform: translateX(-50%);
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--color-text-main);
+  box-shadow: var(--shadow-sm);
+  font-size: 0.8rem;
+  pointer-events: none;
 }
 .info-tooltip {
   position: relative;
@@ -407,10 +457,10 @@
   z-index: 50;
   background: var(--bg-surface);
   border-top: 1px solid var(--border-color);
-  /* Was `max(var(--space-3, 0.75rem), ...)` and `--space-3` was NEVER declared
-     anywhere in this repo, so the fallback was always the value. Written out so
-     the resolved value is visible; see the design doc's note on phantom tokens. */
-  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  /* This bar sits above the viewport-edge pager. The pager owns the phone's
+     bottom safe area once; paying it again here made every highlight confirmation
+     unnecessarily tall on iPhone-class insets. */
+  padding-bottom: 0;
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.1);
 }
 
@@ -695,9 +745,9 @@
     flex: 0 1 auto;
     width: auto;
     min-width: auto;
-    /* The pill compresses (never the 44px targets) so the centered group always
-       fits at 390px. */
-    max-width: 132px;
+    /* Keep enough chapter text to orient the reader while preserving both
+       44px page-turn targets. */
+    max-width: min(168px, calc(100vw - 112px));
     padding: 0.3rem;
     font-size: 0.8rem;
     overflow: hidden;
@@ -713,7 +763,6 @@
   }
   .confirmation-content {
     padding: 0.5rem 0.75rem;
-    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
     gap: 0.75rem;
   }
   .selected-text {
@@ -728,7 +777,7 @@
   }
   .progress-display,
   .progress-display span {
-    max-width: 96px;
+    max-width: min(144px, calc(100vw - 108px));
   }
   .progress-display.logical-pager {
     max-width: 184px;

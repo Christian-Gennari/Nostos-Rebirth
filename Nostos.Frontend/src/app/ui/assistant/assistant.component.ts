@@ -215,7 +215,12 @@ export class AssistantComponent {
     }
 
     if (this.router) {
-      void this.router.navigate(['/read', source.bookId], { queryParams });
+      void this.router.navigate(['/read', source.bookId], { queryParams }).then((navigated) => {
+        // On phones Ask Nostos owns the full visual viewport. A successful
+        // source jump should therefore reveal the cited passage immediately;
+        // the conversation remains in AssistantService for one-tap return.
+        if (navigated && this.isPhoneViewport()) this.close();
+      });
     }
   }
 
