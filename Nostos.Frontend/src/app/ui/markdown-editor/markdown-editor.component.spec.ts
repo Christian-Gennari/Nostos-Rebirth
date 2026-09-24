@@ -119,7 +119,9 @@ describe('MarkdownEditorComponent', () => {
     expect(registeredEditorEvents).toContain('PreInit');
 
     const css = componentCss();
-    expect(css).toContain(':host > textarea');
+    // Angular scopes component selectors before tests can inspect them, so
+    // assert the selector's semantic shape rather than its source spelling.
+    expect(css).toMatch(/>\s*textarea/);
     expect(css).toContain('background: var(--editor-ui-bg, var(--bg-surface))');
     expect(css).toContain('.tox .tox-throbber');
   });
