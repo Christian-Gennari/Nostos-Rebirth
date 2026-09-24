@@ -28,7 +28,7 @@ import { DEFAULT_HIGHLIGHT_COLOUR, HighlightColour } from '../highlight-colours'
 import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
 import { ThemeService } from '../../core/services/theme.service';
-import { IReader, ReaderProgress, TocItem } from '../reader.interface';
+import { IReader, ReaderProgress, ReaderSourceTarget, TocItem } from '../reader.interface';
 import { AssistantContextService } from '../../ui/assistant/assistant-context.service';
 
 /**
@@ -399,6 +399,11 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
       this.currentPage = targetPage;
       this.updateProgressState(targetPage);
     }
+  }
+
+  goToSource(target: ReaderSourceTarget): void {
+    if (target.type !== 'pdf' || target.pdfPage === undefined) return;
+    this.goTo(target.pdfPage);
   }
 
   getCurrentLocation(): string {
