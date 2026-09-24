@@ -258,10 +258,24 @@ public sealed class PortableArchiveService(
                         .GroupBy(media => media.Descriptor.BookId)
                         .Select(group => group.First()))
                     {
-                        await _bookTextScheduler.ScheduleAsync(
-                            media.Descriptor.BookId,
-                            media.Descriptor.FileName,
-                            CancellationToken.None);
+                        try
+                        {
+                            await _bookTextScheduler.ScheduleAsync(
+                                media.Descriptor.BookId,
+                                media.Descriptor.FileName,
+                                CancellationToken.None);
+                        }
+                        catch (Exception exception)
+                        {
+                            // The archive and authoritative publication bytes are
+                            // already committed. A derived-index scheduling failure
+                            // must be retryable/backfillable, never turn a successful
+                            // portable restore into a false failure.
+                            _logger.LogWarning(
+                                "Portable import could not schedule derived text for book {BookId}; exception type {ExceptionType}. Publication text is not logged.",
+                                media.Descriptor.BookId,
+                                exception.GetType().Name);
+                        }
                     }
                 }
 
