@@ -97,6 +97,22 @@
         } @else {
         <blockquote class="entry-text">{{ entry.text }}</blockquote>
         }
+        @if (entry.sources?.length) {
+        <div class="entry-sources" data-testid="assistant-entry-sources">
+          @for (source of entry.sources; track source.bookId + ':' + source.sourceSha256 + ':' + $index) {
+          <button
+            type="button"
+            class="entry-source"
+            (click)="openSource(source)"
+            [attr.title]="source.excerpt"
+            data-testid="assistant-source"
+          >
+            <nostos-icon name="book-open" [size]="12"></nostos-icon>
+            <span>{{ sourceLabel(source) }}</span>
+          </button>
+          }
+        </div>
+        }
         @if (entry.anchorLabel || entry.meta) {
         <footer class="entry-meta">
           @if (entry.anchorLabel) { <span class="entry-anchor">{{ entry.anchorLabel }}</span> }
