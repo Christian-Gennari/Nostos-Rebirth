@@ -118,17 +118,19 @@ public interface IBookTextIndex
         TimeSpan staleAfter,
         CancellationToken ct = default);
 
-    Task ReplaceReadyAsync(
+    Task<bool> ReplaceReadyAsync(
         BookTextSourceRevision revision,
         IReadOnlyList<BookTextIndexedChunk> chunks,
         long characterCount,
+        int expectedAttempt,
         CancellationToken ct = default);
 
-    Task MarkFailedAsync(
+    Task<bool> MarkFailedAsync(
         Guid bookId,
         string errorCode,
         string errorMessage,
         bool unsupported,
+        int expectedAttempt,
         CancellationToken ct = default);
 
     Task DeleteBookAsync(Guid bookId, CancellationToken ct = default);
@@ -158,6 +160,11 @@ public interface IBookDerivedArtifactStorage
         CancellationToken ct = default);
 
     Task DeleteBookArtifactsAsync(Guid bookId, CancellationToken ct = default);
+
+    Task PruneBookArtifactsAsync(
+        Guid bookId,
+        BookTextSourceRevision keep,
+        CancellationToken ct = default);
 }
 
 public interface IBookTextIngestionScheduler
@@ -244,8 +251,8 @@ public sealed class NoOpBookTextIndex : IBookTextIndex
     public Task EnsureSchemaAsync(CancellationToken ct = default) => Task.CompletedTask;
     public Task ScheduleAsync(Guid bookId, string sourceFileName, BookTextSourceFormat format, CancellationToken ct = default) => Task.CompletedTask;
     public Task<BookTextIngestionWork?> TryClaimNextAsync(TimeSpan staleAfter, CancellationToken ct = default) => Task.FromResult<BookTextIngestionWork?>(null);
-    public Task ReplaceReadyAsync(BookTextSourceRevision revision, IReadOnlyList<BookTextIndexedChunk> chunks, long characterCount, CancellationToken ct = default) => Task.CompletedTask;
-    public Task MarkFailedAsync(Guid bookId, string errorCode, string errorMessage, bool unsupported, CancellationToken ct = default) => Task.CompletedTask;
+    public Task<bool> ReplaceReadyAsync(BookTextSourceRevision revision, IReadOnlyList<BookTextIndexedChunk> chunks, long characterCount, int expectedAttempt, CancellationToken ct = default) => Task.FromResult(false);
+    public Task<bool> MarkFailedAsync(Guid bookId, string errorCode, string errorMessage, bool unsupported, int expectedAttempt, CancellationToken ct = default) => Task.FromResult(false);
     public Task DeleteBookAsync(Guid bookId, CancellationToken ct = default) => Task.CompletedTask;
     public Task<BookTextIngestionState?> GetStateAsync(Guid bookId, CancellationToken ct = default) => Task.FromResult<BookTextIngestionState?>(null);
     public Task<IReadOnlyList<BookTextSearchHit>> SearchAsync(string query, IReadOnlyList<Guid> bookIds, int maxCandidates, CancellationToken ct = default) =>
@@ -259,6 +266,7 @@ public sealed class NoOpBookTextArtifactStorage : IBookDerivedArtifactStorage
     public Task WriteAsync(BookTextSourceRevision revision, Func<Stream, CancellationToken, Task> writer, CancellationToken ct = default) =>
         Task.CompletedTask;
     public Task DeleteBookArtifactsAsync(Guid bookId, CancellationToken ct = default) => Task.CompletedTask;
+    public Task PruneBookArtifactsAsync(Guid bookId, BookTextSourceRevision keep, CancellationToken ct = default) => Task.CompletedTask;
 }
 
 public sealed class NoOpBookTextIngestionScheduler : IBookTextIngestionScheduler
@@ -449,7 +457,32 @@ public sealed class BookTextIngestionEngine(
                     token),
                 ct);
 
-            await index.ReplaceReadyAsync(revision, chunks, extracted.CharacterCount, ct);
+            var committed = await index.ReplaceReadyAsync(
+                revision,
+                chunks,
+                extracted.CharacterCount,
+                work.Attempt,
+                ct);
+
+            if (!committed)
+            {
+                // A delete/replacement/retry superseded this worker after it had
+                // already extracted the source. Never resurrect stale chunks.
+                // If the state row itself is gone, the book was deleted and no
+                // newer worker can own the artifact namespace, so clean it fully.
+                if (await index.GetStateAsync(work.BookId, ct) is null)
+                    await artifacts.DeleteBookArtifactsAsync(work.BookId, ct);
+
+                logger.LogInformation(
+                    "Book-text ingestion result for {BookId} was superseded by newer lifecycle state.",
+                    work.BookId);
+                return;
+            }
+
+            // The current claim won. Any older source/extractor artifacts are
+            // now unreachable and can be removed without racing the active
+            // revision.
+            await artifacts.PruneBookArtifactsAsync(work.BookId, revision, ct);
 
             logger.LogInformation(
                 "Book-text ingestion completed for {BookId}: format {Format}, source bytes {SourceBytes}, characters {Characters}, chunks {Chunks}, elapsed {ElapsedMs} ms.",
@@ -471,6 +504,7 @@ public sealed class BookTextIngestionEngine(
                 exception.Code,
                 exception.Message,
                 unsupported: true,
+                work.Attempt,
                 CancellationToken.None);
 
             logger.LogInformation(
@@ -485,6 +519,7 @@ public sealed class BookTextIngestionEngine(
                 "book_text_ingestion_failed",
                 "Text indexing failed and can be retried.",
                 unsupported: false,
+                work.Attempt,
                 CancellationToken.None);
 
             logger.LogWarning(
