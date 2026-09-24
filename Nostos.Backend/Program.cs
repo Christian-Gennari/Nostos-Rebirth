@@ -23,7 +23,9 @@ using Nostos.Backend.Services;
 using Nostos.Backend.Services.Ai;
 using Nostos.Backend.Services.Library;
 using Nostos.Backend.Services.Notes;
-using Nostos.Backend.Services.Portability;\nusing Nostos.Backend.Services.BookText;\nusing Nostos.Product.BookText;
+using Nostos.Backend.Services.Portability;
+using Nostos.Backend.Services.BookText;
+using Nostos.Product.BookText;
 using Nostos.Backend.Workers;
 using Nostos.Product.Composition;
 using Nostos.Product.Services.Ai;
@@ -192,7 +194,8 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<AcquisitionJobMana
 builder.Services.AddHostedService<AcquisitionReconciliationWorker>();
 builder.Services.AddHostedService<ConceptCleanupWorker>();
 builder.Services.AddHostedService<BackupWorker>();
-builder.Services.AddHostedService<LibraryReceiptRetentionWorker>();\nbuilder.Services.AddHostedService<BookTextIngestionWorker>();
+builder.Services.AddHostedService<LibraryReceiptRetentionWorker>();
+builder.Services.AddHostedService<BookTextIngestionWorker>();
 
 var app = builder.Build();
 
