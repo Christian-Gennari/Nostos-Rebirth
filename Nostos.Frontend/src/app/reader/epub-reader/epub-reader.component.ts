@@ -671,6 +671,16 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     const epubBook = ePub(url, { openAs: 'epub' });
     this.epubBook = epubBook;
 
+    // A failed open is announced ONLY through this event. epub.js swallows the
+    // rejection into `openFailed` and never settles `book.ready`/`opened`, and
+    // `rendition.display()` stays pending with it — so without this listener the
+    // catch handlers below never run and a corrupt/unavailable EPUB sits on
+    // "Opening book..." forever instead of reaching the failure state.
+    epubBook.on('openFailed', () => {
+      if (this.epubBook !== epubBook) return; // a newer attempt owns the reader
+      this.failOpen();
+    });
+
     // 2. Setup Rendition Immediately
     // Render into the padded page box: the margin preset is padding on
     // #epub-viewer, so epub.js should paginate into what is left of it.

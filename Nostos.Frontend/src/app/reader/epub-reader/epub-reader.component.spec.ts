@@ -26,6 +26,7 @@ describe('EpubReader highlight-mode lifecycle (issue #16)', () => {
   let fixture: ComponentFixture<EpubReader>;
   let log: string[];
   let lastRendition: any;
+  let lastEmit: (type: string) => void;
 
   const notesService = {
     list: vi.fn(() => of([])),
@@ -57,9 +58,17 @@ describe('EpubReader highlight-mode lifecycle (issue #16)', () => {
       prev: vi.fn(),
       currentLocation: vi.fn(() => ({ start: { cfi: 'epubcfi(/6)' } })),
     };
+    const listeners: Record<string, Array<(...args: unknown[]) => void>> = {};
     const book = {
       renderTo: vi.fn(() => rendition),
       ready: Promise.resolve({ navigation: { toc: [] } }),
+      on: vi.fn((type: string, cb: (...args: unknown[]) => void) => {
+        if (!listeners[type]) listeners[type] = [];
+        listeners[type].push(cb);
+        return book;
+      }),
+      off: vi.fn(),
+      emit: (type: string) => (listeners[type] ?? []).forEach((cb) => cb()),
       locations: {
         load: vi.fn(),
         generate: vi.fn(() => Promise.resolve()),
@@ -71,7 +80,7 @@ describe('EpubReader highlight-mode lifecycle (issue #16)', () => {
       navigation: { toc: [] },
       destroy: vi.fn(() => log.push('book-destroy')),
     };
-    return { book, rendition };
+    return { book, rendition, emit: book.emit };
   };
 
   beforeEach(async () => {
@@ -79,6 +88,7 @@ describe('EpubReader highlight-mode lifecycle (issue #16)', () => {
     vi.mocked(ePub).mockImplementation(() => {
       const fake = createFakeBook();
       lastRendition = fake.rendition;
+      lastEmit = fake.emit;
       return fake.book as never;
     });
     vi.stubGlobal(
@@ -176,6 +186,33 @@ describe('EpubReader highlight-mode lifecycle (issue #16)', () => {
     expect(destroySpy).toHaveBeenCalledTimes(1);
     expect(log.indexOf('manager-destroy')).toBeGreaterThanOrEqual(0);
     expect(log.indexOf('manager-destroy')).toBeLessThan(log.indexOf('book-destroy'));
+  });
+
+  it('surfaces the EPUB failure state when the book reports a failed open', async () => {
+    await setupComponent();
+    const updatesBefore = booksService.updateProgress.mock.calls.length;
+
+    // epub.js announces a failed open ONLY through this event: `book.ready` and
+    // `opened` never settle and `rendition.display()` stays pending.
+    lastEmit('openFailed');
+    fixture.detectChanges();
+
+    const overlay = fixture.nativeElement.querySelector('.error-overlay') as HTMLElement | null;
+    expect(overlay).not.toBeNull();
+    expect(overlay!.textContent).toContain('Could not open this EPUB');
+    expect([...overlay!.querySelectorAll('button')].map((b) => b.textContent?.trim())).toEqual([
+      'Back',
+      'Retry',
+    ]);
+    // A failed open must not report progress: the write barrier stays closed.
+    expect(booksService.updateProgress.mock.calls.length).toBe(updatesBefore);
+
+    // Retry attempts the load again (re-locking progress writes first).
+    const ePubCallsBefore = vi.mocked(ePub).mock.calls.length;
+    (overlay!.querySelectorAll('button')[1] as HTMLButtonElement).click();
+    fixture.detectChanges();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(vi.mocked(ePub).mock.calls.length).toBe(ePubCallsBefore + 1);
   });
 });
 
@@ -282,6 +319,8 @@ describe('EpubReader theme-following normalization', () => {
         return rendition;
       }),
       ready: Promise.resolve({ navigation: { toc: [] } }),
+      on: vi.fn(),
+      off: vi.fn(),
       locations: {
         load: vi.fn(),
         generate: vi.fn(() => Promise.resolve()),
@@ -655,6 +694,8 @@ describe('EpubReader typography persistence', () => {
             resize: vi.fn(),
           }),
           ready: Promise.resolve({ navigation: { toc: [] } }),
+          on: vi.fn(),
+          off: vi.fn(),
           locations: {
             load: vi.fn(),
             generate: vi.fn(() => Promise.resolve()),
