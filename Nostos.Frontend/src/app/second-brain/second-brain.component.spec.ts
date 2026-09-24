@@ -1818,6 +1818,10 @@ describe('SecondBrain concept-link routing', () => {
     const navigation = harness.navigateByUrl('/second-brain?conceptId=c-beta', SecondBrain);
     const http = TestBed.inject(HttpTestingController);
 
+    // The routed component is created before navigation can settle because its
+    // initial HTTP reads are intentionally still outstanding.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
     http.expectOne('/api/concepts').flush(concepts);
     http.expectOne('/api/concepts/stats').flush(stats);
     http.expectOne('/api/concepts/c-beta/related').flush([]);
