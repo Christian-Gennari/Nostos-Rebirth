@@ -310,6 +310,7 @@ public static class BooksEndpoints
                 IBookRepository repo,
                 IBookAssetStorage storage,
                 MediaMetadataService metadataService,
+                IBookTextIngestionScheduler bookTextScheduler,
                 CancellationToken ct
             ) =>
             {
@@ -350,6 +351,16 @@ public static class BooksEndpoints
                 book.FileDetails.LocationsJson = null;
 
                 await repo.UpdateAsync(book);
+
+                // Upload/replacement is a source-revision event. Scheduling
+                // invalidates any old searchable revision immediately; the
+                // scheduler deliberately degrades without failing the valid
+                // primary file upload if extraction/indexing cannot start.
+                await bookTextScheduler.ScheduleAsync(
+                    id,
+                    book.FileDetails.FileName,
+                    ct);
+
                 return Results.Ok(new { uploaded = true });
             }
         );
