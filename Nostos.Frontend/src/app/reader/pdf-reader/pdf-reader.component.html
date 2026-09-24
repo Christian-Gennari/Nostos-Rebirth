@@ -4,6 +4,9 @@
   (mouseup)="onTextSelection()"
   (touchend)="onTextSelection()"
 >
+  @if (highlightWarning()) {
+  <div class="pdf-reader-notice" role="status">{{ highlightWarning() }}</div>
+  }
   <div id="pdf-viewer-wrapper">
     <!-- Search: the library's own find bar, opened by Ctrl/Cmd+F from the reader,
          or by the header's Search control. Before this, Ctrl+F did nothing at all

@@ -24,7 +24,10 @@ import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
 
 import { PdfAnnotationManager, PageHighlight } from './pdf-annotation-manager';
-import { DEFAULT_HIGHLIGHT_COLOUR, HighlightColour } from '../highlight-colours';
+import {
+  DEFAULT_HIGHLIGHT_COLOUR,
+  HighlightColour,
+} from '../highlight-colours';
 import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
 import { ThemeService } from '../../core/services/theme.service';
@@ -56,6 +59,7 @@ interface PendingPdfHighlight {
   pageNumber: number;
   rects: { left: number; top: number; width: number; height: number }[];
   selectedText: string;
+  colour: HighlightColour;
 }
 
 @Component({
@@ -231,6 +235,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   savedHighlights: PageHighlight[] = [];
 
   private pendingHighlight: PendingPdfHighlight | null = null;
+  highlightWarning = signal<string | null>(null);
 
   // --- IReader Implementation ---
   toc = signal<TocItem[]>([]);
@@ -397,6 +402,8 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
     }
 
     if (targetPage > 0 && targetPage <= this.totalPages) {
+      this.clearNativeSelection();
+      this.highlightWarning.set(null);
       this.currentPage = targetPage;
       this.updateProgressState(targetPage);
     }
@@ -548,6 +555,10 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   }
 
   onPageChange(newPage: number) {
+    if (newPage !== this.currentPage) {
+      this.clearNativeSelection();
+      this.highlightWarning.set(null);
+    }
     this.currentPage = newPage;
     this.updateProgressState(newPage);
   }
@@ -563,11 +574,33 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
 
   // --- Selection Logic ---
 
+  /**
+   * Keep Ask Nostos aligned with the browser's CURRENT PDF selection. This is
+   * independent of highlight mode and selectionchange also clears stale context
+   * when the browser selection collapses or leaves the PDF.
+   */
+  @HostListener('document:selectionchange')
+  onNativeSelectionChange(): void {
+    this.assistantSelection.set(this.highlightService.captureSelectionText?.() ?? null);
+  }
+
   onTextSelection() {
+    this.onNativeSelectionChange();
     if (!this.highlightMode()) return;
 
     const highlight = this.highlightService.captureHighlight(true);
     if (!highlight) return;
+
+    if (highlight.status === 'cross-page') {
+      this.pendingHighlight = null;
+      this.highlightWarning.set(
+        'Highlights can only cover one PDF page at a time. Select text on one page at a time.',
+      );
+      this.clearNativeSelection();
+      return;
+    }
+
+    this.highlightWarning.set(null);
 
     if (this.pendingHighlight) {
       const old = this.pendingHighlight;
@@ -582,6 +615,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
       pageNumber: highlight.pageNumber,
       rects: highlight.rects,
       selectedText: highlight.selectedText,
+      colour: this.highlightColour(),
     };
 
     this.selectionCaptured.emit(highlight.selectedText);
@@ -625,21 +659,30 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   }
 
   commitHighlight() {
-    if (!this.pendingHighlight) return;
+    if (!this.pendingHighlight) {
+      // Never leave the shell in Saving... if its confirmation and the reader
+      // somehow drift out of sync.
+      this.commitFailed.emit();
+      return;
+    }
 
     const p = this.pendingHighlight;
     const newHighlight: PageHighlight = {
       id: p.tempId,
       pageNumber: p.pageNumber,
       rects: p.rects,
+      colour: p.colour,
     };
     this.savedHighlights.push(newHighlight);
     this.repaintPage(p.pageNumber);
 
-    const selection = window.getSelection();
-    if (selection) selection.removeAllRanges();
+    this.clearNativeSelection();
 
-    const cfiPayload = { pageNumber: p.pageNumber, rects: p.rects };
+    const cfiPayload = {
+      pageNumber: p.pageNumber,
+      rects: p.rects,
+      colour: p.colour,
+    };
 
     this.notesService
       .create(this.bookId(), {
@@ -659,19 +702,24 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
         error: () => {
           this.savedHighlights = this.savedHighlights.filter((h) => h.id !== p.tempId);
           this.repaintPage(p.pageNumber);
-          this.pendingHighlight = null;
+          // Preserve the exact capture. The shared shell deliberately keeps its
+          // confirmation open after failure, so Save must retry this same mark.
+          this.pendingHighlight = p;
           this.commitFailed.emit();
         },
       });
   }
 
   discardHighlight() {
-    if (!this.pendingHighlight) return;
+    this.clearNativeSelection();
+    this.pendingHighlight = null;
+    this.highlightWarning.set(null);
+  }
 
+  private clearNativeSelection(): void {
     const selection = window.getSelection();
     if (selection) selection.removeAllRanges();
-
-    this.pendingHighlight = null;
+    this.assistantSelection.set(null);
   }
 
   private repaintPage(pageNumber: number) {
