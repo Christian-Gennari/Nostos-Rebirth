@@ -428,4 +428,19 @@ public static class MappingExtensions
             model.SelectedText = dto.SelectedText;
         }
     }
+
+    public static WritingSourceDto ToDto(this WritingNoteModel model) =>
+        new(
+            Id: model.NoteId,
+            BookId: model.Note.BookId,
+            BookTitle: model.Note.Book?.Title,
+            Content: model.Note.Content,
+            SelectedText: model.Note.SelectedText,
+            CfiRange: model.Note.CfiRange,
+            CreatedAt: model.Note.CreatedAt,
+            AddedAt: model.AddedAt,
+            SourceAnchorKind: model.Note.SourceAnchorKind,
+            SourceAnchorValue: model.Note.SourceAnchorValue,
+            AnchorVerified: model.Note.AnchorVerified
+        );
 }
