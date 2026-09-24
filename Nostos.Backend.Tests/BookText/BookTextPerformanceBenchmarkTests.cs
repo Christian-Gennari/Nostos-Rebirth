@@ -42,10 +42,11 @@ public sealed class BookTextPerformanceBenchmarkTests(ITestOutputHelper output) 
         var index = new SqliteBookTextIndex(new Factory(_path));
         await index.EnsureSchemaAsync();
         await index.ScheduleAsync(revision.BookId, fixture.FileName, revision.Format);
-        _ = await index.TryClaimNextAsync(TimeSpan.FromMinutes(15));
+        var work = await index.TryClaimNextAsync(TimeSpan.FromMinutes(15));
+        Assert.NotNull(work);
 
         var indexTimer = Stopwatch.StartNew();
-        await index.ReplaceReadyAsync(revision, chunks, extracted.CharacterCount);
+        Assert.True(await index.ReplaceReadyAsync(revision, chunks, extracted.CharacterCount, work!.Attempt));
         indexTimer.Stop();
 
         const int queryIterations = 40;
