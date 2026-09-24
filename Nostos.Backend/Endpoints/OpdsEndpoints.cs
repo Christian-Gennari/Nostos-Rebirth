@@ -42,7 +42,9 @@ public static class OpdsEndpoints
     /// </summary>
     public static IEndpointRouteBuilder MapOpdsEndpoints(
         this IEndpointRouteBuilder routes,
-        OpdsOptions options
+        OpdsOptions options,
+        string? authorizationPolicy = null,
+        string? mediaRateLimitPolicy = null
     )
     {
         // Mapped whether or not the catalogue is: the Settings surface has to be
@@ -72,6 +74,8 @@ public static class OpdsEndpoints
             return routes;
 
         var group = routes.MapGroup("/opds");
+        if (!string.IsNullOrWhiteSpace(authorizationPolicy))
+            group.RequireAuthorization(authorizationPolicy);
 
         group.MapGet(
             "/",
@@ -136,6 +140,45 @@ public static class OpdsEndpoints
             }
         );
 
+        var fileEndpoint = group.MapGet(
+            "/books/{id:guid}/file",
+            async (
+                Guid id,
+                IBookAssetStorage storage,
+                HttpContext http,
+                CancellationToken ct
+            ) =>
+                await StoredAssetHttpResult.CreateAsync(
+                    http,
+                    token => storage.GetBookFileInfoAsync(id, token),
+                    (range, token) => storage.OpenBookFileAsync(id, range, token),
+                    attachment: false,
+                    enableRanges: true,
+                    cacheControl: null,
+                    ct)
+        );
+
+        if (!string.IsNullOrWhiteSpace(mediaRateLimitPolicy))
+            fileEndpoint.RequireRateLimiting(mediaRateLimitPolicy);
+
+        group.MapGet(
+            "/books/{id:guid}/cover",
+            async (
+                Guid id,
+                IBookAssetStorage storage,
+                HttpContext http,
+                CancellationToken ct
+            ) =>
+                await StoredAssetHttpResult.CreateAsync(
+                    http,
+                    token => storage.GetBookCoverInfoAsync(id, token),
+                    (_, token) => storage.OpenBookCoverAsync(id, token),
+                    attachment: false,
+                    enableRanges: false,
+                    cacheControl: "public, max-age=86400, stale-while-revalidate=2592000",
+                    ct)
+        );
+
         return routes;
     }
 
@@ -183,7 +226,7 @@ public static class OpdsEndpoints
         // than a larger one they can.
         if (!string.IsNullOrWhiteSpace(book.FileDetails.CoverFileName))
         {
-            var coverUrl = GetAbsoluteUrl(context, options, $"/api/books/{book.Id}/cover");
+            var coverUrl = GetAbsoluteUrl(context, options, $"/opds/books/{book.Id}/cover");
             var coverType = MediaTypeMap.ForCover(book.FileDetails.CoverFileName);
 
             entry.Add(Link(ImageRel, coverUrl, coverType));
@@ -195,7 +238,7 @@ public static class OpdsEndpoints
             entry.Add(
                 Link(
                     AcquisitionRel,
-                    GetAbsoluteUrl(context, options, $"/api/books/{book.Id}/file"),
+                    GetAbsoluteUrl(context, options, $"/opds/books/{book.Id}/file"),
                     MediaTypeMap.ForBookFile(book.FileDetails.FileName)
                 )
             );

@@ -40,7 +40,8 @@ public sealed record NostosProductEndpointPolicies(
     string? ExpensiveMutationRateLimitPolicy = null,
     string? ProviderFetchRateLimitPolicy = null,
     string? LargeTransferRateLimitPolicy = null,
-    string? PortableExportAuthorizationPolicy = null)
+    string? PortableExportAuthorizationPolicy = null,
+    string? OpdsAuthorizationPolicy = null)
 {
     public static NostosProductEndpointPolicies None { get; } = new();
 }
@@ -213,7 +214,10 @@ public static class NostosProductComposition
         routes.MapAssistantSettingsEndpoints();
         routes.MapDeploymentCapabilitiesEndpoints();
         routes.MapPortabilityEndpoints(policies);
-        routes.MapOpdsEndpoints(opds);
+        routes.MapOpdsEndpoints(
+            opds,
+            policies.OpdsAuthorizationPolicy,
+            policies.LargeTransferRateLimitPolicy);
 
         return routes;
     }

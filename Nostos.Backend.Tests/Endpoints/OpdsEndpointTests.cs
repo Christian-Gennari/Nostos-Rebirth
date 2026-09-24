@@ -1,11 +1,21 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Xml.Linq;
 using FluentAssertions;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Nostos.Backend.Configuration;
 using Nostos.Backend.Data;
+using Nostos.Backend.Data.Interfaces;
 using Nostos.Backend.Data.Models;
+using Nostos.Backend.Endpoints;
+using Nostos.Backend.Services;
 using Nostos.Backend.Tests.Support;
 using Nostos.Shared.Dtos;
 using Xunit;
@@ -146,7 +156,7 @@ public sealed class OpdsEndpointTests : IClassFixture<LibraryEndpointFactory>
             ((string?)link.Attribute("type")).Should().Be(expectedMediaType, $"rel={rel}");
             ((string?)link.Attribute("href"))
                 .Should()
-                .Be($"http://localhost/api/books/{id}/cover", $"rel={rel}");
+                .Be($"http://localhost/opds/books/{id}/cover", $"rel={rel}");
         }
     }
 
@@ -257,7 +267,7 @@ public sealed class OpdsEndpointTests : IClassFixture<LibraryEndpointFactory>
             .Single(l => (string?)l.Attribute("rel") == AcquisitionRel)
             .Attribute("href");
 
-        href.Should().Be($"http://localhost/api/books/{id}/file");
+        href.Should().Be($"http://localhost/opds/books/{id}/file");
     }
 
     [Fact]
@@ -274,9 +284,100 @@ public sealed class OpdsEndpointTests : IClassFixture<LibraryEndpointFactory>
         info.LocalOnly.Should().BeTrue("the test host is addressed as localhost");
     }
 
+    [Fact]
+    public async Task Host_supplied_authorization_policy_is_scoped_to_the_opds_surface()
+    {
+        await using var app = MapForMetadata("HostedOpds");
+
+        var endpoints = ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .ToList();
+
+        foreach (var route in new[]
+        {
+            "/opds/",
+            "/opds/books/{id:guid}/file",
+            "/opds/books/{id:guid}/cover",
+        })
+        {
+            var endpoint = endpoints.Single(candidate => candidate.RoutePattern.RawText == route);
+            endpoint.Metadata
+                .GetOrderedMetadata<IAuthorizeData>()
+                .Should()
+                .Contain(data => data.Policy == "HostedOpds", route);
+        }
+
+        var info = endpoints.Single(candidate =>
+            candidate.RoutePattern.RawText == "/api/opds/info");
+        info.Metadata
+            .GetOrderedMetadata<IAuthorizeData>()
+            .Should()
+            .NotContain(data => data.Policy == "HostedOpds",
+                "Settings stays on the host's ordinary application authorization boundary");
+    }
+
+    [Fact]
+    public async Task Default_mapping_adds_no_opds_specific_authorization_metadata()
+    {
+        await using var app = MapForMetadata(authorizationPolicy: null);
+
+        var opdsEndpoints = ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Where(endpoint => endpoint.RoutePattern.RawText?.StartsWith("/opds", StringComparison.Ordinal) == true)
+            .ToList();
+
+        opdsEndpoints.Should().HaveCount(3);
+        opdsEndpoints.Should().OnlyContain(endpoint =>
+            endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>().Count == 0);
+    }
+
+    [Fact]
+    public async Task Opds_file_route_preserves_byte_range_delivery()
+    {
+        using var factory = new OpdsMediaFactory();
+        var bytes = Encoding.ASCII.GetBytes("0123456789");
+        var bookId = Guid.NewGuid();
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var storage = scope.ServiceProvider.GetRequiredService<IBookAssetStorage>();
+            await using var content = new MemoryStream(bytes, writable: false);
+            await storage.SaveBookFileAsync(bookId, content, "range.epub");
+        }
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/opds/books/{bookId}/file");
+        request.Headers.Range = new RangeHeaderValue(2, 5);
+
+        using var response = await factory.CreateClient().SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.PartialContent);
+        response.Headers.AcceptRanges.Should().Contain("bytes");
+        response.Content.Headers.ContentRange!.ToString().Should().Be("bytes 2-5/10");
+        (await response.Content.ReadAsByteArrayAsync()).Should().Equal(bytes[2..6]);
+    }
+
     // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
+
+    private static WebApplication MapForMetadata(string? authorizationPolicy)
+    {
+        var builder = WebApplication.CreateBuilder();
+        // Minimal API endpoint inference must know these handler parameters are
+        // services even though metadata tests never execute the handlers.
+        builder.Services.AddSingleton<IBookRepository>(_ => null!);
+        builder.Services.AddSingleton<IBookAssetStorage>(_ => null!);
+
+        var app = builder.Build();
+        app.MapOpdsEndpoints(
+            new OpdsOptions { Enabled = true },
+            authorizationPolicy: authorizationPolicy);
+        return app;
+    }
 
     private async Task<XDocument> GetFeedAsync(string path = "/opds/")
     {
@@ -371,6 +472,35 @@ public sealed class OpdsEndpointTests : IClassFixture<LibraryEndpointFactory>
 
 // A page size far below the number of books the tests seed, so pagination is
 // exercised without seeding hundreds of rows.
+public sealed class OpdsMediaFactory : LibraryEndpointFactory
+{
+    private readonly string _booksRoot =
+        Path.Combine(Path.GetTempPath(), $"nostos-opds-media-tests-{Guid.NewGuid():N}");
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        base.ConfigureWebHost(builder);
+        builder.UseSetting("Storage:BooksRoot", _booksRoot);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+        if (!disposing)
+            return;
+
+        try
+        {
+            if (Directory.Exists(_booksRoot))
+                Directory.Delete(_booksRoot, recursive: true);
+        }
+        catch (IOException)
+        {
+            // Best-effort cleanup only.
+        }
+    }
+}
+
 public sealed class OpdsPaginationFactory : LibraryEndpointFactory
 {
     public const int PageSize = 3;
