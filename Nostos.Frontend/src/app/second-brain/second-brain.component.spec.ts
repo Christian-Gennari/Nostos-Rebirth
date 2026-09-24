@@ -586,6 +586,31 @@ describe('SecondBrain', () => {
     expect(second.nativeElement.querySelector('.index-stats')).toBeNull();
   });
 
+  it('keeps the Brain hierarchy calm while search feedback remains accessible', () => {
+    fixture.detectChanges();
+
+    const header = fixture.nativeElement.querySelector('.brain-header') as HTMLElement;
+    expect(header.querySelector('.badge-count')).toBeNull();
+    expect(header.querySelector('.brain-header-purpose')?.textContent?.trim()).toBe(
+      'Revisit what you noticed. See what connects.'
+    );
+    expect(header.querySelector('.index-stats')?.textContent).toContain('3 concepts · 15 references');
+
+    const conceptHeader = () =>
+      Array.from(
+        fixture.nativeElement.querySelectorAll('.brain-section-header') as NodeListOf<HTMLElement>
+      ).find((section) => section.querySelector('.brain-section-title')?.textContent?.trim() === 'Concepts');
+    expect(conceptHeader()?.querySelector('.brain-section-count')).toBeNull();
+
+    component.searchQuery.set('bet');
+    fixture.detectChanges();
+
+    expect(header.querySelector('[role="status"]')?.textContent).toContain(
+      'Showing 1 of 3 concepts'
+    );
+    expect(conceptHeader()?.querySelector('.brain-section-count')).toBeNull();
+  });
+
   it('normalizes diacritics and ranks exact, prefix and substring matches', () => {
     component.concepts.set([
       { id: 'exact', name: 'Théâtre', usageCount: 1 },
@@ -630,14 +655,12 @@ describe('SecondBrain', () => {
   it('uses kit primitives for generic Brain chrome while preserving pressed view semantics', () => {
     fixture.detectChanges();
 
-    const count = fixture.nativeElement.querySelector('.brain-header .badge-count') as HTMLElement;
     const search = fixture.nativeElement.querySelector(
       'input[aria-label="Search concepts"]',
     ) as HTMLInputElement;
     const sortTrigger = fixture.nativeElement.querySelector('#brain-sort') as HTMLButtonElement;
     const sort = sortTrigger.closest('app-dropdown') as HTMLElement;
 
-    expect(count.classList.contains('nostos-badge')).toBe(true);
     expect(search.classList.contains('nostos-form-control--input')).toBe(true);
     expect(search.classList.contains('nostos-form-control--compact')).toBe(true);
     expect(sort.tagName).toBe('APP-DROPDOWN');

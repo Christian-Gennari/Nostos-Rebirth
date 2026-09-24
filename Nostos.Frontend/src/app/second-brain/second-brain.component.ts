@@ -35,7 +35,6 @@ import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 import { ViewToggleComponent, type ViewToggleOption } from '../ui/view-toggle/view-toggle.component';
 import { ButtonComponent } from '../ui/button/button.component';
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
-import { BadgeComponent } from '../ui/badge/badge.component';
 import { InputDirective } from '../ui/form-control/form-control.directive';
 import { DropdownComponent, type DropdownOption } from '../ui/dropdown/dropdown.component';
 import { AssistantContextService } from '../ui/assistant/assistant-context.service';
@@ -74,7 +73,6 @@ import {
     ViewToggleComponent,
     ButtonComponent,
     IconButtonComponent,
-    BadgeComponent,
     InputDirective,
     DropdownComponent,
     NoteCardComponent,
