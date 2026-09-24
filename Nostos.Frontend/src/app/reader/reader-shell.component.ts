@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, OnDestroy, signal, computed, effect, ViewChild, HostListener } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal, computed, effect, ViewChild, HostListener, ElementRef } from '@angular/core';
 import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -69,6 +69,7 @@ export class ReaderShell implements OnInit, OnDestroy {
   @ViewChild(PdfReader) pdfReader?: PdfReader;
   @ViewChild(AudioReader) audioReader?: IReader;
 
+  private host = inject<ElementRef<HTMLElement>>(ElementRef);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private booksService = inject(BooksService);
@@ -438,8 +439,23 @@ export class ReaderShell implements OnInit, OnDestroy {
   }
 
   toggleToc() {
-    this.tocOpen.update((v) => !v);
-    if (this.tocOpen()) this.notesOpen.set(false);
+    const opening = !this.tocOpen();
+    this.tocOpen.set(opening);
+    if (!opening) return;
+
+    this.notesOpen.set(false);
+    if (this.fileType() === 'epub') {
+      setTimeout(() => this.scrollActiveTocItemIntoView(), 0);
+    }
+  }
+
+  private scrollActiveTocItemIntoView(): void {
+    const active = this.host.nativeElement.querySelector<HTMLElement>(
+      '.toc-panel.open .toc-item.active',
+    );
+    if (active && typeof active.scrollIntoView === 'function') {
+      active.scrollIntoView({ block: 'center', inline: 'nearest' });
+    }
   }
 
   // --- NOTES LOGIC ---

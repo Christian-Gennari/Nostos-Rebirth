@@ -102,6 +102,7 @@ class EpubReaderStub {
   noteCreated = output<void>();
   selectionCaptured = output<unknown>();
   commitFailed = output<unknown>();
+  exitRequested = output<void>();
   // Typography surface the shell panel binds (mirrors EpubReader).
   typography = signal({ fontFamily: 'default', lineHeight: 1.6, margin: 'normal' });
   fontOptions = [

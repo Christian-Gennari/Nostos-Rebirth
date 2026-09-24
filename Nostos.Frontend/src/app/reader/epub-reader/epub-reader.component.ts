@@ -13,6 +13,7 @@ import {
   untracked,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ButtonComponent } from '../../ui/button/button.component';
 import ePub, { Book, Rendition, Contents } from 'epubjs';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
@@ -99,8 +100,8 @@ export const DEFAULT_TYPOGRAPHY: EpubTypography = {
 };
 
 const FONT_STACKS: Record<Exclude<EpubFontFamily, 'default'>, string> = {
-  serif: 'Newsreader, Georgia, serif',
-  sans: '"Hanken Grotesk", system-ui, sans-serif',
+  serif: 'Georgia, "Times New Roman", Times, serif',
+  sans: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   mono: 'ui-monospace, SFMono-Regular, monospace',
 };
 
@@ -152,6 +153,13 @@ const TYPOGRAPHY_APPLY_QUIET_MS = 180;
  * once so an existing choice is not lost.
  */
 const TYPOGRAPHY_STORAGE_KEY = 'nostos.epub-typography';
+
+/**
+ * Text size follows the same reader-wide persistence semantics as the controls
+ * beside it in View settings. Older builds stored size per book; the first
+ * valid legacy value encountered is adopted into this key.
+ */
+const FONT_SIZE_STORAGE_KEY = 'nostos.epub-font-size';
 
 /**
  * The injected typography rules for one contents document. Pure for
@@ -210,7 +218,7 @@ export function progressLabel(percent: number, chapter: string | null): string {
 @Component({
   selector: 'app-epub-reader',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ButtonComponent],
   templateUrl: './epub-reader.component.html',
   styleUrl: './epub-reader.component.css',
 })
@@ -229,6 +237,7 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
   highlightColour = input<HighlightColour>(DEFAULT_HIGHLIGHT_COLOUR);
   selectionCaptured = output<string>();
   commitFailed = output<void>();
+  exitRequested = output<void>();
 
   private notesService = inject(NotesService);
   private booksService = inject(BooksService);
@@ -279,10 +288,10 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
   );
   currentLocationTarget = computed(() => this.activeTocItem()?.target ?? null);
 
-  // Internal Zoom State (restored per book — see fontSizeStorageKey)
+  // Internal text-size state (reader-wide, with legacy per-book fallback).
   private currentFontSize = signal(100); // 100%
 
-  /** Reader typography (typeface, line height, margins), persisted per book. */
+  /** Reader typography (typeface, line height, margins), persisted reader-wide. */
   readonly typography = signal<EpubTypography>({ ...DEFAULT_TYPOGRAPHY });
   /** Outer margin for the current preset, as a percentage of the reader width. */
   readonly marginInset = computed(() => marginInsetPercent(this.typography().margin));
@@ -300,6 +309,7 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
   private resizeObserver: ResizeObserver | null = null;
 
   loading = signal(true);
+  errorMessage = signal<string | null>(null);
 
   constructor() {
     this.unregisterAssistantContext = this.assistantContext.register(
@@ -593,21 +603,37 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
 
   private persistFontSize(): void {
     try {
-      localStorage.setItem(this.fontSizeStorageKey(), String(this.currentFontSize()));
+      localStorage.setItem(FONT_SIZE_STORAGE_KEY, String(this.currentFontSize()));
     } catch {
       // Private-mode storage can throw — the size still applies for the session.
     }
   }
 
-  private fontSizeStorageKey(): string {
+  private legacyFontSizeStorageKey(): string {
     return `nostos.epub-font-size.${this.bookId()}`;
   }
 
   private restoreSavedFontSize(): void {
     try {
-      const raw = localStorage.getItem(this.fontSizeStorageKey());
-      const parsed = raw == null ? NaN : parseInt(raw, 10);
-      if (!isNaN(parsed)) this.currentFontSize.set(Math.min(200, Math.max(50, parsed)));
+      const read = (key: string): number | null => {
+        const raw = localStorage.getItem(key);
+        if (raw == null) return null;
+        const parsed = parseInt(raw, 10);
+        if (!Number.isFinite(parsed)) return null;
+        return Math.min(200, Math.max(50, parsed));
+      };
+
+      const stored = read(FONT_SIZE_STORAGE_KEY);
+      if (stored !== null) {
+        this.currentFontSize.set(stored);
+        return;
+      }
+
+      const legacy = read(this.legacyFontSizeStorageKey());
+      if (legacy === null) return;
+
+      this.currentFontSize.set(legacy);
+      localStorage.setItem(FONT_SIZE_STORAGE_KEY, String(legacy));
     } catch {
       // Storage unreadable — fall back to 100%.
     }
@@ -626,6 +652,8 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     }
     this.assistantLocation.set(null);
     this.assistantSelection.set(null);
+    this.progressUnlocked = false;
+    this.errorMessage.set(null);
 
     this.loading.set(true);
     this.locationsReady.set(false);
@@ -642,6 +670,16 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
     // FIX 2: Explicitly pass 'openAs: epub'
     const epubBook = ePub(url, { openAs: 'epub' });
     this.epubBook = epubBook;
+
+    // A failed open is announced ONLY through this event. epub.js swallows the
+    // rejection into `openFailed` and never settles `book.ready`/`opened`, and
+    // `rendition.display()` stays pending with it — so without this listener the
+    // catch handlers below never run and a corrupt/unavailable EPUB sits on
+    // "Opening book..." forever instead of reaching the failure state.
+    epubBook.on('openFailed', () => {
+      if (this.epubBook !== epubBook) return; // a newer attempt owns the reader
+      this.failOpen();
+    });
 
     // 2. Setup Rendition Immediately
     // Render into the padded page box: the margin preset is padding on
@@ -740,7 +778,7 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
       })
       .catch((err) => {
         console.error('Book metadata setup failed:', err);
-        this.loading.set(false);
+        this.failOpen();
       });
 
     // 5. Display Book (Starts the stream/rendering). The saved position comes
@@ -777,9 +815,11 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
       })
       .catch((err) => {
         console.error('Failed to render book:', err);
-        this.loading.set(false);
+        this.failOpen();
       })
-      .finally(() => this.unlockProgress());
+      .finally(() => {
+        if (!this.errorMessage()) this.unlockProgress();
+      });
   }
 
   // --- Helpers ---
@@ -866,12 +906,8 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
   }
 
   private injectCustomStyles(contents: any) {
-    const fontUrl =
-      'https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600&family=Newsreader:wght@400;500;600&display=swap';
-    const link = contents.document.createElement('link');
-    link.setAttribute('rel', 'stylesheet');
-    link.setAttribute('href', fontUrl);
-    contents.document.head.appendChild(link);
+    // EPUB content documents must not need a network request just to honour a
+    // reader setting. Serif/Sans use dependable local/system stacks.
     this.upsertTypographyStyle(contents.document);
   }
 
@@ -917,7 +953,22 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
   }
 
   resetTypography(): void {
+    this.currentFontSize.set(100);
+    this.requestFontSizeApply();
     this.setTypography({ ...DEFAULT_TYPOGRAPHY });
+  }
+
+  retryLoad(): void {
+    this.loadBook(this.bookId());
+  }
+
+  leaveReader(): void {
+    this.exitRequested.emit();
+  }
+
+  private failOpen(): void {
+    this.errorMessage.set('The file may be damaged, unsupported, or temporarily unavailable.');
+    this.loading.set(false);
   }
 
   /**

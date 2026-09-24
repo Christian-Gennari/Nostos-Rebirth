@@ -17,3 +17,17 @@
 <div class="loading-overlay" [class.is-hidden]="!loading()" [attr.aria-hidden]="!loading()">
   <span>Opening book...</span>
 </div>
+
+
+@if (errorMessage()) {
+<div class="error-overlay" role="alert" aria-live="assertive">
+  <div class="error-state">
+    <h2>Could not open this EPUB</h2>
+    <p>{{ errorMessage() }}</p>
+    <div class="error-actions">
+      <button appButton type="button" variant="secondary" (click)="leaveReader()">Back</button>
+      <button appButton type="button" variant="primary" (click)="retryLoad()">Retry</button>
+    </div>
+  </div>
+</div>
+}

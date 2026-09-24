@@ -97,7 +97,7 @@
         (commitFailed)="handleCommitFailed()"
       />
       } @case ('epub') {
-      <app-epub-reader #epubReader [bookId]="book()!.id" [book]="book()" [highlightMode]="highlightMode()" [highlightColour]="highlightColour()" (noteCreated)="handleNoteCreated()" (selectionCaptured)="handleSelectionCaptured($event)" (commitFailed)="handleCommitFailed()" />
+      <app-epub-reader #epubReader [bookId]="book()!.id" [book]="book()" [highlightMode]="highlightMode()" [highlightColour]="highlightColour()" (noteCreated)="handleNoteCreated()" (selectionCaptured)="handleSelectionCaptured($event)" (commitFailed)="handleCommitFailed()" (exitRequested)="goBack()" />
       } @case ('audio') {
       <app-audio-reader [bookId]="book()!.id" [book]="book()" />
       } @default {

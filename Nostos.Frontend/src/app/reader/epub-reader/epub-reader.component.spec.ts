@@ -26,6 +26,7 @@ describe('EpubReader highlight-mode lifecycle (issue #16)', () => {
   let fixture: ComponentFixture<EpubReader>;
   let log: string[];
   let lastRendition: any;
+  let lastEmit: (type: string) => void;
 
   const notesService = {
     list: vi.fn(() => of([])),
@@ -57,9 +58,17 @@ describe('EpubReader highlight-mode lifecycle (issue #16)', () => {
       prev: vi.fn(),
       currentLocation: vi.fn(() => ({ start: { cfi: 'epubcfi(/6)' } })),
     };
+    const listeners: Record<string, Array<(...args: unknown[]) => void>> = {};
     const book = {
       renderTo: vi.fn(() => rendition),
       ready: Promise.resolve({ navigation: { toc: [] } }),
+      on: vi.fn((type: string, cb: (...args: unknown[]) => void) => {
+        if (!listeners[type]) listeners[type] = [];
+        listeners[type].push(cb);
+        return book;
+      }),
+      off: vi.fn(),
+      emit: (type: string) => (listeners[type] ?? []).forEach((cb) => cb()),
       locations: {
         load: vi.fn(),
         generate: vi.fn(() => Promise.resolve()),
@@ -71,7 +80,7 @@ describe('EpubReader highlight-mode lifecycle (issue #16)', () => {
       navigation: { toc: [] },
       destroy: vi.fn(() => log.push('book-destroy')),
     };
-    return { book, rendition };
+    return { book, rendition, emit: book.emit };
   };
 
   beforeEach(async () => {
@@ -79,6 +88,7 @@ describe('EpubReader highlight-mode lifecycle (issue #16)', () => {
     vi.mocked(ePub).mockImplementation(() => {
       const fake = createFakeBook();
       lastRendition = fake.rendition;
+      lastEmit = fake.emit;
       return fake.book as never;
     });
     vi.stubGlobal(
@@ -176,6 +186,33 @@ describe('EpubReader highlight-mode lifecycle (issue #16)', () => {
     expect(destroySpy).toHaveBeenCalledTimes(1);
     expect(log.indexOf('manager-destroy')).toBeGreaterThanOrEqual(0);
     expect(log.indexOf('manager-destroy')).toBeLessThan(log.indexOf('book-destroy'));
+  });
+
+  it('surfaces the EPUB failure state when the book reports a failed open', async () => {
+    await setupComponent();
+    const updatesBefore = booksService.updateProgress.mock.calls.length;
+
+    // epub.js announces a failed open ONLY through this event: `book.ready` and
+    // `opened` never settle and `rendition.display()` stays pending.
+    lastEmit('openFailed');
+    fixture.detectChanges();
+
+    const overlay = fixture.nativeElement.querySelector('.error-overlay') as HTMLElement | null;
+    expect(overlay).not.toBeNull();
+    expect(overlay!.textContent).toContain('Could not open this EPUB');
+    expect([...overlay!.querySelectorAll('button')].map((b) => b.textContent?.trim())).toEqual([
+      'Back',
+      'Retry',
+    ]);
+    // A failed open must not report progress: the write barrier stays closed.
+    expect(booksService.updateProgress.mock.calls.length).toBe(updatesBefore);
+
+    // Retry attempts the load again (re-locking progress writes first).
+    const ePubCallsBefore = vi.mocked(ePub).mock.calls.length;
+    (overlay!.querySelectorAll('button')[1] as HTMLButtonElement).click();
+    fixture.detectChanges();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(vi.mocked(ePub).mock.calls.length).toBe(ePubCallsBefore + 1);
   });
 });
 
@@ -282,6 +319,8 @@ describe('EpubReader theme-following normalization', () => {
         return rendition;
       }),
       ready: Promise.resolve({ navigation: { toc: [] } }),
+      on: vi.fn(),
+      off: vi.fn(),
       locations: {
         load: vi.fn(),
         generate: vi.fn(() => Promise.resolve()),
@@ -389,23 +428,27 @@ describe('EpubReader theme-following normalization', () => {
     expect(contents.document.body.classList.contains('nostos-dark')).toBe(true);
   });
 
-  it('font size persists per book and is reapplied on open', async () => {
+  it('font size persists reader-wide and adopts the old per-book value', async () => {
     await setupComponent();
 
     const component = fixture.componentInstance;
     component.zoomIn();
     component.zoomIn();
-    expect(localStorage.getItem('nostos.epub-font-size.book-1')).toBe('120');
+    expect(localStorage.getItem('nostos.epub-font-size')).toBe('120');
+    expect(localStorage.getItem('nostos.epub-font-size.book-1')).toBeNull();
 
-    // Reopen: the remembered size is applied to the fresh rendition.
+    // A legacy per-book value is adopted when no reader-wide size exists.
+    localStorage.removeItem('nostos.epub-font-size');
+    localStorage.setItem('nostos.epub-font-size.book-2', '130');
     fixture.destroy();
     fixture = TestBed.createComponent(EpubReader);
-    fixture.componentRef.setInput('bookId', 'book-1');
+    fixture.componentRef.setInput('bookId', 'book-2');
     fixture.detectChanges();
     await new Promise((resolve) => setTimeout(resolve, 0));
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(renditions[1].themes.fontSize).toHaveBeenCalledWith('120%');
+    expect(localStorage.getItem('nostos.epub-font-size')).toBe('130');
+    expect(renditions[1].themes.fontSize).toHaveBeenCalledWith('130%');
   });
 
   it('coalesces a burst of text-size steps into two re-paginations', async () => {
@@ -600,7 +643,7 @@ describe('typographyCss', () => {
 
   it('overrides the typeface per choice', () => {
     const css = typographyCss({ fontFamily: 'serif', lineHeight: 2.0, margin: 'wide' });
-    expect(css).toContain('font-family:Newsreader, Georgia, serif !important');
+    expect(css).toContain('font-family:Georgia, "Times New Roman", Times, serif !important');
     expect(css).toContain('line-height:2 !important');
     expect(css).not.toContain('padding');
   });
@@ -651,6 +694,8 @@ describe('EpubReader typography persistence', () => {
             resize: vi.fn(),
           }),
           ready: Promise.resolve({ navigation: { toc: [] } }),
+          on: vi.fn(),
+          off: vi.fn(),
           locations: {
             load: vi.fn(),
             generate: vi.fn(() => Promise.resolve()),
@@ -753,12 +798,15 @@ describe('EpubReader typography persistence', () => {
   it('reset restores publisher defaults', () => {
     const component = fixture.componentInstance;
     component.setTypography({ fontFamily: 'mono', margin: 'wide' });
+    component.zoomIn();
     component.resetTypography();
     expect(component.typography()).toEqual({
       fontFamily: 'default',
       lineHeight: 1.6,
       margin: 'normal',
     });
+    expect(component.fontSizePercent()).toBe(100);
+    expect(localStorage.getItem('nostos.epub-font-size')).toBe('100');
   });
 
   it('writes the rules into newly rendered sections', () => {
@@ -768,7 +816,7 @@ describe('EpubReader typography persistence', () => {
     const doc = makeDocument();
     (component as unknown as { upsertTypographyStyle: (d: Document) => void }).upsertTypographyStyle(doc);
     const style = doc.getElementById('nostos-typography');
-    expect(style?.textContent).toContain('font-family:Newsreader, Georgia, serif !important');
+    expect(style?.textContent).toContain('font-family:Georgia, "Times New Roman", Times, serif !important');
     expect(style?.textContent).not.toContain('padding');
   });
 
