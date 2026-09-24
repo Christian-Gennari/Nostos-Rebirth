@@ -93,7 +93,40 @@ public sealed record AssistantTurnResponse(
     // immediate Act calls during this turn. This is execution truth from the
     // registry, not model narration, so clients can react to a successful
     // mutation without parsing prose.
-    IReadOnlyList<string>? ExecutedCapabilities = null);
+    IReadOnlyList<string>? ExecutedCapabilities = null,
+    // APPENDED: source references produced by successful server-side book-text
+    // retrieval. These are never model-authored citations; every locator comes
+    // from the indexed exact source revision.
+    IReadOnlyList<AssistantSourceReferenceDto>? Sources = null);
+
+/// <summary>
+/// One grounded imported-book passage surfaced by Ask Nostos. The excerpt is
+/// bounded by the retrieval service; locators point into the exact source
+/// revision identified by <paramref name="SourceSha256"/>.
+/// </summary>
+public sealed record AssistantSourceReferenceDto(
+    Guid BookId,
+    string BookTitle,
+    string? BookAuthor,
+    string Format,
+    string SourceSha256,
+    string Excerpt,
+    IReadOnlyList<AssistantSourceLocatorDto> Locators);
+
+/// <summary>
+/// Transport-only representation of a typed source locator. PDF physical page
+/// index is zero-based. EPUB resource/spine/offset is the stable fallback when
+/// an epub.js CFI is unavailable.
+/// </summary>
+public sealed record AssistantSourceLocatorDto(
+    string Type,
+    int? PdfPageIndex = null,
+    string? PdfPageLabel = null,
+    int? EpubSpineIndex = null,
+    string? EpubResourceHref = null,
+    string? EpubCfi = null,
+    int? StartTextOffset = null,
+    int? EndTextOffset = null);
 
 /// <summary>
 /// The deterministic follow-up a capture needs before it can be saved. Its
