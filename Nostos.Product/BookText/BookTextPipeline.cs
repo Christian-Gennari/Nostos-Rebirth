@@ -717,7 +717,8 @@ public static class BookTextChunker
             foreach (var piece in pieces)
             {
                 if (currentText.Length > 0
-                    && currentText.Length + 2 + piece.Text.Length > targetChars)
+                    && (!currentHeadings.SequenceEqual(block.HeadingPath)
+                        || currentText.Length + 2 + piece.Text.Length > targetChars))
                 {
                     Flush();
                 }
@@ -729,15 +730,23 @@ public static class BookTextChunker
                 currentText.Append(piece.Text);
                 currentHeadings = block.HeadingPath;
 
+                var pieceStart = piece.SourceStart;
+                var pieceEnd = piece.SourceStart + piece.SourceLength;
                 foreach (var segment in block.SourceSegments)
                 {
-                    currentSegments.Add(segment with
-                    {
-                        TextStart = baseOffset + Math.Max(0, segment.TextStart - piece.SourceStart),
-                        TextLength = Math.Min(
-                            segment.TextLength,
-                            Math.Max(0, piece.Text.Length - Math.Max(0, segment.TextStart - piece.SourceStart))),
-                    });
+                    var segmentStart = segment.TextStart;
+                    var segmentEnd = segment.TextStart + segment.TextLength;
+                    var overlapStart = Math.Max(pieceStart, segmentStart);
+                    var overlapEnd = Math.Min(pieceEnd, segmentEnd);
+                    if (overlapStart >= overlapEnd)
+                        continue;
+
+                    var overlapLength = overlapEnd - overlapStart;
+                    var sourceDelta = overlapStart - segmentStart;
+                    currentSegments.Add(new BookTextSourceSegment(
+                        TextStart: baseOffset + overlapStart - pieceStart,
+                        TextLength: overlapLength,
+                        Locator: SliceLocator(segment.Locator, sourceDelta, overlapLength)));
                 }
 
                 if (currentText.Length >= maxChars)
@@ -749,15 +758,15 @@ public static class BookTextChunker
         return chunks;
     }
 
-    private static IReadOnlyList<(string Text, int SourceStart)> SplitLongBlock(
+    private static IReadOnlyList<(string Text, int SourceStart, int SourceLength)> SplitLongBlock(
         string text,
         int maxChars,
         int overlapChars)
     {
         if (text.Length <= maxChars)
-            return [(text, 0)];
+            return [(text, 0, text.Length)];
 
-        var result = new List<(string, int)>();
+        var result = new List<(string Text, int SourceStart, int SourceLength)>();
         var start = 0;
         while (start < text.Length)
         {
@@ -771,9 +780,18 @@ public static class BookTextChunker
                     take = lastBreak;
             }
 
-            var piece = text.Substring(start, take).Trim();
-            if (piece.Length > 0)
-                result.Add((piece, start));
+            var raw = text.Substring(start, take);
+            var leading = 0;
+            while (leading < raw.Length && char.IsWhiteSpace(raw[leading])) leading++;
+            var trailing = raw.Length;
+            while (trailing > leading && char.IsWhiteSpace(raw[trailing - 1])) trailing--;
+
+            if (trailing > leading)
+            {
+                var pieceStart = start + leading;
+                var pieceLength = trailing - leading;
+                result.Add((raw.Substring(leading, pieceLength), pieceStart, pieceLength));
+            }
 
             if (start + take >= text.Length)
                 break;
@@ -783,6 +801,29 @@ public static class BookTextChunker
 
         return result;
     }
+
+    private static BookTextSourceLocator SliceLocator(
+        BookTextSourceLocator locator,
+        int sourceDelta,
+        int length) =>
+        locator switch
+        {
+            PdfBookTextSourceLocator pdf => pdf with
+            {
+                StartTextOffset = pdf.StartTextOffset is { } start ? start + sourceDelta : null,
+                EndTextOffset = pdf.StartTextOffset is { } pdfStart
+                    ? pdfStart + sourceDelta + length
+                    : pdf.EndTextOffset,
+            },
+            EpubBookTextSourceLocator epub => epub with
+            {
+                StartTextOffset = epub.StartTextOffset is { } start ? start + sourceDelta : null,
+                EndTextOffset = epub.StartTextOffset is { } epubStart
+                    ? epubStart + sourceDelta + length
+                    : epub.EndTextOffset,
+            },
+            _ => locator,
+        };
 }
 
 public static class BookTextIdentity
