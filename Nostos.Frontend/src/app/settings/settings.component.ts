@@ -13,7 +13,7 @@ import {
   BackupHistoryItem,
   BackupProgress,
 } from '../core/dtos/backup.dtos';
-import { OpdsInfo } from '../core/dtos/opds.dtos';
+import { ManagedOpdsAccess, OpdsInfo } from '../core/dtos/opds.dtos';
 import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 import { ButtonComponent } from '../ui/button/button.component';
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
@@ -205,6 +205,14 @@ export class SettingsComponent implements OnInit, OnDestroy {
   readonly supportsPrivateNetworkAccess = computed(
     () => this.deploymentCapabilities()?.supportsPrivateNetworkAccess === true,
   );
+  readonly supportsEreaderAccess = computed(
+    () => this.deploymentCapabilities()?.supportsEreaderAccess === true,
+  );
+  readonly managedEreaderAccess = computed(
+    () =>
+      this.supportsEreaderAccess() &&
+      this.deploymentCapabilities()?.deploymentMode === 'Cloud',
+  );
   readonly canConfigureAiProvider = computed(
     () => this.deploymentCapabilities()?.canConfigureAiProvider === true,
   );
@@ -215,7 +223,9 @@ export class SettingsComponent implements OnInit, OnDestroy {
     () => this.deploymentCapabilities()?.managedVoiceTranscription === true,
   );
   readonly hasLibrarySettings = computed(
-    () => this.supportsLocalBackupConfiguration() || this.supportsPrivateNetworkAccess(),
+    () =>
+      this.supportsLocalBackupConfiguration() ||
+      this.supportsEreaderAccess(),
   );
 
   /** The AI provider card's copy, exposed so the template reads one source. */
@@ -301,6 +311,12 @@ export class SettingsComponent implements OnInit, OnDestroy {
   /** True when the info request failed, so the card never presents a guess as fact. */
   opdsFailed = signal(false);
 
+  /** Hosted credential state. Plaintext password, when present, is one-time response material only. */
+  managedOpds = signal<ManagedOpdsAccess | null>(null);
+  managedOpdsFailed = signal(false);
+  managedOpdsBusy = signal<'enable' | 'rotate' | 'revoke' | null>(null);
+  pendingOpdsRevoke = signal(false);
+
   copied = signal(false);
   private copiedTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -377,11 +393,10 @@ export class SettingsComponent implements OnInit, OnDestroy {
         this.deploymentCapabilities.set(capabilities);
         this.capabilitiesFailed.set(false);
 
-        // Cloud has no local/private-network Library settings today, so land on
-        // the first meaningful product section instead of an empty tab.
+        // Keep Library & data when any library-facing capability exists.
         if (
           !capabilities.supportsLocalBackupConfiguration &&
-          !capabilities.supportsPrivateNetworkAccess
+          !capabilities.supportsEreaderAccess
         ) {
           this.activeSettingsSection.set('assistant');
         }
@@ -390,7 +405,10 @@ export class SettingsComponent implements OnInit, OnDestroy {
         // deployment exposes them. This also prevents forbidden controls from
         // flashing while the capability request is in flight.
         if (capabilities.supportsLocalBackupConfiguration) this.loadData();
-        if (capabilities.supportsPrivateNetworkAccess) this.loadOpdsInfo();
+        if (capabilities.supportsEreaderAccess) {
+          this.loadOpdsInfo();
+          if (capabilities.deploymentMode === 'Cloud') this.loadManagedOpdsAccess();
+        }
         if (capabilities.canConfigureAiProvider) this.loadAiProvider();
 
         this.assistantStatus.refresh();
@@ -420,6 +438,81 @@ export class SettingsComponent implements OnInit, OnDestroy {
       error: () => {
         this.opds.set(null);
         this.opdsFailed.set(true);
+      },
+    });
+  }
+
+  loadManagedOpdsAccess(): void {
+    this.opdsService.getManagedAccess().subscribe({
+      next: (access) => {
+        this.managedOpds.set(access);
+        this.managedOpdsFailed.set(false);
+      },
+      error: () => {
+        this.managedOpds.set(null);
+        this.managedOpdsFailed.set(true);
+      },
+    });
+  }
+
+  enableManagedOpds(): void {
+    if (this.managedOpdsBusy() !== null) return;
+    this.managedOpdsBusy.set('enable');
+    this.opdsService.enableManagedAccess().subscribe({
+      next: (access) => {
+        this.managedOpdsBusy.set(null);
+        this.managedOpds.set(access);
+        this.managedOpdsFailed.set(false);
+        this.toast.success('E-reader access enabled. Save the generated password now.');
+      },
+      error: () => {
+        this.managedOpdsBusy.set(null);
+        this.toast.error('Could not enable e-reader access.');
+      },
+    });
+  }
+
+  rotateManagedOpdsPassword(): void {
+    if (this.managedOpdsBusy() !== null) return;
+    this.managedOpdsBusy.set('rotate');
+    this.opdsService.rotateManagedPassword().subscribe({
+      next: (access) => {
+        this.managedOpdsBusy.set(null);
+        this.managedOpds.set(access);
+        this.managedOpdsFailed.set(false);
+        this.toast.success('E-reader password regenerated. The previous password no longer works.');
+      },
+      error: () => {
+        this.managedOpdsBusy.set(null);
+        this.toast.error('Could not regenerate the e-reader password.');
+      },
+    });
+  }
+
+  requestManagedOpdsRevoke(): void {
+    if (this.managedOpdsBusy() !== null) return;
+    this.pendingOpdsRevoke.set(true);
+  }
+
+  cancelManagedOpdsRevoke(): void {
+    if (this.managedOpdsBusy() === 'revoke') return;
+    this.pendingOpdsRevoke.set(false);
+  }
+
+  confirmManagedOpdsRevoke(): void {
+    if (!this.pendingOpdsRevoke() || this.managedOpdsBusy() !== null) return;
+    this.managedOpdsBusy.set('revoke');
+    this.opdsService.revokeManagedAccess().subscribe({
+      next: (access) => {
+        this.managedOpdsBusy.set(null);
+        this.pendingOpdsRevoke.set(false);
+        this.managedOpds.set(access);
+        this.managedOpdsFailed.set(false);
+        this.toast.success('E-reader access disabled.');
+      },
+      error: () => {
+        this.managedOpdsBusy.set(null);
+        this.toast.error('Could not disable e-reader access.');
       },
     });
   }
@@ -671,6 +764,40 @@ export class SettingsComponent implements OnInit, OnDestroy {
       () => {
         this.toast.error('Could not copy automatically — select the address and copy it.');
       },
+    );
+  }
+
+  copyManagedOpdsConnectionDetails(): void {
+    const info = this.opds();
+    const access = this.managedOpds();
+    if (
+      !info?.catalogUrl ||
+      !access?.enabled ||
+      !access.username ||
+      !access.password ||
+      !navigator.clipboard
+    ) {
+      this.toast.error('Connection details are not available to copy.');
+      return;
+    }
+
+    const details = [
+      `Catalog: ${info.catalogUrl}`,
+      `Username: ${access.username}`,
+      `Password: ${access.password}`,
+    ].join('\n');
+
+    navigator.clipboard.writeText(details).then(
+      () => {
+        this.copied.set(true);
+        this.toast.success('E-reader connection details copied.');
+        if (this.copiedTimeout !== null) clearTimeout(this.copiedTimeout);
+        this.copiedTimeout = setTimeout(() => {
+          this.copied.set(false);
+          this.copiedTimeout = null;
+        }, COPIED_FEEDBACK_MS);
+      },
+      () => this.toast.error('Could not copy the connection details automatically.'),
     );
   }
 
