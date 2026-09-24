@@ -61,6 +61,54 @@ public sealed class FileBookTextArtifactStorage(
         return Task.CompletedTask;
     }
 
+    public Task PruneBookArtifactsAsync(
+        Guid bookId,
+        BookTextSourceRevision keep,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var derived = Path.Combine(_root, bookId.ToString(), "derived");
+        if (!Directory.Exists(derived))
+            return Task.CompletedTask;
+
+        var keepDirectory = Path.GetFullPath(Path.Combine(
+            derived,
+            keep.SourceSha256,
+            Safe(keep.ExtractorVersion)));
+
+        foreach (var file in Directory.EnumerateFiles(
+            derived,
+            "*",
+            SearchOption.AllDirectories))
+        {
+            ct.ThrowIfCancellationRequested();
+            var full = Path.GetFullPath(file);
+            if (!full.StartsWith(
+                    keepDirectory + Path.DirectorySeparatorChar,
+                    StringComparison.Ordinal)
+                && !string.Equals(full, keepDirectory, StringComparison.Ordinal))
+            {
+                File.Delete(full);
+            }
+        }
+
+        foreach (var directory in Directory.EnumerateDirectories(
+            derived,
+            "*",
+            SearchOption.AllDirectories)
+            .OrderByDescending(path => path.Length))
+        {
+            ct.ThrowIfCancellationRequested();
+            if (Directory.Exists(directory)
+                && !Directory.EnumerateFileSystemEntries(directory).Any())
+            {
+                Directory.Delete(directory);
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
     private static string Safe(string value) =>
         string.Concat(value.Select(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_' or '.' ? ch : '_'));
 }
@@ -227,10 +275,11 @@ public sealed class SqliteBookTextIndex(
         }
     }
 
-    public async Task ReplaceReadyAsync(
+    public async Task<bool> ReplaceReadyAsync(
         BookTextSourceRevision revision,
         IReadOnlyList<BookTextIndexedChunk> chunks,
         long characterCount,
+        int expectedAttempt,
         CancellationToken ct = default)
     {
         await using var db = await contexts.CreateDbContextAsync(ct);
@@ -238,6 +287,33 @@ public sealed class SqliteBookTextIndex(
         try
         {
             await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+            // Claim ownership of completion before writing chunks. A delete,
+            // replacement, or stale-work retry changes/removes this row and
+            // therefore makes the old worker a no-op.
+            var claimed = await ExecuteAsync(db, """
+                UPDATE BookTextIngestionStates
+                SET Status='Ready', SourceSha256=@hash, ExtractorVersion=@version,
+                    ErrorCode=NULL, ErrorMessage=NULL, ChunkCount=@chunks,
+                    CharacterCount=@characters, UpdatedAtUtc=@updated
+                WHERE BookId=@bookId
+                  AND Status='Processing'
+                  AND Attempts=@attempt;
+                """, ct,
+                ("@hash", revision.SourceSha256),
+                ("@version", revision.ExtractorVersion),
+                ("@chunks", chunks.Count),
+                ("@characters", characterCount),
+                ("@updated", DateTime.UtcNow.ToString("O")),
+                ("@bookId", revision.BookId.ToString("D")),
+                ("@attempt", expectedAttempt));
+
+            if (claimed != 1)
+            {
+                await tx.RollbackAsync(ct);
+                return false;
+            }
+
             await DeleteChunksAsync(db, revision.BookId, ct);
 
             foreach (var chunk in chunks.OrderBy(chunk => chunk.Ordinal))
@@ -273,21 +349,8 @@ public sealed class SqliteBookTextIndex(
                     ("@heading", string.Join(" / ", chunk.HeadingPath)));
             }
 
-            await ExecuteAsync(db, """
-                UPDATE BookTextIngestionStates
-                SET Status='Ready', SourceSha256=@hash, ExtractorVersion=@version,
-                    ErrorCode=NULL, ErrorMessage=NULL, ChunkCount=@chunks,
-                    CharacterCount=@characters, UpdatedAtUtc=@updated
-                WHERE BookId=@bookId;
-                """, ct,
-                ("@hash", revision.SourceSha256),
-                ("@version", revision.ExtractorVersion),
-                ("@chunks", chunks.Count),
-                ("@characters", characterCount),
-                ("@updated", DateTime.UtcNow.ToString("O")),
-                ("@bookId", revision.BookId.ToString("D")));
-
             await tx.CommitAsync(ct);
+            return true;
         }
         finally
         {
@@ -295,28 +358,35 @@ public sealed class SqliteBookTextIndex(
         }
     }
 
-    public async Task MarkFailedAsync(
+    public async Task<bool> MarkFailedAsync(
         Guid bookId,
         string errorCode,
         string errorMessage,
         bool unsupported,
+        int expectedAttempt,
         CancellationToken ct = default)
     {
         await using var db = await contexts.CreateDbContextAsync(ct);
         await db.Database.OpenConnectionAsync(ct);
         try
         {
-            await ExecuteAsync(db, """
+            var changed = await ExecuteAsync(db, """
                 UPDATE BookTextIngestionStates
-                SET Status=@status, ExtractorVersion=@version, ErrorCode=@code, ErrorMessage=@message, UpdatedAtUtc=@updated
-                WHERE BookId=@bookId;
+                SET Status=@status, ExtractorVersion=@version,
+                    ErrorCode=@code, ErrorMessage=@message, UpdatedAtUtc=@updated
+                WHERE BookId=@bookId
+                  AND Status='Processing'
+                  AND Attempts=@attempt;
                 """, ct,
                 ("@status", unsupported ? "Unsupported" : "Failed"),
                 ("@version", BookTextArtifactSchema.CurrentExtractorVersion),
                 ("@code", Limit(errorCode, 100)),
                 ("@message", Limit(errorMessage, 500)),
                 ("@updated", DateTime.UtcNow.ToString("O")),
-                ("@bookId", bookId.ToString("D")));
+                ("@bookId", bookId.ToString("D")),
+                ("@attempt", expectedAttempt));
+
+            return changed == 1;
         }
         finally
         {
