@@ -15,6 +15,7 @@ using Nostos.Backend.Services.Notes;
 using Nostos.Backend.Tests.Services.Ai;
 using Nostos.Backend.Tests.Support;
 using Nostos.Shared.Dtos;
+using Nostos.Product.BookText;
 using Xunit;
 
 namespace Nostos.Backend.Tests.Assistant;
@@ -1426,11 +1427,101 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         response.PendingPlan.Should().BeNull();
     }
 
+
+    [Fact]
+    public async Task Book_text_search_sources_are_server_grounded_and_preserve_pdf_locator()
+    {
+        var bookId = Guid.NewGuid();
+        var search = new FakeBookTextSearchService(new BookTextSearchResponse(
+            [
+                new BookTextSearchPassage(
+                    bookId,
+                    "Grounded Book",
+                    "Author",
+                    new string('a', 64),
+                    BookTextArtifactSchema.CurrentExtractorVersion,
+                    BookTextSourceFormat.Pdf,
+                    3,
+                    "The retrieved passage is the evidence.",
+                    ["Chapter One"],
+                    [
+                        new BookTextSourceSegment(
+                            0,
+                            38,
+                            new PdfBookTextSourceLocator(8, "7", 100, 138)),
+                    ]),
+            ],
+            [],
+            true));
+
+        var h = CreateHarness(bookText: search);
+        h.Llm
+            .CallsTool("book_text_search", $"""{"query":"retrieved passage","bookIds":["{{bookId}}"]}""")
+            .Returns("The retrieved passage supports that.");
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "What does the imported book say about the retrieved passage?",
+            Context(
+                surface: "reader",
+                route: $"/reader/{bookId}",
+                bookId: bookId.ToString(),
+                bookTitle: "Grounded Book",
+                bookFormat: "ebook",
+                readerType: "pdf",
+                pdfPage: 9)));
+
+        search.LastRequest.Should().NotBeNull();
+        search.LastRequest!.BookIds.Should().ContainSingle().Which.Should().Be(bookId);
+        response.Sources.Should().ContainSingle();
+        var source = response.Sources!.Single();
+        source.BookId.Should().Be(bookId);
+        source.SourceSha256.Should().Be(new string('a', 64));
+        source.Excerpt.Should().Contain("retrieved passage");
+        source.Locators.Should().ContainSingle();
+        source.Locators[0].Type.Should().Be("pdf");
+        source.Locators[0].PdfPageIndex.Should().Be(8);
+        source.Locators[0].PdfPageLabel.Should().Be("7");
+    }
+
+    [Fact]
+    public async Task Book_text_search_with_no_evidence_never_fabricates_source_references()
+    {
+        var search = new FakeBookTextSearchService(new BookTextSearchResponse(
+            [],
+            [
+                new BookTextIngestionState(
+                    Guid.NewGuid(),
+                    BookTextIngestionStatus.Pending,
+                    "book.epub",
+                    BookTextSourceFormat.Epub,
+                    null,
+                    BookTextArtifactSchema.CurrentExtractorVersion,
+                    null,
+                    null,
+                    0,
+                    0,
+                    0,
+                    DateTime.UtcNow),
+            ],
+            false));
+
+        var h = CreateHarness(bookText: search);
+        h.Llm
+            .CallsTool("book_text_search", """{"query":"something specific"}""")
+            .Returns("The imported text is not indexed yet, so I do not have source evidence for that.");
+
+        var response = await h.Orchestrator.HandleTurnAsync(
+            Turn("What does the book say?", Context(surface: "library", route: "/library")));
+
+        response.Sources.Should().BeEmpty();
+        response.Reply.Should().Contain("not indexed");
+    }
+
     // ------------------------------------------------------------------
     // Harness
     // ------------------------------------------------------------------
 
-    private Harness CreateHarness(int maxToolIterations = 6, Action<AssistantOptions>? configure = null)
+    private Harness CreateHarness(int maxToolIterations = 6, Action<AssistantOptions>? configure = null, IBookTextSearchService? bookText = null)
     {
         var path = _fixture.CreateDatabasePath();
         var options = new DbContextOptionsBuilder<NostosDbContext>()
@@ -1460,7 +1551,7 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
             new BookLookupService(new NoopHttpClientFactory(), new SilentLogger<BookLookupService>()));
 
         var registry = new AssistantCapabilityRegistry(
-            AssistantCapabilities.Build(noteService, libraryService, concepts));
+            AssistantCapabilities.Build(noteService, libraryService, concepts, bookText));
 
         var llm = new FakeLlmProvider();
         var assistantOptions = new AssistantOptions
@@ -1667,4 +1758,19 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
         {
         }
     }
+
+    private sealed class FakeBookTextSearchService(BookTextSearchResponse response)
+        : IBookTextSearchService
+    {
+        public BookTextSearchRequest? LastRequest { get; private set; }
+
+        public Task<BookTextSearchResponse> SearchAsync(
+            BookTextSearchRequest request,
+            CancellationToken ct = default)
+        {
+            LastRequest = request;
+            return Task.FromResult(response);
+        }
+    }
+
 }
