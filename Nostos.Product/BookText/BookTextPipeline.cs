@@ -175,6 +175,70 @@ public interface IBookTextSearchService
     Task<BookTextSearchResponse> SearchAsync(BookTextSearchRequest request, CancellationToken ct = default);
 }
 
+public sealed class BookTextBackfillService(
+    ILibraryService library,
+    IBookTextIndex index,
+    IBookTextIngestionScheduler scheduler,
+    ILogger<BookTextBackfillService> logger)
+{
+    public async Task<int> ScheduleMissingAsync(CancellationToken ct = default)
+    {
+        const int pageSize = 100;
+        var page = 1;
+        var scheduled = 0;
+
+        while (true)
+        {
+            var result = await library.ListBooksAsync(
+                BookFilter.All,
+                BookSort.Title,
+                search: null,
+                page,
+                pageSize,
+                collectionId: null,
+                groupByWork: false,
+                format: null,
+                ct);
+
+            if (result.Data is not PaginatedResponse<BookDto> batch)
+                break;
+
+            var items = batch.Items.ToList();
+            foreach (var book in items)
+            {
+                if (!book.HasFile || string.IsNullOrWhiteSpace(book.FileName)
+                    || !BookTextFormatResolver.TryResolve(book.FileName, out _))
+                    continue;
+
+                var state = await index.GetStateAsync(book.Id, ct);
+                if (state is not null
+                    && string.Equals(
+                        state.ExtractorVersion,
+                        BookTextArtifactSchema.CurrentExtractorVersion,
+                        StringComparison.Ordinal))
+                    continue;
+
+                await scheduler.ScheduleAsync(book.Id, book.FileName, ct);
+                scheduled++;
+            }
+
+            if (items.Count == 0 || page * pageSize >= batch.TotalCount)
+                break;
+
+            page++;
+        }
+
+        if (scheduled > 0)
+        {
+            logger.LogInformation(
+                "Scheduled {Count} existing imported publication(s) for book-text indexing.",
+                scheduled);
+        }
+
+        return scheduled;
+    }
+}
+
 public sealed class NoOpBookTextIndex : IBookTextIndex
 {
     public Task EnsureSchemaAsync(CancellationToken ct = default) => Task.CompletedTask;
