@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Options;
+using Nostos.Backend.Configuration;
 using Nostos.Backend.Data;
 using Nostos.Product.BookText;
 
