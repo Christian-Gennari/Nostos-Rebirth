@@ -1183,3 +1183,33 @@
     transform: none;
   }
 }
+
+/* Grounded imported-book references: compact and secondary to the answer. */
+.entry-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+}
+
+.entry-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  padding: 0.28rem 0.5rem;
+  cursor: pointer;
+}
+
+.entry-source:hover,
+.entry-source:focus-visible {
+  border-color: var(--border-focus);
+  color: var(--color-text-main);
+}

@@ -3,10 +3,14 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Nostos.Backend.Configuration;
 using Nostos.Backend.Data;
 using Nostos.Backend.Data.Models;
 using Nostos.Backend.Tests.Support;
+using Nostos.Backend.Tests.BookText;
+using Nostos.Backend.Services.BookText;
+using Nostos.Product.BookText;
 using Nostos.Product.Http;
 using Nostos.Shared.Dtos;
 using Xunit;
@@ -189,6 +193,47 @@ public sealed class LibraryEndpointTests : IClassFixture<LibraryEndpointFactory>
         var updated = await Client.GetFromJsonAsync<BookDto>($"/api/books/{book.Id}");
         updated!.HasFile.Should().BeTrue();
         updated.FileName.Should().Be("book.txt");
+    }
+
+    [Fact]
+    public void SelfHosted_host_composes_real_book_text_services()
+    {
+        using var scope = _factory.Services.CreateScope();
+
+        scope.ServiceProvider.GetRequiredService<IBookTextIndex>()
+            .Should().BeOfType<SqliteBookTextIndex>();
+        scope.ServiceProvider.GetRequiredService<IBookDerivedArtifactStorage>()
+            .Should().BeOfType<FileBookTextArtifactStorage>();
+        scope.ServiceProvider.GetRequiredService<IBookTextIngestionScheduler>()
+            .Should().BeOfType<BookTextIngestionScheduler>();
+    }
+
+    [Fact]
+    public async Task Upload_pdf_automatically_creates_book_text_ingestion_state()
+    {
+        var created = await Client.PostAsJsonAsync("/api/books", new
+        {
+            type = "ebook",
+            title = $"Indexed Upload {Guid.NewGuid():N}",
+        });
+        var book = (await created.Content.ReadFromJsonAsync<BookDto>())!;
+
+        var fixture = BookTextFixtureFactory.CreatePdf();
+        using var form = new MultipartFormDataContent();
+        var file = new ByteArrayContent(fixture.Bytes);
+        file.Headers.ContentType = new MediaTypeHeaderValue(fixture.ContentType);
+        form.Add(file, "file", fixture.FileName);
+
+        var upload = await Client.PostAsync($"/api/books/{book.Id}/file", form);
+        upload.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Scheduling is part of the upload commit path. The worker may already
+        // have advanced Pending -> Processing/Ready by the time we read it, but
+        // the source must never remain NotIndexed awaiting a process restart.
+        var state = await Client.GetAsync($"/api/books/{book.Id}/text-index");
+        state.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await state.Content.ReadAsStringAsync())
+            .Should().NotContain("\"status\":\"NotIndexed\"");
     }
 
     [Fact]

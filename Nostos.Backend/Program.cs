@@ -24,6 +24,8 @@ using Nostos.Backend.Services.Ai;
 using Nostos.Backend.Services.Library;
 using Nostos.Backend.Services.Notes;
 using Nostos.Backend.Services.Portability;
+using Nostos.Backend.Services.BookText;
+using Nostos.Product.BookText;
 using Nostos.Backend.Workers;
 using Nostos.Product.Composition;
 using Nostos.Product.Services.Ai;
@@ -38,6 +40,12 @@ builder.Services.AddSingleton(deployment);
 builder.Services.AddSingleton<
     IAcquisitionWorkingRootProvider,
     SelfHostedAcquisitionWorkingRootProvider>();
+
+// SelfHosted owns the concrete local book-text persistence boundary. Register
+// these before AddNostosProduct so its TryAdd no-op fallbacks are never selected.
+builder.Services.AddScoped<IBookTextIndex, SqliteBookTextIndex>();
+builder.Services.AddScoped<IBookDerivedArtifactStorage, FileBookTextArtifactStorage>();
+builder.Services.AddScoped<IBookTextIngestionScheduler, BookTextIngestionScheduler>();
 
 var product = builder.Services.AddNostosProduct(builder.Configuration);
 var assistantOptions = product.Assistant;
@@ -193,6 +201,7 @@ builder.Services.AddHostedService<AcquisitionReconciliationWorker>();
 builder.Services.AddHostedService<ConceptCleanupWorker>();
 builder.Services.AddHostedService<BackupWorker>();
 builder.Services.AddHostedService<LibraryReceiptRetentionWorker>();
+builder.Services.AddHostedService<BookTextIngestionWorker>();
 
 var app = builder.Build();
 
@@ -206,6 +215,13 @@ using (var scope = app.Services.CreateScope())
 {
     var bootstrap = scope.ServiceProvider.GetRequiredService<IDatabaseBootstrapService>();
     await bootstrap.EnsureReadyAsync();
+
+    // Book-text search state is intentionally derived/disposable and therefore
+    // not part of the portable relational EF model. Ensure its local FTS schema
+    // explicitly before the background backfill/ingestion worker starts.
+    await scope.ServiceProvider
+        .GetRequiredService<IBookTextIndex>()
+        .EnsureSchemaAsync();
 }
 
 // ------------------------------------

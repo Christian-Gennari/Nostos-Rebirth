@@ -11,9 +11,10 @@ import {
 } from '@angular/core';
 
 import { ButtonComponent } from '../button/button.component';
+import { Router } from '@angular/router';
 import { IconButtonComponent } from '../icon-button/icon-button.component';
 import { NostosIconComponent } from '../icon/nostos-icon.component';
-import { AssistantService, formatTimestamp } from './assistant.service';
+import { AssistantService, AssistantSourceReferenceDto, formatTimestamp } from './assistant.service';
 import { AssistantVoiceService } from './assistant-voice.service';
 import { AssistantStatusService } from './assistant-status.service';
 import { AssistantMarkdownPipe } from './assistant-markdown.pipe';
@@ -57,6 +58,7 @@ export class AssistantComponent {
   readonly assistant = inject(AssistantService);
   readonly voice = inject(AssistantVoiceService);
   private readonly status = inject(AssistantStatusService);
+  private readonly router = inject(Router, { optional: true });
   private readonly preferences = inject(LibraryPreferencesService);
   private readonly host = inject(ElementRef<HTMLElement>);
   private readonly composer = viewChild<ElementRef<HTMLTextAreaElement>>('composer');
@@ -176,6 +178,45 @@ export class AssistantComponent {
     const element = this.body()?.nativeElement;
     if (!element) return;
     this.following.set(this.distanceToEnd(element) <= FOLLOW_THRESHOLD_PX);
+  }
+
+
+  sourceLabel(source: AssistantSourceReferenceDto): string {
+    const locator = source.locators[0];
+    if (!locator) return source.bookTitle;
+    if (locator.type === 'pdf' && locator.pdfPageIndex !== null && locator.pdfPageIndex !== undefined) {
+      const page = locator.pdfPageLabel?.trim() || String(locator.pdfPageIndex + 1);
+      return `${source.bookTitle} · p. ${page}`;
+    }
+    if (locator.type === 'epub') return `${source.bookTitle} · reading position`;
+    return source.bookTitle;
+  }
+
+  openSource(source: AssistantSourceReferenceDto): void {
+    const locator = source.locators[0];
+    if (!locator) return;
+
+    const queryParams: Record<string, string | number> = {};
+    if (locator.type === 'pdf' && locator.pdfPageIndex !== null && locator.pdfPageIndex !== undefined) {
+      queryParams['sourcePage'] = locator.pdfPageIndex + 1;
+      if (locator.pdfPageLabel) queryParams['sourcePageLabel'] = locator.pdfPageLabel;
+    } else if (locator.type === 'epub') {
+      if (locator.epubCfi) queryParams['sourceCfi'] = locator.epubCfi;
+      if (locator.epubResourceHref) queryParams['sourceHref'] = locator.epubResourceHref;
+      if (locator.epubSpineIndex !== null && locator.epubSpineIndex !== undefined) {
+        queryParams['sourceSpine'] = locator.epubSpineIndex;
+      }
+      if (locator.startTextOffset !== null && locator.startTextOffset !== undefined) {
+        queryParams['sourceOffset'] = locator.startTextOffset;
+      }
+      queryParams['sourceExcerpt'] = source.excerpt.slice(0, 240);
+    } else {
+      return;
+    }
+
+    if (this.router) {
+      void this.router.navigate(['/read', source.bookId], { queryParams });
+    }
   }
 
   /** The visible recorder clock, e.g. "0:07". */

@@ -28,7 +28,7 @@ import { DEFAULT_HIGHLIGHT_COLOUR, HighlightColour } from '../highlight-colours'
 import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
 import { ThemeService } from '../../core/services/theme.service';
-import { IReader, ReaderProgress, TocItem } from '../reader.interface';
+import { IReader, ReaderProgress, ReaderSourceTarget, TocItem } from '../reader.interface';
 import { AssistantContextService } from '../../ui/assistant/assistant-context.service';
 
 /**
@@ -267,6 +267,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
   currentPage = 1;
   totalPages = 0;
   private pdfDocRef: any = null;
+  private pendingGroundedSourcePage: number | null = null;
 
   /**
    * Continuous vertical scrolling instead of one page at a time.
@@ -401,6 +402,22 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
     }
   }
 
+  goToSource(target: ReaderSourceTarget): void {
+    if (target.type !== 'pdf' || target.pdfPage === undefined) return;
+
+    // ReaderShell can receive a grounded citation before pdf.js has emitted
+    // pagesLoaded. goTo() rejects pages above totalPages=0, so remember this
+    // exact physical page until the document is ready rather than consuming
+    // the source link and silently staying on page 1.
+    if (this.totalPages <= 0) {
+      this.pendingGroundedSourcePage = target.pdfPage;
+      return;
+    }
+
+    this.pendingGroundedSourcePage = null;
+    this.goTo(target.pdfPage);
+  }
+
   getCurrentLocation(): string {
     const loc = this.highlightService.captureNoteLocation();
     if (loc) {
@@ -488,7 +505,12 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
       void this.loadPdfOutline(doc);
     }
 
-    if (!this.initialLoadComplete) {
+    if (this.pendingGroundedSourcePage !== null) {
+      const groundedPage = this.pendingGroundedSourcePage;
+      this.pendingGroundedSourcePage = null;
+      this.goTo(groundedPage);
+      setTimeout(() => (this.initialLoadComplete = true), 500);
+    } else if (!this.initialLoadComplete) {
       const startLoc = this.initialLocation();
 
       if (startLoc) {

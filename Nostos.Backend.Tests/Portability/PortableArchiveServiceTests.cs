@@ -7,12 +7,44 @@ using Microsoft.EntityFrameworkCore;
 using Nostos.Backend.Data.Models;
 using Nostos.Backend.Services;
 using Nostos.Backend.Services.Portability;
+using Nostos.Product.BookText;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Nostos.Backend.Tests.Portability;
 
 public sealed class PortableArchiveServiceTests
 {
+    [Fact]
+    public async Task Portable_import_schedules_supported_publications_for_index_rebuild()
+    {
+        await using var source = await LocalPortableTestLibrary.CreateAsync();
+        var ids = await PortableArchiveTestSupport.PopulateRepresentativeAsync(
+            source.Db,
+            source.Storage);
+
+        using var archive = new MemoryStream();
+        await source.Portability().ExportAsync(archive);
+
+        await using var destination = await LocalPortableTestLibrary.CreateAsync();
+        var scheduler = new RecordingBookTextScheduler();
+        var importer = new PortableArchiveService(
+            destination.Db,
+            destination.Storage,
+            NullLogger<PortableArchiveService>.Instance,
+            scheduler);
+
+        archive.Position = 0;
+        var imported = await importer.ImportAsync(archive);
+        imported.IntegrityVerified.Should().BeTrue();
+
+        scheduler.Scheduled.Should().BeEquivalentTo(
+        [
+            (ids.EpubBookId, "book.epub"),
+            (ids.PdfBookId, "book.pdf"),
+        ]);
+    }
+
     [Fact]
     public async Task Portable_archive_round_trips_user_data_media_and_relationships()
     {
@@ -554,4 +586,19 @@ public sealed class PortableArchiveServiceTests
             throw new IOException("Injected failure after durable media write.");
         }
     }
+    private sealed class RecordingBookTextScheduler : IBookTextIngestionScheduler
+    {
+        public List<(Guid BookId, string FileName)> Scheduled { get; } = [];
+
+        public Task ScheduleAsync(
+            Guid bookId,
+            string sourceFileName,
+            CancellationToken ct = default)
+        {
+            ct.ThrowIfCancellationRequested();
+            Scheduled.Add((bookId, sourceFileName));
+            return Task.CompletedTask;
+        }
+    }
+
 }

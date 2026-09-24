@@ -16,6 +16,7 @@ using Nostos.Backend.Services.Ai;
 using Nostos.Backend.Services.Library;
 using Nostos.Backend.Services.Notes;
 using Nostos.Backend.Services.Portability;
+using Nostos.Product.BookText;
 
 namespace Nostos.Product.Composition;
 
@@ -85,6 +86,19 @@ public static class NostosProductComposition
         opds.PublicBaseUrl = publicBaseUrl;
         services.AddSingleton(opds);
 
+        var bookText = configuration.GetSection(BookTextOptions.SectionName).Get<BookTextOptions>()
+            ?? new BookTextOptions();
+        services.AddSingleton(bookText);
+        services.AddSingleton<IBookTextExtractor, PdfBookTextExtractor>();
+        services.AddSingleton<IBookTextExtractor, EpubBookTextExtractor>();
+        services.TryAddScoped<IBookTextIndex, NoOpBookTextIndex>();
+        services.TryAddScoped<IBookDerivedArtifactStorage, NoOpBookTextArtifactStorage>();
+        services.TryAddScoped<IBookTextIngestionScheduler, NoOpBookTextIngestionScheduler>();
+        services.TryAddScoped<IBookTextLifecycle, BookTextLifecycle>();
+        services.AddScoped<BookTextIngestionEngine>();
+        services.AddScoped<IBookTextSearchService, BookTextSearchService>();
+        services.AddScoped<BookTextBackfillService>();
+
         services.AddSingleton(LibraryReceiptRetentionOptions.Normalize(
             configuration.GetSection("LibraryReceiptRetention").Get<LibraryReceiptRetentionOptions>()
             ?? new LibraryReceiptRetentionOptions()));
@@ -123,7 +137,8 @@ public static class NostosProductComposition
         services.AddScoped(sp => new AssistantCapabilityRegistry(AssistantCapabilities.Build(
             sp.GetRequiredService<INoteService>(),
             sp.GetRequiredService<ILibraryService>(),
-            sp.GetRequiredService<IConceptRepository>())));
+            sp.GetRequiredService<IConceptRepository>(),
+            sp.GetRequiredService<IBookTextSearchService>())));
 
         services.Configure<AcquisitionOptions>(
             configuration.GetSection(AcquisitionOptions.SectionName));

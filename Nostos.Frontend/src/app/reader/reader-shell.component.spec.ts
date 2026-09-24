@@ -84,6 +84,7 @@ class PdfReaderStub {
   }>({ label: '', percentage: 0 });
   currentLocationTarget = signal<unknown>(null);
   goTo = vi.fn();
+  goToSource = vi.fn(() => Promise.resolve());
   next = vi.fn();
   previous = vi.fn();
 }
@@ -120,6 +121,7 @@ class EpubReaderStub {
   toc = signal<unknown[]>([]);
   progress = signal({ label: '', percentage: 0 });
   currentLocationTarget = signal<unknown>(null);
+  goToSource = vi.fn(() => Promise.resolve());
 }
 
 // The shell binds [(ngModel)] to app-concept-input; the stub must be a
@@ -212,7 +214,9 @@ function mockMatchMedia() {
 
 // Builds a fresh TestBed module with the heavy reader children stubbed out.
 // Called per-test so each spec starts from a clean state.
-async function configureReaderShell(): Promise<ComponentFixture<ReaderShell>> {
+async function configureReaderShell(
+  queryParams: Record<string, string | number> = {},
+): Promise<ComponentFixture<ReaderShell>> {
   TestBed.overrideComponent(ReaderShell, {
     remove: {
       imports: [PdfReader, EpubReader, ConceptInputComponent, NoteCardComponent],
@@ -226,7 +230,12 @@ async function configureReaderShell(): Promise<ComponentFixture<ReaderShell>> {
       provideRouter([]),
       {
         provide: ActivatedRoute,
-        useValue: { snapshot: { paramMap: convertToParamMap({ id: 'book-1' }) } },
+        useValue: {
+          snapshot: {
+            paramMap: convertToParamMap({ id: 'book-1' }),
+            queryParamMap: convertToParamMap(queryParams),
+          },
+        },
       },
       {
         provide: BooksService,
@@ -248,6 +257,79 @@ async function configureReaderShell(): Promise<ComponentFixture<ReaderShell>> {
 
   return TestBed.createComponent(ReaderShell);
 }
+
+describe('ReaderShell grounded book-text source navigation', () => {
+  beforeEach(() => {
+    booksGetSpy.mockReset();
+    localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
+    mockMatchMedia();
+  });
+
+  it('passes a grounded PDF physical page and logical label to the PDF reader', async () => {
+    const pdfBook = { ...audiobook, id: 'book-1', type: 'ebook', fileName: 'source.pdf' } as Book;
+    booksGetSpy.mockReturnValue(of(pdfBook));
+
+    const fixture = await configureReaderShell({
+      sourcePage: 9,
+      sourcePageLabel: '7',
+    });
+    fixture.detectChanges();
+    fixture.detectChanges();
+
+    // ReaderShell intentionally queries the concrete PdfReader type, so the
+    // lightweight stub is not populated through @ViewChild in this spec. Attach
+    // the already-rendered stub before the shell's 100 ms grounded-navigation
+    // settle runs, exactly as the other PDF shell tests do.
+    const stub = fixture.debugElement.query(By.directive(PdfReaderStub))
+      .componentInstance as PdfReaderStub;
+    (fixture.componentInstance as unknown as { pdfReader: PdfReaderStub }).pdfReader = stub;
+
+    await new Promise((resolve) => setTimeout(resolve, 130));
+    fixture.detectChanges();
+
+    expect(stub.goToSource).toHaveBeenCalledTimes(1);
+    expect(stub.goToSource).toHaveBeenCalledWith({
+      type: 'pdf',
+      pdfPage: 9,
+      pdfPageLabel: '7',
+    });
+
+    fixture.destroy();
+  });
+
+  it('passes grounded EPUB CFI plus structural fallback to the EPUB reader', async () => {
+    const epubBook = { ...audiobook, id: 'book-1', type: 'ebook', fileName: 'source.epub' } as Book;
+    booksGetSpy.mockReturnValue(of(epubBook));
+
+    const fixture = await configureReaderShell({
+      sourceCfi: 'epubcfi(/6/4!/4/2/6:0)',
+      sourceHref: 'chapter-2.xhtml',
+      sourceSpine: 2,
+      sourceOffset: 314,
+      sourceExcerpt: 'A uniquely grounded passage.',
+    });
+    fixture.detectChanges();
+    fixture.detectChanges();
+
+    await new Promise((resolve) => setTimeout(resolve, 130));
+    fixture.detectChanges();
+
+    const stub = fixture.debugElement.query(By.directive(EpubReaderStub))
+      .componentInstance as EpubReaderStub;
+    expect(stub.goToSource).toHaveBeenCalledTimes(1);
+    expect(stub.goToSource).toHaveBeenCalledWith({
+      type: 'epub',
+      epubCfi: 'epubcfi(/6/4!/4/2/6:0)',
+      epubResourceHref: 'chapter-2.xhtml',
+      epubSpineIndex: 2,
+      epubTextOffset: 314,
+      excerpt: 'A uniquely grounded passage.',
+    });
+
+    fixture.destroy();
+  });
+});
 
 describe('ReaderShell assistant note navigation (issue #324)', () => {
   let fixture: ComponentFixture<ReaderShell>;

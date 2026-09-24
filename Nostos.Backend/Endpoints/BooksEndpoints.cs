@@ -7,6 +7,7 @@ using Nostos.Shared.Dtos;
 using Nostos.Shared.Enums;
 using Nostos.Product.Composition;
 using Nostos.Product.Http;
+using Nostos.Product.BookText;
 
 namespace Nostos.Backend.Endpoints;
 
@@ -242,17 +243,59 @@ public static class BooksEndpoints
             }
         );
 
+        // Book-text indexing state is deliberately separate from the core book
+        // import status: a valid book may still be Pending/Failed/Unsupported for
+        // Ask Nostos and can be retried without re-uploading the publication.
+        group.MapGet(
+            "/{id}/text-index",
+            async (Guid id, ILibraryService library, IBookTextIndex index, CancellationToken ct) =>
+            {
+                var book = await library.GetBookAsync(id, ct);
+                if (LibraryHttpMapper.MapError(book) is { } error)
+                    return error;
+
+                var state = await index.GetStateAsync(id, ct);
+                return state is null
+                    ? Results.Ok(new
+                    {
+                        bookId = id,
+                        status = "NotIndexed",
+                    })
+                    : Results.Ok(state);
+            }
+        );
+
+        group.MapPost(
+            "/{id}/text-index/retry",
+            async (
+                Guid id,
+                ILibraryService library,
+                IBookTextIngestionScheduler scheduler,
+                CancellationToken ct) =>
+            {
+                var result = await library.GetBookAsync(id, ct);
+                if (LibraryHttpMapper.MapError(result) is { } error)
+                    return error;
+                if (result.Data is not BookDto book || !book.HasFile || string.IsNullOrWhiteSpace(book.FileName))
+                    return Results.BadRequest("This book has no digital source file to index.");
+
+                await scheduler.ScheduleAsync(id, book.FileName, ct);
+                return Results.Accepted($"/api/books/{id}/text-index");
+            }
+        );
+
         // DELETE (row first through the canonical service; storage files are
         // removed only after the row is gone, so an in-use book keeps its
         // files)
         group.MapDelete(
             "/{id}",
-            async (Guid id, ILibraryService library, IBookAssetStorage storage, CancellationToken ct) =>
+            async (Guid id, ILibraryService library, IBookAssetStorage storage, IBookTextLifecycle bookText, CancellationToken ct) =>
             {
                 var result = await library.DeleteBookAsync(id, ct);
                 if (LibraryHttpMapper.MapError(result) is { } error)
                     return error;
 
+                await bookText.DeleteAsync(id, ct);
                 await storage.DeleteBookFilesAsync(id, ct);
                 return Results.NoContent();
             }
@@ -267,6 +310,7 @@ public static class BooksEndpoints
                 IBookRepository repo,
                 IBookAssetStorage storage,
                 MediaMetadataService metadataService,
+                IBookTextIngestionScheduler bookTextScheduler,
                 CancellationToken ct
             ) =>
             {
@@ -307,6 +351,16 @@ public static class BooksEndpoints
                 book.FileDetails.LocationsJson = null;
 
                 await repo.UpdateAsync(book);
+
+                // Upload/replacement is a source-revision event. Scheduling
+                // invalidates any old searchable revision immediately; the
+                // scheduler deliberately degrades without failing the valid
+                // primary file upload if extraction/indexing cannot start.
+                await bookTextScheduler.ScheduleAsync(
+                    id,
+                    book.FileDetails.FileName,
+                    ct);
+
                 return Results.Ok(new { uploaded = true });
             }
         );

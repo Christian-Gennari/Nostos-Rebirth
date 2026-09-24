@@ -177,6 +177,23 @@ describe('PdfReader theme-following surround and page inversion (#259)', () => {
     expect(viewerStub().theme()).toBe('dark');
   });
 
+  it('applies a grounded PDF source received before pagesLoaded instead of losing it', () => {
+    setupComponent();
+
+    fixture.componentInstance.goToSource({
+      type: 'pdf',
+      pdfPage: 9,
+      pdfPageLabel: '7',
+    });
+    expect(fixture.componentInstance.currentPage).toBe(1);
+
+    fixture.componentInstance.onPagesLoaded({ pagesCount: 20 } as any);
+
+    expect(fixture.componentInstance.currentPage).toBe(9);
+    expect(fixture.componentInstance.progress().pageNumber).toBe(9);
+    expect(fixture.componentInstance.progress().pageCount).toBe(20);
+  });
+
   it('binds theme and backgroundColor reactively, not as hardcoded strings', () => {
     const html = readSource('./pdf-reader.component.html');
     expect(html).toContain('[backgroundColor]="pdfBgColor()"');

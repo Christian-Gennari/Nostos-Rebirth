@@ -7,6 +7,7 @@ using Nostos.Backend.Services;
 using Nostos.Backend.Services.Library;
 using Nostos.Shared.Dtos;
 using Nostos.Shared.Enums;
+using Nostos.Product.BookText;
 using SixLabors.ImageSharp;
 
 namespace Nostos.Backend.Providers.Acquisition;
@@ -37,7 +38,8 @@ public sealed class AcquisitionService(
     ITranscodeLimiter transcodeLimiter,
     IOptions<AcquisitionOptions> options,
     ILogger<AcquisitionService> logger,
-    IAcquisitionWorkingRootProvider? workingRootProvider = null) : IAcquisitionService
+    IAcquisitionWorkingRootProvider? workingRootProvider = null,
+    IBookTextIngestionScheduler? bookTextScheduler = null) : IAcquisitionService
 {
     private readonly AcquisitionOptions _options = options.Value;
 
@@ -553,6 +555,11 @@ public sealed class AcquisitionService(
             await RollbackAsync(bookId, createdByUs, storedNothing: false, plan, ct);
             await library.SetBookStatusAsync(bookId, BookStatus.Failed, attach.Reply, CancellationToken.None);
             return AcquisitionResult.Failed(attachError, attach.Reply);
+        }
+
+        if (bookTextScheduler is not null && !string.IsNullOrWhiteSpace(staged))
+        {
+            await bookTextScheduler.ScheduleAsync(bookId, Path.GetFileName(staged), ct);
         }
 
         progress.Report(new AcquisitionProgress("done", 100, BookId: bookId));

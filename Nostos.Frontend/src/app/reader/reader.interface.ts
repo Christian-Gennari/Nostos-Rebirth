@@ -15,11 +15,23 @@ export interface ReaderProgress {
   pageCount?: number; // Total number of pages (For PDF readers)
 }
 
+export interface ReaderSourceTarget {
+  type: 'pdf' | 'epub';
+  pdfPage?: number;
+  pdfPageLabel?: string | null;
+  epubCfi?: string | null;
+  epubResourceHref?: string | null;
+  epubSpineIndex?: number | null;
+  epubTextOffset?: number | null;
+  excerpt?: string | null;
+}
+
 export interface IReader {
   // Navigation
   next(): void;
   previous(): void;
   goTo(target: string | number): void;
+  goToSource?(target: ReaderSourceTarget): void | Promise<void>;
 
   // Data Extraction
   getCurrentLocation(): string | null; // For saving notes
