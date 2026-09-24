@@ -849,7 +849,11 @@
         @if (note.selectedText) {
         <blockquote class="brain-note-panel-quote">{{ note.selectedText }}</blockquote>
         }
-        <p class="brain-note-panel-content">{{ note.content }}</p>
+        <p
+          class="brain-note-panel-content"
+          [innerHTML]="note.content | noteFormat : conceptMap()"
+          (click)="handleContentClick($event)"
+        ></p>
         <div class="brain-note-panel-concepts">
           @if (note.conceptNames.length > 0) {
             @for (name of note.conceptNames; track name) {
