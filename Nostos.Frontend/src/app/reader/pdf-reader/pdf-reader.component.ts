@@ -543,7 +543,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
       this.pdfDocRef = doc;
       void this.loadPdfOutline(doc);
       void this.loadPdfPageLabels(doc);
-      void this.detectTextCapability(doc);
+      void this.detectTextCapability(doc, event.pagesCount);
     }
 
     if (this.pendingGroundedSourcePage !== null) {
@@ -572,7 +572,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
       await Promise.all([
         this.loadPdfOutline(doc),
         this.loadPdfPageLabels(doc),
-        this.detectTextCapability(doc),
+        this.detectTextCapability(doc, event.pagesCount),
       ]);
     }
   }
@@ -599,16 +599,16 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
    * 900-page scan into a second ingestion pass while still handling blank cover
    * pages in ordinary books.
    */
-  private async detectTextCapability(pdfDoc: any): Promise<void> {
-    if (typeof pdfDoc?.getPage !== 'function' || this.totalPages <= 0) return;
+  private async detectTextCapability(pdfDoc: any, knownPageCount = this.totalPages): Promise<void> {
+    if (typeof pdfDoc?.getPage !== 'function' || knownPageCount <= 0) return;
 
-    const sampleCount = Math.min(this.totalPages, 8);
+    const sampleCount = Math.min(knownPageCount, 8);
     const pages = [
       ...new Set(
         Array.from({ length: sampleCount }, (_, index) =>
           sampleCount === 1
             ? 1
-            : 1 + Math.round((index * (this.totalPages - 1)) / (sampleCount - 1)),
+            : 1 + Math.round((index * (knownPageCount - 1)) / (sampleCount - 1)),
         ),
       ),
     ];
@@ -694,7 +694,8 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
     if (!highlight) return;
 
     if (highlight.status === 'cross-page') {
-      this.pendingHighlight = null;
+      // Reject the new invalid selection without destroying an older pending
+      // one that the shell may still be offering to Save or Cancel.
       this.highlightWarning.set(
         'Highlights can only cover one PDF page at a time. Select text on one page at a time.',
       );
