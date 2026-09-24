@@ -1141,21 +1141,29 @@ app-sidebar-collections.no-transition {
 /* --- RESULTS STAGE: the cinematic filter/sort cross-fade ----------------
    One animated surface. The out-phase duration is kept equal to SWAP_OUT_MS
    in library.component.ts (that constant gates when the new page may be
-   committed), so the DOM swap always lands at the bottom of the blur. */
+   committed), so the DOM swap always lands at the bottom of the blur.
+
+   No transform here, deliberately. Measured with the shipped scale(0.995):
+   while the release runs the stage is one re-rasterized layer, and when it
+   drops at the end of the transition the cover art (1600/1920) and the meta
+   title (1280) landed a device pixel off their resting place and snapped on
+   the final frame — the same defect class the cover bloom dropped its scale
+   for (styles.css). 12 of 15 swap runs moved on the money frame with the
+   scale in place; the fade and the blur carry the gesture on their own. Do
+   not put a transform back on this state without re-running
+   scripts/map-audit/library-entry-frame-snap.mjs --mode swap. */
 .results-stage {
   position: relative;
   --library-swap-out: 200ms;
   --library-swap-in: 300ms;
   transition:
     opacity var(--library-swap-in) var(--ease-out),
-    filter var(--library-swap-in) var(--ease-out),
-    transform var(--library-swap-in) var(--ease-out);
+    filter var(--library-swap-in) var(--ease-out);
 }
 
 .results-stage.is-swapping {
   opacity: 0.35;
   filter: blur(5px) saturate(0.92);
-  transform: scale(0.995);
   /* A blurred list must not accept clicks on the books it is discarding. */
   pointer-events: none;
   transition-duration: var(--library-swap-out);
@@ -1561,7 +1569,6 @@ app-sidebar-collections.no-transition {
   .results-stage.is-swapping {
     opacity: 0.4;
     filter: none;
-    transform: none;
   }
 
   /* Same out-phase as desktop (it is gated by SWAP_OUT_MS in the component —
@@ -1581,7 +1588,6 @@ app-sidebar-collections.no-transition {
   .results-stage.is-swapping {
     transition-duration: 1ms;
     filter: none;
-    transform: none;
   }
 
   .results-stage > .table-view,
