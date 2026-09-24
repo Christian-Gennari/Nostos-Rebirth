@@ -328,12 +328,24 @@ public static class OpdsEndpoints
             Indent = true,
         };
 
-        var builder = new StringBuilder();
+        // XmlWriter ignores XmlWriterSettings.Encoding when it writes into a
+        // StringBuilder: a StringBuilder has no byte encoding, so the writer
+        // fell back to UTF-16 and declared encoding="utf-16" over a payload that
+        // is served as UTF-8 bytes. A strict parser then refuses the document
+        // ("There is no Unicode byte order mark. Cannot switch to Unicode."),
+        // which is the feed every OPDS client was being handed. A TextWriter
+        // that reports UTF-8 makes the declaration match the bytes.
+        var builder = new Utf8StringWriter();
         using (var writer = XmlWriter.Create(builder, settings))
         {
             new XDocument(new XDeclaration("1.0", "utf-8", null), feed).Save(writer);
         }
 
         return builder.ToString();
+    }
+
+    private sealed class Utf8StringWriter : StringWriter
+    {
+        public override Encoding Encoding => Encoding.UTF8;
     }
 }

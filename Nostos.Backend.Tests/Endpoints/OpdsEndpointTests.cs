@@ -84,6 +84,34 @@ public sealed class OpdsEndpointTests : IClassFixture<LibraryEndpointFactory>
     }
 
     [Fact]
+    public async Task Feed_declaration_matches_the_encoding_it_is_served_as()
+    {
+        var response = await Client.GetAsync("/opds/");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Assert on the WIRE BYTES, not on the decoded string. A string has no
+        // encoding left to disagree with, so the string-based assertions above
+        // stayed green while the served feed declared encoding="utf-16" over
+        // UTF-8 bytes — and a strict parser over the raw response refuses that
+        // document outright, which is what every OPDS client that reads the
+        // response as bytes sees.
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+        var charset = response.Content.Headers.ContentType!.CharSet;
+
+        charset.Should().Be("utf-8");
+        Encoding.UTF8
+            .GetString(bytes)
+            .Should()
+            .StartWith($"<?xml version=\"1.0\" encoding=\"{charset}\"?>");
+
+        // XDocument.Load over the byte stream applies the declared encoding, so
+        // it throws when the declaration lies.
+        using var stream = new MemoryStream(bytes);
+        XDocument.Load(stream).Root!.Name.Should().Be(Atom + "feed");
+    }
+
+    [Fact]
     public async Task Feed_updated_is_an_rfc3339_timestamp_with_an_explicit_utc_offset()
     {
         var doc = await GetFeedAsync();
