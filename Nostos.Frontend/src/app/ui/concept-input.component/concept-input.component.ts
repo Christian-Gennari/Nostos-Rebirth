@@ -1,25 +1,22 @@
 import {
   Component,
-  forwardRef,
-  ViewChild,
   ElementRef,
-  Input,
-  Output,
   EventEmitter,
+  forwardRef,
   inject,
-  OnInit,
+  Input,
   OnDestroy,
+  OnInit,
+  Output,
+  ViewChild,
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 
-// Adjust these import paths based on your actual folder structure
 import { ConceptAutocompleteDirective } from '../../core/directives/concept-autocomplete.directive';
 import { ConceptAutocompletePanel } from '../concept-autocomplete-panel/concept-autocomplete-panel.component';
-// Import the global service that holds the master list
 import { ConceptDto, ConceptsService } from '../../core/services/concepts.service';
-// Import the local service that handles UI state for THIS input
 import { ConceptAutocompleteService } from '../concept-autocomplete-panel/concept-autocomplete.service';
 
 @Component({
@@ -34,88 +31,140 @@ import { ConceptAutocompleteService } from '../concept-autocomplete-panel/concep
       useExisting: forwardRef(() => ConceptInputComponent),
       multi: true,
     },
-    // Provide the autocomplete service at the component level.
-    // This gives each input its own "UI State" (popup visibility, filter text),
-    // while the DATA comes from the global ConceptsService.
     ConceptAutocompleteService,
   ],
 })
 export class ConceptInputComponent implements ControlValueAccessor, OnInit, OnDestroy {
   @Input() placeholder = '';
   @Input() rows = 3;
-
-  // Optional: Emit an event if the user hits Ctrl+Enter (common for "Quick Save")
   @Output() submitTrigger = new EventEmitter<void>();
 
   @ViewChild('textarea') textarea!: ElementRef<HTMLTextAreaElement>;
+  @ViewChild(ConceptAutocompletePanel) private conceptPanel!: ConceptAutocompletePanel;
 
-  // Inject the local service for UI state
-  private autocompleteService = inject(ConceptAutocompleteService);
-  // Inject the global service for Data
-  private conceptsService = inject(ConceptsService);
-
+  private readonly autocompleteService = inject(ConceptAutocompleteService);
+  private readonly conceptsService = inject(ConceptsService);
   private sub?: Subscription;
+  private pickerSelection: { start: number; end: number } | null = null;
 
   value = '';
   isDisabled = false;
 
-  // Callbacks for ControlValueAccessor
   onChange = (_value: string) => {};
   onTouched = () => {};
 
-  ngOnInit() {
-    // Automatically load the master list from the global service.
-    // This allows the component to be self-contained.
+  ngOnInit(): void {
     this.sub = this.conceptsService.list().subscribe((list) => {
       this.autocompleteService.setConcepts(list);
     });
   }
 
-  ngOnDestroy() {
+  ngOnDestroy(): void {
     this.sub?.unsubscribe();
   }
 
-  // --- Logic extracted from BookDetail ---
+  rememberSelection(): void {
+    const textarea = this.textarea?.nativeElement;
+    if (!textarea) return;
+    this.pickerSelection = {
+      start: textarea.selectionStart ?? this.value.length,
+      end: textarea.selectionEnd ?? this.value.length,
+    };
+  }
 
-  insertConcept(concept: ConceptDto) {
-    const el = this.textarea.nativeElement;
-    const cursor = el.selectionStart;
+  openConceptPicker(): void {
+    this.rememberSelection();
+    const selection = this.pickerSelection;
+    const prefill = selection
+      ? this.value.slice(selection.start, selection.end).trim()
+      : '';
+
+    this.autocompleteService.openPicker(prefill);
+    this.conceptPanel.focusSearch();
+  }
+
+  cancelConceptPicker(): void {
+    const selection = this.pickerSelection;
+    this.autocompleteService.clear();
+    this.pickerSelection = null;
+
+    setTimeout(() => {
+      const textarea = this.textarea.nativeElement;
+      textarea.focus();
+      if (selection) textarea.setSelectionRange(selection.start, selection.end);
+    }, 0);
+  }
+
+  insertConcept(concept: ConceptDto): void {
+    this.insertConceptName(concept.name);
+  }
+
+  insertConceptName(rawName: string): void {
+    const name = rawName.trim();
+    if (!name) return;
+
+    const textarea = this.textarea.nativeElement;
     const text = this.value;
+    const storedSelection = this.pickerSelection;
 
-    const beforeCursor = text.substring(0, cursor);
-    const afterCursor = text.substring(cursor);
+    let start: number;
+    let end: number;
 
-    // Replace the text being typed (e.g., "[[no") with the full tag "[[Nostos]] "
-    const newText = beforeCursor.replace(/\[\[[^\[]*$/, '[[' + concept.name + ']] ') + afterCursor;
+    if (storedSelection) {
+      start = storedSelection.start;
+      end = storedSelection.end;
+    } else {
+      const cursor = textarea.selectionStart ?? text.length;
+      const wikilinkStart = text.lastIndexOf('[[', cursor);
+      const lastClose = text.lastIndexOf(']]', Math.max(0, cursor - 1));
 
-    this.value = newText;
+      if (wikilinkStart >= 0 && lastClose < wikilinkStart) {
+        start = wikilinkStart;
+        end = cursor;
+      } else {
+        start = cursor;
+        end = cursor;
+      }
+    }
+
+    const link = `[[${name}]]`;
+    const after = text.slice(end);
+    const spacer = after.length === 0 || (!/^\s/.test(after) && !/^[,.;:!?)]/.test(after))
+      ? ' '
+      : '';
+
+    this.value = text.slice(0, start) + link + spacer + after;
     this.onChange(this.value);
+    this.autocompleteService.clear();
+    this.pickerSelection = null;
 
-    // Optional: Return focus to textarea after insertion
-    setTimeout(() => el.focus(), 0);
+    const caret = start + link.length + spacer.length;
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(caret, caret);
+    }, 0);
   }
 
-  // --- ControlValueAccessor Implementation ---
-
-  writeValue(obj: any): void {
-    this.value = obj || '';
+  writeValue(obj: unknown): void {
+    this.value = typeof obj === 'string' ? obj : '';
   }
 
-  registerOnChange(fn: any): void {
+  registerOnChange(fn: (value: string) => void): void {
     this.onChange = fn;
   }
 
-  registerOnTouched(fn: any): void {
+  registerOnTouched(fn: () => void): void {
     this.onTouched = fn;
   }
 
-  setDisabledState?(isDisabled: boolean): void {
+  setDisabledState(isDisabled: boolean): void {
     this.isDisabled = isDisabled;
   }
 
-  handleInput(event: Event) {
-    const val = (event.target as HTMLTextAreaElement).value;
-    this.value = val;
-    this.onChange(val);
+  handleInput(event: Event): void {
+    const value = (event.target as HTMLTextAreaElement).value;
+    this.value = value;
+    this.pickerSelection = null;
+    this.onChange(value);
   }
 }
