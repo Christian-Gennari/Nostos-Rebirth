@@ -25,6 +25,7 @@ public sealed class DeploymentConfigurationTests
             UsesCloudStorage: false,
             SupportsLocalBackupConfiguration: true,
             SupportsPrivateNetworkAccess: true,
+            SupportsEreaderAccess: true,
             UsageMeteringAvailable: false));
     }
 
@@ -44,6 +45,7 @@ public sealed class DeploymentConfigurationTests
             UsesCloudStorage: true,
             SupportsLocalBackupConfiguration: false,
             SupportsPrivateNetworkAccess: false,
+            SupportsEreaderAccess: true,
             UsageMeteringAvailable: true));
     }
 
@@ -87,6 +89,7 @@ public sealed class DeploymentConfigurationTests
         response.UsesCloudStorage.Should().BeTrue();
         response.SupportsLocalBackupConfiguration.Should().BeFalse();
         response.SupportsPrivateNetworkAccess.Should().BeFalse();
+        response.SupportsEreaderAccess.Should().BeTrue();
         response.UsageMeteringAvailable.Should().BeTrue();
     }
 
