@@ -250,6 +250,7 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
   private rendition: Rendition | null = null;
   private annotationManager: EpubAnnotationManager | null = null;
   private currentCfi: string | null = null;
+  private pendingGroundedSource: ReaderSourceTarget | null = null;
 
   /** Keydown listeners registered inside each iframe's contents document. */
   private readonly keyboardDocuments = new Map<Document, () => void>();
@@ -395,6 +396,21 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
   }
 
   async goToSource(target: ReaderSourceTarget): Promise<void> {
+    if (target.type !== 'epub') return;
+
+    // A source chip can be clicked before epub.js finishes its opening display.
+    // In that window the rendition may exist but the normal opening/restore
+    // chain can still overwrite a navigation. Keep the exact grounded target
+    // and apply it after the opening display settles.
+    if (!this.rendition || !this.progressUnlocked) {
+      this.pendingGroundedSource = target;
+      return;
+    }
+
+    await this.applyGroundedSource(target);
+  }
+
+  private async applyGroundedSource(target: ReaderSourceTarget): Promise<void> {
     if (target.type !== 'epub' || !this.rendition) return;
 
     if (target.epubCfi) {
@@ -734,7 +750,7 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
 
     rendition
       .display()
-      .then(() => {
+      .then(async () => {
         this.loading.set(false);
         this.applyFontSize();
 
@@ -743,9 +759,19 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
           error: (err) => console.error('Failed to load notes:', err),
         });
 
-        if (!restoreLocation) return undefined;
+        // A grounded source is stronger than the user's ordinary saved reading
+        // position for this navigation: the citation click explicitly asked to
+        // open evidence from the exact indexed source revision.
+        if (this.pendingGroundedSource) {
+          const grounded = this.pendingGroundedSource;
+          this.pendingGroundedSource = null;
+          await this.applyGroundedSource(grounded);
+          return;
+        }
 
-        return rendition.display(restoreLocation).catch((err: unknown) => {
+        if (!restoreLocation) return;
+
+        await rendition.display(restoreLocation).catch((err: unknown) => {
           console.warn('Could not restore the saved reading position:', err);
         });
       })
