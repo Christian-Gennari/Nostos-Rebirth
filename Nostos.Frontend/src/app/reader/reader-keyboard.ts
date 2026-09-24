@@ -49,8 +49,10 @@ export function isTypingTarget(target: EventTarget | null): boolean {
  * must never also turn a page.
  */
 export function isInteractiveTarget(target: EventTarget | null): boolean {
-  const element = target instanceof Element ? target : null;
-  if (!element) return false;
+  // Avoid `instanceof Element`: EPUB events originate in an iframe realm, so
+  // their elements are not instances of the parent window's Element constructor.
+  const element = target as Element | null;
+  if (!element || typeof element.closest !== 'function') return false;
   return !!element.closest(
     'button, a[href], input, textarea, select, [contenteditable="true"], [role="button"], [role="link"], [role="switch"], [role="checkbox"], [role="menuitem"], [tabindex]:not([tabindex="-1"])',
   );
