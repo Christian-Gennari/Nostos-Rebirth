@@ -879,7 +879,9 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
    * Page navigation stays exact; this only refines the viewport after the page
    * is present. It uses existing normalized y/rect data and retries briefly
    * because continuous mode may render the destination page after the page
-   * binding changes.
+   * binding changes. The first correction waits briefly because setting the
+   * viewer's bound page can finish its own scroll after Angular has updated the
+   * value; correcting at 0 ms was observed to be overwritten at high zoom.
    */
   private scrollToWithinPage(page: number, yPercent: number, attempt = 0): void {
     setTimeout(() => {
@@ -905,7 +907,7 @@ export class PdfReader implements OnInit, OnDestroy, IReader {
         - readingOffset;
 
       scrollport.scrollTo({ top: Math.max(0, top), behavior: 'auto' });
-    }, attempt === 0 ? 0 : 50);
+    }, attempt === 0 ? 140 : 50);
   }
 
   private async mapPdfOutline(outline: any[], pdfDoc: any): Promise<TocItem[]> {
