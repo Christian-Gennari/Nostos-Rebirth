@@ -1484,6 +1484,140 @@ public sealed class AssistantOrchestratorTests : IClassFixture<SqliteTestFixture
     }
 
     [Fact]
+    public async Task Book_text_paraphrase_lookup_preserves_grounded_epub_source()
+    {
+        var bookId = Guid.NewGuid();
+        var search = new FakeBookTextSearchService(new BookTextSearchResponse(
+            [
+                new BookTextSearchPassage(
+                    bookId,
+                    "Memory Book",
+                    null,
+                    new string('b', 64),
+                    BookTextArtifactSchema.CurrentExtractorVersion,
+                    BookTextSourceFormat.Epub,
+                    11,
+                    "Memory returns through ordinary objects rather than deliberate recollection.",
+                    ["Chapter Two"],
+                    [
+                        new BookTextSourceSegment(
+                            0,
+                            70,
+                            new EpubBookTextSourceLocator(
+                                2,
+                                "chapter-2.xhtml",
+                                "epubcfi(/6/8!/4/2:0)",
+                                314,
+                                384)),
+                    ]),
+            ],
+            [],
+            true));
+
+        var h = CreateHarness(bookText: search);
+        h.Llm
+            .CallsTool(
+                "book_text_search",
+                $"{{\"query\":\"memory ordinary objects recollection\",\"bookIds\":[\"{bookId}\"]}}")
+            .Returns("The passage frames memory as something prompted by ordinary objects.");
+
+        var response = await h.Orchestrator.HandleTurnAsync(Turn(
+            "How does this chapter characterize involuntary memory?",
+            Context(
+                surface: "reader",
+                route: $"/read/{bookId}",
+                bookId: bookId.ToString(),
+                bookTitle: "Memory Book",
+                bookFormat: "ebook",
+                readerType: "epub")));
+
+        search.LastRequest.Should().NotBeNull();
+        search.LastRequest!.Query.Should().Be("memory ordinary objects recollection");
+        response.Sources.Should().ContainSingle();
+        response.Sources![0].Locators.Should().ContainSingle();
+        response.Sources[0].Locators[0].Type.Should().Be("epub");
+        response.Sources[0].Locators[0].EpubCfi.Should().Be("epubcfi(/6/8!/4/2:0)");
+        response.Sources[0].Locators[0].EpubResourceHref.Should().Be("chapter-2.xhtml");
+    }
+
+    [Fact]
+    public async Task Book_text_multi_book_scope_and_neighbor_passages_survive_the_tool_round_trip()
+    {
+        var firstBook = Guid.NewGuid();
+        var secondBook = Guid.NewGuid();
+        var hash = new string('c', 64);
+        var search = new FakeBookTextSearchService(new BookTextSearchResponse(
+            [
+                new BookTextSearchPassage(
+                    secondBook,
+                    "Second Book",
+                    "Author",
+                    hash,
+                    BookTextArtifactSchema.CurrentExtractorVersion,
+                    BookTextSourceFormat.Pdf,
+                    20,
+                    "The matching sentence begins here.",
+                    ["Chapter"],
+                    [new BookTextSourceSegment(0, 34, new PdfBookTextSourceLocator(40, "39", 0, 34))]),
+                new BookTextSearchPassage(
+                    secondBook,
+                    "Second Book",
+                    "Author",
+                    hash,
+                    BookTextArtifactSchema.CurrentExtractorVersion,
+                    BookTextSourceFormat.Pdf,
+                    21,
+                    "The neighboring chunk completes the explanation.",
+                    ["Chapter"],
+                    [new BookTextSourceSegment(0, 48, new PdfBookTextSourceLocator(41, "40", 0, 48))]),
+            ],
+            [],
+            true));
+
+        var h = CreateHarness(bookText: search);
+        h.Llm
+            .CallsTool(
+                "book_text_search",
+                $"{{\"query\":\"matching explanation\",\"bookIds\":[\"{firstBook}\",\"{secondBook}\"]}}")
+            .Returns("The second book contains the relevant explanation.");
+
+        var response = await h.Orchestrator.HandleTurnAsync(
+            Turn("Compare these two imported books on the matching idea.",
+                Context(surface: "library", route: "/library")));
+
+        search.LastRequest.Should().NotBeNull();
+        search.LastRequest!.BookIds.Should().Equal(firstBook, secondBook);
+        response.Sources.Should().HaveCount(2);
+        response.Sources!.Select(source => source.BookId).Should().OnlyContain(id => id == secondBook);
+        response.Sources.SelectMany(source => source.Locators)
+            .Select(locator => locator.PdfPageIndex)
+            .Should().Equal(40, 41);
+    }
+
+    [Fact]
+    public async Task Book_text_wrong_book_scope_returns_no_server_source()
+    {
+        var wrongBook = Guid.NewGuid();
+        var search = new FakeBookTextSearchService(
+            new BookTextSearchResponse([], [], false));
+
+        var h = CreateHarness(bookText: search);
+        h.Llm
+            .CallsTool(
+                "book_text_search",
+                $"{{\"query\":\"unique phrase\",\"bookIds\":[\"{wrongBook}\"]}}")
+            .Returns("That scoped book did not return evidence for the phrase.");
+
+        var response = await h.Orchestrator.HandleTurnAsync(
+            Turn("Find the unique phrase in this book.",
+                Context(surface: "library", route: "/library")));
+
+        search.LastRequest.Should().NotBeNull();
+        search.LastRequest!.BookIds.Should().ContainSingle().Which.Should().Be(wrongBook);
+        response.Sources.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task Book_text_search_with_no_evidence_never_fabricates_source_references()
     {
         var search = new FakeBookTextSearchService(new BookTextSearchResponse(
