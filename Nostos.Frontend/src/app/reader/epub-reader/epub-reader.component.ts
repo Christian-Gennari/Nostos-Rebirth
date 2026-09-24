@@ -23,7 +23,7 @@ import { NotesService } from '../../core/services/notes.service';
 import { BooksService } from '../../core/services/books.service';
 import { ThemeService, Theme } from '../../core/services/theme.service';
 import { Book as BookDto } from '../../core/dtos/book.dtos';
-import { IReader, ReaderProgress, TocItem } from '../reader.interface';
+import { IReader, ReaderProgress, ReaderSourceTarget, TocItem } from '../reader.interface';
 import { isTypingTarget, pageActionForKey } from '../reader-keyboard';
 import { AssistantContextService } from '../../ui/assistant/assistant-context.service';
 
@@ -392,6 +392,120 @@ export class EpubReader implements OnInit, OnDestroy, IReader {
 
   goTo(target: string | number) {
     this.rendition?.display(target.toString());
+  }
+
+  async goToSource(target: ReaderSourceTarget): Promise<void> {
+    if (target.type !== 'epub' || !this.rendition) return;
+
+    if (target.epubCfi) {
+      try {
+        await this.rendition.display(target.epubCfi);
+        return;
+      } catch {
+        // A CFI belongs to one exact source revision but an older epub.js build
+        // can still reject it. Fall through to the structural locator rather
+        // than inventing a page or silently opening the wrong place.
+      }
+    }
+
+    if (!target.epubResourceHref) return;
+
+    try {
+      await this.rendition.display(target.epubResourceHref);
+      const contents = (this.rendition.getContents?.() ?? []) as Contents[];
+      const content =
+        contents.find((candidate: any) => {
+          const href = String(candidate?.section?.href ?? candidate?.document?.location?.pathname ?? '');
+          return href.endsWith(target.epubResourceHref!);
+        }) ?? contents[0];
+
+      if (!content?.document || target.epubTextOffset === null || target.epubTextOffset === undefined)
+        return;
+
+      const range = this.rangeAtNormalizedResourceOffset(
+        content.document,
+        Math.max(0, target.epubTextOffset),
+      );
+      if (!range) return;
+
+      const cfi = (content as any).cfiFromRange?.(range);
+      if (typeof cfi === 'string' && cfi.length > 0) {
+        await this.rendition.display(cfi);
+      }
+    } catch (error) {
+      console.warn('Could not navigate to the grounded EPUB source:', error);
+    }
+  }
+
+  private rangeAtNormalizedResourceOffset(document: Document, targetOffset: number): Range | null {
+    const selector = 'h1,h2,h3,h4,h5,h6,p,li,blockquote,pre,figcaption,dt,dd,aside';
+    const ignored = 'script,style,nav,svg,math';
+    const blocks = Array.from(document.body?.querySelectorAll(selector) ?? []).filter((element) => {
+      if (element.closest(ignored)) return false;
+      return !element.parentElement?.closest(selector);
+    });
+
+    let resourceOffset = 0;
+    for (const block of blocks) {
+      const normalized = this.normalizeSourceText(block.textContent ?? '');
+      if (!normalized) continue;
+
+      const end = resourceOffset + normalized.length;
+      if (targetOffset <= end) {
+        const local = Math.max(0, Math.min(normalized.length - 1, targetOffset - resourceOffset));
+        return this.rangeAtNormalizedElementOffset(document, block, local);
+      }
+      resourceOffset = end + 1;
+    }
+    return null;
+  }
+
+  private rangeAtNormalizedElementOffset(
+    document: Document,
+    element: Element,
+    targetOffset: number,
+  ): Range | null {
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    let normalizedOffset = 0;
+    let pendingSpace = false;
+    let node = walker.nextNode();
+
+    while (node) {
+      const text = node.textContent ?? '';
+      for (let rawOffset = 0; rawOffset < text.length; rawOffset++) {
+        const char = text[rawOffset];
+        if (/\s/.test(char)) {
+          pendingSpace = true;
+          continue;
+        }
+
+        if (pendingSpace && normalizedOffset > 0) {
+          if (normalizedOffset >= targetOffset) {
+            const range = document.createRange();
+            range.setStart(node, rawOffset);
+            range.collapse(true);
+            return range;
+          }
+          normalizedOffset++;
+          pendingSpace = false;
+        }
+
+        if (normalizedOffset >= targetOffset) {
+          const range = document.createRange();
+          range.setStart(node, rawOffset);
+          range.collapse(true);
+          return range;
+        }
+        normalizedOffset++;
+      }
+      node = walker.nextNode();
+    }
+
+    return null;
+  }
+
+  private normalizeSourceText(value: string): string {
+    return value.replace(/\r\n?/g, '\n').replace(/[ \t\f\v]+/g, ' ').replace(/ *\n+ */g, '\n').trim();
   }
 
   getCurrentLocation(): string | null {
