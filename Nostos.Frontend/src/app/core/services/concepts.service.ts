@@ -25,6 +25,8 @@ export interface RelatedConceptDto {
   id: string;
   name: string;
   sharedNotes: number;
+  /** Exact notes that make the structural co-occurrence inspectable. */
+  sharedNoteIds?: string[];
 }
 
 export interface ConceptGraphNodeDto {
