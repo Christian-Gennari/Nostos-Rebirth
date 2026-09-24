@@ -1,4 +1,4 @@
-<div class="reader-layout" [class.ready]="ready()">
+<div class="reader-layout" [class.ready]="ready() || !!loadError()">
   <!-- Surface header, in the app's own rhythm (see `.brain-header` in
        second-brain.component.css): title on the left, tools on the right, one
        hairline. Everything that CONFIGURES the reader lives here; the reading
@@ -13,8 +13,8 @@
         icon="arrow-left"
         [glyphSize]="20"
         (click)="goBack()"
-        title="Back to Library"
-        aria-label="Back to Library"
+        title="Book details"
+        aria-label="Book details"
       ></button>
       <div class="reader-heading">
         <h1 class="reader-book-title">{{ book()?.title || 'Reading' }}</h1>
@@ -32,6 +32,7 @@
         (click)="toggleToc()"
         title="Table of Contents"
         aria-label="Table of Contents"
+        [attr.aria-expanded]="tocOpen()"
         [class.active]="tocOpen()"
       ></button>
       <button
@@ -41,6 +42,7 @@
         (click)="toggleNotes()"
         title="Notes & Highlights"
         aria-label="Notes & Highlights"
+        [attr.aria-expanded]="notesOpen()"
         [class.active]="notesOpen() || highlightMode()"
       ></button>
       @if (fileType() === 'pdf') {
@@ -73,6 +75,7 @@
         (click)="toggleTypo()"
         title="View settings"
         aria-label="View settings"
+        [attr.aria-expanded]="typoOpen()"
         [class.active]="typoOpen()"
         data-testid="typo-toggle"
       ></button>
@@ -82,10 +85,17 @@
 
   <div class="reader-body">
     <main class="reader-content">
-      <!-- No loading copy here: the shell already sits at opacity 0 until
-           `ready`, so the frame fades up out of the paper with the reader in
-           place instead of announcing itself first and then swapping. -->
-      @if (!loading()) { @switch (fileType()) { @case ('pdf') {
+      @if (loadError()) {
+      <div class="reader-load-error" role="alert" data-testid="reader-load-error">
+        <nostos-icon name="warning" [size]="28"></nostos-icon>
+        <h2>Couldn’t open this book</h2>
+        <p>{{ loadError() }}</p>
+        <div class="reader-load-error-actions">
+          <button appButton type="button" variant="secondary" (click)="goBack()">Book details</button>
+          <button appButton type="button" variant="primary" (click)="retryBookLoad()">Retry</button>
+        </div>
+      </div>
+      } @else if (!loading()) { @switch (fileType()) { @case ('pdf') {
       <app-pdf-reader
         [bookId]="book()!.id"
         [initialLocation]="book()?.lastLocation"
@@ -101,8 +111,19 @@
       } @case ('audio') {
       <app-audio-reader [bookId]="book()!.id" [book]="book()" />
       } @default {
-      <div class="error">Unsupported file format.</div>
+      <div class="reader-load-error" role="alert">
+        <nostos-icon name="warning" [size]="28"></nostos-icon>
+        <h2>This format can’t be read here</h2>
+        <p>Nostos supports EPUB, PDF, and audiobook files in the Reader.</p>
+        <div class="reader-load-error-actions">
+          <button appButton type="button" variant="secondary" (click)="goBack()">Book details</button>
+        </div>
+      </div>
       } } }
+
+      @if (saveFeedback()) {
+      <div class="reader-save-feedback" role="status" aria-live="polite">{{ saveFeedback() }}</div>
+      }
 
       @if (pendingSelectionText() !== null) {
       <div class="highlight-confirmation">
@@ -147,9 +168,14 @@
         <ng-template #tocTemplate let-items>
           @for (item of items; track $index) {
           <div class="toc-item-wrapper">
-            <div class="toc-item" [class.active]="isActive(item)" (click)="handleTocClick(item)">
+            <button
+              type="button"
+              class="toc-item"
+              [class.active]="isActive(item)"
+              (click)="handleTocClick(item)"
+            >
               {{ item.label }}
-            </div>
+            </button>
 
             @if (item.children && item.children.length > 0) {
             <div class="toc-subitems">
@@ -240,9 +266,10 @@
             type="button"
             variant="primary"
             (click)="saveQuickNote()"
-            [disabled]="!quickNoteContent()"
+            [disabled]="!quickNoteContent() || quickNoteSaving()"
+            [busy]="quickNoteSaving()"
           >
-            Save
+            {{ quickNoteSaving() ? 'Saving…' : 'Save' }}
           </button>
         </div>
       </div>
@@ -271,7 +298,7 @@
   <!-- The pager. This is the one piece of chrome that stays at the bottom on
        purpose: it is what a thumb reaches for while reading, and it is what the
        PDF reader's bottom clearance is measured against. -->
-  @if (fileType() !== 'audio') {
+  @if (!loadError() && fileType() && fileType() !== 'audio') {
   <header class="reader-toolbar">
     <div class="toolbar-center">
       <button appIconButton icon="caret-left" [glyphSize]="20" (click)="prevPage()" title="Previous" aria-label="Previous page"></button>
