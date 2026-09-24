@@ -56,6 +56,35 @@ internal static class BookTextFixtureFactory
             ]);
     }
 
+    public static GeneratedBookTextFixture CreateLargePdf(int pageCount = 160)
+    {
+        if (pageCount < 10) throw new ArgumentOutOfRangeException(nameof(pageCount));
+
+        var pages = Enumerable.Range(1, pageCount)
+            .Select(page => new[]
+            {
+                "Nostos Synthetic Benchmark",
+                $"CHAPTER {(page - 1) / 20 + 1}",
+                $"Physical page {page} carries deterministic generated prose for indexing.",
+                page == pageCount / 2
+                    ? "The amber lighthouse is the unique benchmark retrieval phrase."
+                    : "Ordinary repeated material exercises the lexical corpus without customer text.",
+                "A final generated sentence keeps each page large enough to exercise parsing.",
+            })
+            .ToArray();
+
+        return new GeneratedBookTextFixture(
+            FileName: "generated-book-text-benchmark.pdf",
+            ContentType: "application/pdf",
+            Format: BookTextSourceFormat.Pdf,
+            Bytes: BuildPdf(pages),
+            ExpectedReadingOrderSnippets:
+            [
+                "Nostos Synthetic Benchmark",
+                "The amber lighthouse is the unique benchmark retrieval phrase.",
+            ]);
+    }
+
     public static GeneratedBookTextFixture CreateEpub()
     {
         const string mimetype = "application/epub+zip";
