@@ -253,6 +253,14 @@ export class ReaderShell implements OnInit {
     if (this.sourceNavigationConsumed) return;
 
     const params = this.route.snapshot.queryParamMap;
+    // Older tests and embedded hosts can supply a minimal ActivatedRoute
+    // snapshot without queryParamMap. In that case there is simply no grounded
+    // source navigation to consume.
+    if (!params) {
+      this.sourceNavigationConsumed = true;
+      return;
+    }
+
     const sourcePage = Number(params.get('sourcePage'));
     const sourceCfi = params.get('sourceCfi');
     const sourceHref = params.get('sourceHref');
