@@ -64,19 +64,27 @@ public sealed class BookTextExtractionTests
             BookTextArtifactSchema.CurrentExtractorVersion,
             BookTextSourceFormat.Pdf);
 
+        var text = string.Join(
+            ' ',
+            Enumerable.Repeat("grounded retrieval keeps source provenance", 120));
+        var pageBoundary = text.Length / 2;
         var block = new BookTextArtifactBlock(
             0,
-            string.Join(' ', Enumerable.Repeat("grounded retrieval keeps source provenance", 120)),
+            text,
             ["Chapter One"],
             [
                 new BookTextSourceSegment(
                     0,
-                    1800,
-                    new PdfBookTextSourceLocator(0, "xii", 0, 1800)),
+                    pageBoundary,
+                    new PdfBookTextSourceLocator(0, "xii", 0, pageBoundary)),
                 new BookTextSourceSegment(
-                    1800,
-                    1800,
-                    new PdfBookTextSourceLocator(1, "1", 0, 1800)),
+                    pageBoundary,
+                    text.Length - pageBoundary,
+                    new PdfBookTextSourceLocator(
+                        1,
+                        "1",
+                        0,
+                        text.Length - pageBoundary)),
             ]);
 
         var first = BookTextChunker.Chunk(revision, [block], 900, 1100, 100);
