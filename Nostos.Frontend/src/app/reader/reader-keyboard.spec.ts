@@ -1,4 +1,4 @@
-import { isTypingTarget, pageActionForKey } from './reader-keyboard';
+import { isInteractiveTarget, isTypingTarget, pageActionForKey } from './reader-keyboard';
 
 /**
  * The page-key binding is shared by the shell (document-level) and the EPUB
@@ -25,6 +25,19 @@ describe('reader keyboard bindings (issue #225 §1.5)', () => {
     for (const key of ['a', 'Enter', 'Escape', 'Home', 'End', 'Tab', 'F1']) {
       expect(pageActionForKey({ key })).toBeNull();
     }
+  });
+
+  it('leaves Space to interactive controls instead of paging', () => {
+    const button = document.createElement('button');
+    const icon = document.createElement('span');
+    button.appendChild(icon);
+    expect(isInteractiveTarget(button)).toBe(true);
+    expect(isInteractiveTarget(icon)).toBe(true);
+
+    const link = document.createElement('a');
+    link.href = '/library';
+    expect(isInteractiveTarget(link)).toBe(true);
+    expect(isInteractiveTarget(document.createElement('div'))).toBe(false);
   });
 
   it('treats text-entry surfaces as typing targets', () => {
