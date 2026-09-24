@@ -1,7 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import { ConceptDto } from '../../core/services/concepts.service';
 
-@Injectable()
+@Injectable({ providedIn: 'root' })
 export class ConceptAutocompleteService {
   suggestions = signal<ConceptDto[]>([]);
   activeIndex = signal(0);

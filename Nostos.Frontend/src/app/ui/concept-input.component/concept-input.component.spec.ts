@@ -1,4 +1,4 @@
-import { ComponentFixture, fakeAsync, TestBed, tick } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 
 import { ConceptsService } from '../../core/services/concepts.service';
@@ -31,15 +31,14 @@ describe('ConceptInputComponent concept linking', () => {
     component = fixture.componentInstance;
     changed = vi.fn();
     component.registerOnChange(changed as (value: string) => void);
-    fixture.detectChanges();
     textarea = fixture.nativeElement.querySelector('textarea');
   });
 
   function setValue(value: string, start = value.length, end = start): void {
-    component.writeValue(value);
-    fixture.detectChanges();
+    component.value = value;
     textarea.value = value;
     textarea.setSelectionRange(start, end);
+    fixture.detectChanges();
   }
 
   it('exposes a visible Link a concept action and prefills it from selected text', () => {
@@ -118,20 +117,20 @@ describe('ConceptInputComponent concept linking', () => {
     expect(component.value).toBe('A [[thought]] worth returning to');
   });
 
-  it('cancels without mutating the note and restores the previous selection', fakeAsync(() => {
+  it('cancels without mutating the note and restores the previous selection', async () => {
     setValue('Power matters', 0, 5);
     const original = component.value;
 
     (fixture.nativeElement.querySelector('.concept-link-action') as HTMLButtonElement).click();
     fixture.detectChanges();
     (fixture.nativeElement.querySelector('.picker-cancel') as HTMLButtonElement).click();
-    tick();
+    await new Promise((resolve) => setTimeout(resolve, 10));
 
     expect(component.value).toBe(original);
     expect(changed).not.toHaveBeenCalled();
     expect(textarea.selectionStart).toBe(0);
     expect(textarea.selectionEnd).toBe(5);
-  }));
+  });
 
   it('uses real buttons for pointer and touch selection targets', () => {
     setValue('Power', 0, 5);

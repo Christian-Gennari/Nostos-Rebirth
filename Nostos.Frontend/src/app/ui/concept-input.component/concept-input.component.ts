@@ -2,13 +2,14 @@ import {
   Component,
   ElementRef,
   EventEmitter,
-  forwardRef,
-  inject,
   Input,
   OnDestroy,
   OnInit,
   Output,
   ViewChild,
+  ChangeDetectorRef,
+  forwardRef,
+  inject,
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
@@ -44,6 +45,7 @@ export class ConceptInputComponent implements ControlValueAccessor, OnInit, OnDe
 
   private readonly autocompleteService = inject(ConceptAutocompleteService);
   private readonly conceptsService = inject(ConceptsService);
+  private readonly cdr = inject(ChangeDetectorRef);
   private sub?: Subscription;
   private pickerSelection: { start: number; end: number } | null = null;
 
@@ -147,6 +149,7 @@ export class ConceptInputComponent implements ControlValueAccessor, OnInit, OnDe
 
   writeValue(obj: unknown): void {
     this.value = typeof obj === 'string' ? obj : '';
+    this.cdr.markForCheck();
   }
 
   registerOnChange(fn: (value: string) => void): void {
