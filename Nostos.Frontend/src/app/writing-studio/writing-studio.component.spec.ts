@@ -11,7 +11,8 @@ import { NotesService } from '../core/services/notes.service';
 import { FlatTreeComponent } from '../ui/flat-tree/flat-tree.component';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
 import { MarkdownEditorComponent } from '../ui/markdown-editor/markdown-editor.component';
-import { WritingContentDto } from '../core/dtos/writing.dtos';
+import { WritingContentDto, WritingSourceDto } from '../core/dtos/writing.dtos';
+import { throwError } from 'rxjs';
 
 // Heavy editor / UI children are stubbed out: MarkdownEditor boots TinyMCE
 // (not available under vitest), and the tree/note cards pull in drag-drop and
@@ -81,6 +82,9 @@ describe('WritingStudio zen mode (issue #49) + paper frame (expert design §2/§
             update: vi.fn(() => of({})),
             delete: vi.fn(() => of({})),
             move: vi.fn(() => of({})),
+            listSources: vi.fn(() => of([])),
+            addSource: vi.fn(() => of({})),
+            removeSource: vi.fn(() => of({})),
           },
         },
         { provide: ToastService, useValue: { error: vi.fn(), success: vi.fn() } },
@@ -126,6 +130,7 @@ describe('WritingStudio zen mode (issue #49) + paper frame (expert design §2/§
   // --- Nostos UI v1 migration boundaries ---
   it('uses canonical UI primitives for ordinary Studio controls', () => {
     component.isMobile.set(true);
+    component.referenceMode.set('library');
     component.concepts.set([{ id: 'concept-1', name: 'Memory', usageCount: 3 } as any]);
     fixture.detectChanges();
 
@@ -151,10 +156,13 @@ describe('WritingStudio zen mode (issue #49) + paper frame (expert design §2/§
   });
 
   it('keeps reference tabs and navigation rows product-owned while preserving their semantics', () => {
+    component.referenceMode.set('library');
     component.concepts.set([{ id: 'concept-1', name: 'Memory', usageCount: 3 } as any]);
     fixture.detectChanges();
 
-    const tabs = Array.from(fixture.nativeElement.querySelectorAll('.tab-btn')) as HTMLButtonElement[];
+    const tabs = Array.from(
+      fixture.nativeElement.querySelectorAll('.library-tabs .tab-btn'),
+    ) as HTMLButtonElement[];
     expect(tabs).toHaveLength(2);
     expect(tabs[0].getAttribute('role')).toBe('tab');
     expect(tabs[0].getAttribute('aria-selected')).toBe('true');
@@ -173,6 +181,7 @@ describe('WritingStudio zen mode (issue #49) + paper frame (expert design §2/§
   });
 
   it('uses the canonical search field and ghost action in both reference modes', () => {
+    component.referenceMode.set('library');
     component.activeSidebarTab.set('notes');
     component.selectedBookId.set('book-1');
     fixture.detectChanges();
@@ -572,6 +581,9 @@ describe('WritingStudio typewriter mode', () => {
             update: vi.fn(() => of({})),
             delete: vi.fn(() => of({})),
             move: vi.fn(() => of({})),
+            listSources: vi.fn(() => of([])),
+            addSource: vi.fn(() => of({})),
+            removeSource: vi.fn(() => of({})),
           },
         },
         { provide: ToastService, useValue: { error: vi.fn(), success: vi.fn() } },
@@ -641,6 +653,9 @@ describe('WritingStudio delete (no window.confirm)', () => {
             update: vi.fn(() => of({})),
             delete: vi.fn(() => of({})),
             move: vi.fn(() => of({})),
+            listSources: vi.fn(() => of([])),
+            addSource: vi.fn(() => of({})),
+            removeSource: vi.fn(() => of({})),
           },
         },
         { provide: ToastService, useValue: { error: vi.fn(), success: vi.fn() } },
@@ -683,5 +698,336 @@ describe('WritingStudio delete (no window.confirm)', () => {
     component.cancelDeleteItem();
     expect(component.pendingDelete()).toBeNull();
     expect(writings.delete).not.toHaveBeenCalled();
+  });
+});
+
+describe('WritingStudio kept sources (#491)', () => {
+  let fixture: ComponentFixture<WritingStudio>;
+  let component: WritingStudio;
+  let writingsService: {
+    list: ReturnType<typeof vi.fn>;
+    get: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    delete: ReturnType<typeof vi.fn>;
+    move: ReturnType<typeof vi.fn>;
+    listSources: ReturnType<typeof vi.fn>;
+    addSource: ReturnType<typeof vi.fn>;
+    removeSource: ReturnType<typeof vi.fn>;
+  };
+  let toastService: {
+    error: ReturnType<typeof vi.fn>;
+    success: ReturnType<typeof vi.fn>;
+  };
+
+  const sampleDoc1: WritingContentDto = {
+    id: 'doc-1',
+    name: 'Chapter 1',
+    content: 'Once upon a time',
+    updatedAt: '2026-09-01T00:00:00Z',
+  };
+
+  const sampleDoc2: WritingContentDto = {
+    id: 'doc-2',
+    name: 'Chapter 2',
+    content: 'The second chapter',
+    updatedAt: '2026-09-02T00:00:00Z',
+  };
+
+  const sourceAlpha: WritingSourceDto = {
+    id: 'note-alpha',
+    bookId: 'book-1',
+    bookTitle: 'Book Alpha',
+    content: 'First kept thought',
+    selectedText: 'Alpha excerpt',
+    cfiRange: 'epubcfi(/6/2)',
+    createdAt: '2026-08-01T10:00:00Z',
+    addedAt: '2026-09-01T12:00:00Z',
+    sourceAnchorKind: 'epub_cfi',
+    sourceAnchorValue: 'epubcfi(/6/2)',
+    anchorVerified: true,
+  };
+
+  const sourceBeta: WritingSourceDto = {
+    id: 'note-beta',
+    bookId: 'book-2',
+    bookTitle: 'Book Beta',
+    content: 'Second kept thought',
+    selectedText: 'Beta excerpt',
+    cfiRange: null,
+    createdAt: '2026-08-05T10:00:00Z',
+    addedAt: '2026-09-02T15:00:00Z',
+    sourceAnchorKind: 'pdf_page',
+    sourceAnchorValue: '42',
+    anchorVerified: true,
+  };
+
+  beforeEach(async () => {
+    writingsService = {
+      list: vi.fn(() => of([])),
+      get: vi.fn((id: string) => of(id === 'doc-2' ? sampleDoc2 : sampleDoc1)),
+      create: vi.fn(() => of({})),
+      update: vi.fn(() => of({})),
+      delete: vi.fn(() => of({})),
+      move: vi.fn(() => of({})),
+      listSources: vi.fn(() => of([])),
+      addSource: vi.fn(() => of({})),
+      removeSource: vi.fn(() => of(undefined)),
+    };
+
+    toastService = {
+      error: vi.fn(),
+      success: vi.fn(),
+    };
+
+    TestBed.overrideComponent(WritingStudio, {
+      remove: { imports: [FlatTreeComponent, NoteCardComponent, MarkdownEditorComponent] },
+      add: { imports: [FlatTreeStub, NoteCardStub, MarkdownEditorStub] },
+    });
+
+    await TestBed.configureTestingModule({
+      imports: [WritingStudio],
+      providers: [
+        { provide: WritingsService, useValue: writingsService },
+        { provide: ToastService, useValue: toastService },
+        {
+          provide: ConceptsService,
+          useValue: {
+            list: vi.fn(() => of([{ id: 'c-1', name: 'Philosophy', usageCount: 1 }])),
+            get: vi.fn(() =>
+              of({
+                id: 'c-1',
+                name: 'Philosophy',
+                notes: [
+                  {
+                    noteId: 'note-alpha',
+                    bookId: 'book-1',
+                    content: 'First kept thought',
+                    selectedText: 'Alpha excerpt',
+                    cfiRange: 'epubcfi(/6/2)',
+                    bookTitle: 'Book Alpha',
+                  },
+                ],
+              }),
+            ),
+          },
+        },
+        { provide: BooksService, useValue: { list: vi.fn(() => of({ items: [] })) } },
+        { provide: NotesService, useValue: { list: vi.fn(() => of([])) } },
+      ],
+    }).compileComponents();
+
+    localStorage.clear();
+    document.body.classList.remove('nostos-zen');
+
+    fixture = TestBed.createComponent(WritingStudio);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  // 1. the References surface renders For this writing and Library as distinct surfaces,
+  // and Concepts/Books browsing is inside Library (not beside it).
+  it('renders For this writing and Library as distinct surfaces, and Concepts/Books browsing inside Library', () => {
+    const referenceTabs = Array.from(
+      fixture.nativeElement.querySelectorAll('.reference-mode-switch .tab-btn'),
+    ) as HTMLButtonElement[];
+    expect(referenceTabs).toHaveLength(2);
+    expect(referenceTabs[0].textContent?.trim()).toBe('For this writing');
+    expect(referenceTabs[1].textContent?.trim()).toBe('Library');
+
+    // In 'writing' mode, inner Library tabs (Concepts/Books) are not rendered
+    expect(component.referenceMode()).toBe('writing');
+    expect(fixture.nativeElement.querySelector('.library-tabs')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.kept-sources-content')).toBeTruthy();
+
+    // Switch to Library mode
+    referenceTabs[1].click();
+    fixture.detectChanges();
+
+    expect(component.referenceMode()).toBe('library');
+    const libraryTabs = Array.from(
+      fixture.nativeElement.querySelectorAll('.library-tabs .tab-btn'),
+    ) as HTMLButtonElement[];
+    expect(libraryTabs).toHaveLength(2);
+    expect(libraryTabs[0].textContent).toContain('Concepts');
+    expect(libraryTabs[1].textContent).toContain('Books');
+    expect(fixture.nativeElement.querySelector('.kept-sources-content')).toBeNull();
+  });
+
+  // 2. selecting a document loads and renders its kept sources (stubbed service returns two).
+  it('selecting a document loads and renders its kept sources', () => {
+    writingsService.listSources.mockReturnValue(of([sourceAlpha, sourceBeta]));
+
+    component.handleItemSelected({ id: 'doc-1', type: 'Document', name: 'Chapter 1' });
+    fixture.detectChanges();
+
+    expect(writingsService.listSources).toHaveBeenCalledWith('doc-1');
+    expect(component.keptSources()).toHaveLength(2);
+
+    const keptCards = fixture.nativeElement.querySelectorAll('.kept-note-row app-note-card');
+    expect(keptCards).toHaveLength(2);
+  });
+
+  // 3. empty kept list shows the calm empty state and no note cards.
+  it('shows calm empty state when document is open but kept list is empty', () => {
+    component.activeItem.set(sampleDoc1);
+    component.keptSources.set([]);
+    fixture.detectChanges();
+
+    const emptyText = fixture.nativeElement.querySelector('.empty-index');
+    expect(emptyText).toBeTruthy();
+    expect(emptyText.textContent).toContain('No sources kept with this writing yet.');
+    expect(fixture.nativeElement.querySelectorAll('.kept-note-row')).toHaveLength(0);
+  });
+
+  // 4. keep action calls addSource with the active document id + note id.
+  it('keep action calls addSource with active document id and note id', () => {
+    component.activeItem.set(sampleDoc1);
+    component.referenceMode.set('library');
+    component.selectConcept('c-1');
+    fixture.detectChanges();
+
+    writingsService.addSource.mockReturnValue(of(sourceAlpha));
+
+    const keepBtn = fixture.nativeElement.querySelector(
+      '.library-note-actions button',
+    ) as HTMLButtonElement;
+    expect(keepBtn).toBeTruthy();
+
+    keepBtn.click();
+    fixture.detectChanges();
+
+    expect(writingsService.addSource).toHaveBeenCalledWith('doc-1', 'note-alpha');
+    expect(component.keptNoteIds().has('note-alpha')).toBe(true);
+  });
+
+  // 5. an already-kept note shows the kept state and clicking again does not call addSource twice.
+  it('already-kept note shows kept state and clicking again does not call addSource twice', () => {
+    component.activeItem.set(sampleDoc1);
+    component.keptSources.set([sourceAlpha]);
+    component.referenceMode.set('library');
+    component.selectConcept('c-1');
+    fixture.detectChanges();
+
+    const keepBtn = fixture.nativeElement.querySelector(
+      '.library-note-actions button',
+    ) as HTMLButtonElement;
+    expect(keepBtn.classList.contains('active')).toBe(true);
+    expect(keepBtn.getAttribute('title')).toBe('Kept');
+
+    keepBtn.click();
+    fixture.detectChanges();
+
+    expect(writingsService.addSource).not.toHaveBeenCalled();
+  });
+
+  // 6. keep action disabled (with the documented reason) when no document is open.
+  it('keep action is disabled with documented reason when no document is open', () => {
+    component.activeItem.set(null);
+    component.referenceMode.set('library');
+    component.selectConcept('c-1');
+    fixture.detectChanges();
+
+    const keepBtn = fixture.nativeElement.querySelector(
+      '.library-note-actions button',
+    ) as HTMLButtonElement;
+    expect(keepBtn.disabled).toBe(true);
+    expect(keepBtn.getAttribute('title')).toBe('Open a document to keep sources');
+
+    keepBtn.click();
+    fixture.detectChanges();
+
+    expect(writingsService.addSource).not.toHaveBeenCalled();
+  });
+
+  // 7. remove action calls removeSource and drops the row locally.
+  it('remove action calls removeSource and drops the row locally', () => {
+    component.activeItem.set(sampleDoc1);
+    component.keptSources.set([sourceAlpha, sourceBeta]);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.kept-note-row')).toHaveLength(2);
+
+    const removeButtons = fixture.nativeElement.querySelectorAll(
+      '.kept-note-actions button',
+    ) as NodeListOf<HTMLButtonElement>;
+    expect(removeButtons).toHaveLength(2);
+
+    removeButtons[0].click();
+    fixture.detectChanges();
+
+    expect(writingsService.removeSource).toHaveBeenCalledWith('doc-1', 'note-alpha');
+    expect(component.keptSources()).toHaveLength(1);
+    expect(component.keptSources()[0].id).toBe('note-beta');
+    expect(fixture.nativeElement.querySelectorAll('.kept-note-row')).toHaveLength(1);
+  });
+
+  // 8. switching the active document reloads the kept list (no stale list from the previous document).
+  it('switching the active document reloads the kept list', () => {
+    writingsService.listSources.mockImplementation((id: string) =>
+      id === 'doc-2' ? of([sourceBeta]) : of([sourceAlpha]),
+    );
+
+    // Select doc-1
+    component.handleItemSelected({ id: 'doc-1', type: 'Document', name: 'Chapter 1' });
+    fixture.detectChanges();
+    expect(writingsService.listSources).toHaveBeenCalledWith('doc-1');
+    expect(component.keptSources()).toEqual([sourceAlpha]);
+
+    // Switch to doc-2
+    component.handleItemSelected({ id: 'doc-2', type: 'Document', name: 'Chapter 2' });
+    fixture.detectChanges();
+    expect(writingsService.listSources).toHaveBeenCalledWith('doc-2');
+    expect(component.keptSources()).toEqual([sourceBeta]);
+  });
+
+  // 9. a failing addSource surfaces an error toast and does not fake the kept state.
+  it('a failing addSource surfaces an error toast and does not fake the kept state', () => {
+    component.activeItem.set(sampleDoc1);
+    component.referenceMode.set('library');
+    component.selectConcept('c-1');
+    fixture.detectChanges();
+
+    writingsService.addSource.mockReturnValue(
+      throwError(() => new Error('Server error')),
+    );
+    writingsService.listSources.mockReturnValue(of([]));
+
+    const keepBtn = fixture.nativeElement.querySelector(
+      '.library-note-actions button',
+    ) as HTMLButtonElement;
+    keepBtn.click();
+    fixture.detectChanges();
+
+    expect(toastService.error).toHaveBeenCalledWith('Failed to keep note');
+    expect(component.keptNoteIds().has('note-alpha')).toBe(false);
+    expect(writingsService.listSources).toHaveBeenCalledWith('doc-1');
+  });
+
+  // 10. mobile: the References drawer toggle still opens/closes the sidebar.
+  it('mobile: the References drawer toggle still opens and closes the sidebar', () => {
+    component.isMobile.set(true);
+    component.activeItem.set(sampleDoc1);
+    component.showBrainSidebar.set(false);
+    fixture.detectChanges();
+
+    const toggleBtn = fixture.nativeElement.querySelector(
+      '.sidebar-header-brain-toggle',
+    ) as HTMLButtonElement;
+    expect(toggleBtn).toBeTruthy();
+
+    // Open drawer
+    toggleBtn.click();
+    fixture.detectChanges();
+    expect(component.showBrainSidebar()).toBe(true);
+
+    // Close via close button in reference sidebar
+    const closeBtn = fixture.nativeElement.querySelector(
+      '.sidebar-right .sidebar-title-row button',
+    ) as HTMLButtonElement;
+    expect(closeBtn).toBeTruthy();
+    closeBtn.click();
+    fixture.detectChanges();
+    expect(component.showBrainSidebar()).toBe(false);
   });
 });

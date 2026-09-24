@@ -309,6 +309,45 @@
   margin-top: 2rem;
 }
 
+.calm-notice {
+  font-style: normal;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  padding: 1rem 0.5rem;
+}
+
+/* Kept sources & Library note rows with contextual actions (issue #491) */
+.kept-sources-content {
+  padding-top: 0.5rem;
+}
+
+.kept-note-row,
+.library-note-row {
+  position: relative;
+  margin-bottom: 0.85rem;
+}
+
+.kept-note-row app-note-card,
+.library-note-row app-note-card {
+  display: block;
+}
+
+.kept-note-actions,
+.library-note-actions {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.library-note-actions .icon-btn.active {
+  color: var(--color-brand-accent);
+}
+
+
 
 /* --- EDITOR PANE (frameless seamless desk) --- */
 .editor-pane {

@@ -19,7 +19,7 @@ import { ConceptsService, ConceptDto, NoteContextDto } from '../core/services/co
 import { BooksService, Book as BookDto } from '../core/services/books.service';
 import { NotesService } from '../core/services/notes.service';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
-import { WritingDto, WritingContentDto } from '../core/dtos/writing.dtos';
+import { WritingDto, WritingContentDto, WritingSourceDto } from '../core/dtos/writing.dtos';
 import { Note } from '../core/dtos/note.dtos';
 import { MarkdownEditorComponent } from '../ui/markdown-editor/markdown-editor.component';
 import { FlatTreeComponent } from '../ui/flat-tree/flat-tree.component';
@@ -104,6 +104,39 @@ export class WritingStudio implements OnInit {
   leftSidebarWidth = signal(readStudioSidebarWidth());
 
   activeSidebarTab = signal<'brain' | 'notes'>('brain');
+
+  /** Reference surface top-level mode: "For this writing" vs "Library" (issue #491) */
+  referenceMode = signal<'writing' | 'library'>('writing');
+
+  /** Kept source notes for the active writing document */
+  keptSources = signal<WritingSourceDto[]>([]);
+
+  /** Note IDs currently being kept (in-flight addSource request) to prevent concurrent races */
+  keepingNoteIds = signal<Set<string>>(new Set());
+
+  /** Set of kept note IDs for fast lookup */
+  keptNoteIds = computed(() => new Set(this.keptSources().map((s) => s.id)));
+
+  /**
+   * Kept sources mapped to Note shape for NoteCardComponent,
+   * in addedAt ascending order (chronological accretion).
+   */
+  keptNotes = computed<Note[]>(() => {
+    return [...this.keptSources()]
+      .sort((a, b) => new Date(a.addedAt).getTime() - new Date(b.addedAt).getTime())
+      .map((s) => ({
+        id: s.id,
+        bookId: s.bookId,
+        content: s.content,
+        selectedText: s.selectedText ?? undefined,
+        cfiRange: s.cfiRange ?? undefined,
+        createdAt: s.createdAt,
+        bookTitle: s.bookTitle ?? undefined,
+        sourceAnchorKind: s.sourceAnchorKind ?? undefined,
+        sourceAnchorValue: s.sourceAnchorValue ?? undefined,
+        anchorVerified: s.anchorVerified ?? undefined,
+      }));
+  });
 
   rootItems = signal<WritingDto[]>([]);
   activeItem = signal<WritingContentDto | null>(null);
@@ -355,6 +388,71 @@ export class WritingStudio implements OnInit {
     return this.rootItems().find((item) => item.id === id)?.name || '';
   }
 
+  loadKeptSources(writingId: string) {
+    this.writingsService.listSources(writingId).subscribe({
+      next: (sources) => this.keptSources.set(sources),
+      error: () => this.toast.error('Failed to load kept sources'),
+    });
+  }
+
+  keepNote(noteId: string) {
+    const active = this.activeItem();
+    if (!active) return;
+
+    if (this.keptNoteIds().has(noteId)) {
+      // Already kept: no-op
+      return;
+    }
+
+    if (this.keepingNoteIds().has(noteId)) {
+      // Request already in flight: return early to prevent concurrent race
+      return;
+    }
+
+    this.keepingNoteIds.update((s) => new Set(s).add(noteId));
+
+    this.writingsService.addSource(active.id, noteId).subscribe({
+      next: (source) => {
+        this.keepingNoteIds.update((s) => {
+          const next = new Set(s);
+          next.delete(noteId);
+          return next;
+        });
+        // Update keptSources locally without full reload if already present or append
+        this.keptSources.update((prev) => {
+          if (prev.some((s) => s.id === source.id)) return prev;
+          return [...prev, source];
+        });
+      },
+      error: () => {
+        this.keepingNoteIds.update((s) => {
+          const next = new Set(s);
+          next.delete(noteId);
+          return next;
+        });
+        this.toast.error('Failed to keep note');
+        // Re-fetch kept list on error so UI does not leave an optimistic lie
+        this.loadKeptSources(active.id);
+      },
+    });
+  }
+
+  removeKeptSource(noteId: string, event?: Event) {
+    event?.stopPropagation();
+    const active = this.activeItem();
+    if (!active) return;
+
+    this.writingsService.removeSource(active.id, noteId).subscribe({
+      next: () => {
+        this.keptSources.update((prev) => prev.filter((s) => s.id !== noteId));
+      },
+      error: () => {
+        this.toast.error('Failed to remove kept source');
+        this.loadKeptSources(active.id);
+      },
+    });
+  }
+
   handleItemSelected(node: any) {
     const item = node as WritingDto;
 
@@ -365,6 +463,7 @@ export class WritingStudio implements OnInit {
         this.activeItem.set(contentDto);
         this.editorTitle.set(contentDto.name);
         this.editorText.set(contentDto.content);
+        this.loadKeptSources(contentDto.id);
 
         if (this.isMobile()) this.showFileSidebar.set(false);
       },
@@ -439,6 +538,7 @@ export class WritingStudio implements OnInit {
         this.activeItem.set(null);
         this.editorText.set('');
         this.editorTitle.set('');
+        this.keptSources.set([]);
       }
     });
   }
