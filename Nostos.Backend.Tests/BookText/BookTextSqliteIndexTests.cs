@@ -94,6 +94,84 @@ public sealed class BookTextSqliteIndexTests : IDisposable
         Assert.Equal(2, retry!.Attempt);
     }
 
+    [Fact]
+    public async Task Superseded_or_deleted_processing_claim_cannot_resurrect_chunks()
+    {
+        var index = new SqliteBookTextIndex(new Factory(_path));
+        await index.EnsureSchemaAsync();
+        var bookId = Guid.NewGuid();
+        await index.ScheduleAsync(bookId, "book.pdf", BookTextSourceFormat.Pdf);
+
+        var stale = await index.TryClaimNextAsync(TimeSpan.FromHours(1));
+        Assert.NotNull(stale);
+
+        await Task.Delay(5);
+        var current = await index.TryClaimNextAsync(TimeSpan.Zero);
+        Assert.NotNull(current);
+        Assert.Equal(2, current!.Attempt);
+
+        var revision = new BookTextSourceRevision(
+            bookId,
+            new string('d', 64),
+            BookTextArtifactSchema.CurrentExtractorVersion,
+            BookTextSourceFormat.Pdf);
+        var staleChunk = new BookTextIndexedChunk(
+            BookTextIdentity.ChunkId(revision, 0),
+            bookId,
+            revision.SourceSha256,
+            revision.ExtractorVersion,
+            revision.Format,
+            0,
+            "stale worker text must never become searchable",
+            [],
+            [new BookTextSourceSegment(
+                0,
+                44,
+                new PdfBookTextSourceLocator(0, "1", 0, 44))]);
+
+        Assert.False(await index.ReplaceReadyAsync(
+            revision,
+            [staleChunk],
+            staleChunk.Text.Length,
+            stale!.Attempt));
+        Assert.False(await index.MarkFailedAsync(
+            bookId,
+            "stale_failure",
+            "A stale worker cannot overwrite the current attempt.",
+            unsupported: false,
+            stale.Attempt));
+        Assert.Empty(await index.SearchAsync("stale worker", [bookId], 8));
+
+        var currentChunk = staleChunk with
+        {
+            Id = BookTextIdentity.ChunkId(revision, 1),
+            Ordinal = 1,
+            Text = "current worker lantern evidence",
+        };
+        Assert.True(await index.ReplaceReadyAsync(
+            revision,
+            [currentChunk],
+            currentChunk.Text.Length,
+            current.Attempt));
+        Assert.Single(await index.SearchAsync("lantern", [bookId], 8));
+
+        // Deletion while another claim is Processing removes the lifecycle row.
+        // That worker's late completion becomes a no-op rather than recreating
+        // searchable customer text after deletion.
+        await index.ScheduleAsync(bookId, "book.pdf", BookTextSourceFormat.Pdf);
+        var deleting = await index.TryClaimNextAsync(TimeSpan.FromHours(1));
+        Assert.NotNull(deleting);
+        await index.DeleteBookAsync(bookId);
+
+        Assert.False(await index.ReplaceReadyAsync(
+            revision,
+            [currentChunk],
+            currentChunk.Text.Length,
+            deleting!.Attempt));
+        Assert.Null(await index.GetStateAsync(bookId));
+        Assert.Empty(await index.SearchAsync("lantern", [bookId], 8));
+    }
+
     public void Dispose()
     {
         foreach (var suffix in new[] { "", "-shm", "-wal" })
