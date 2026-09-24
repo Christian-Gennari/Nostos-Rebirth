@@ -4,7 +4,9 @@ internal static class PortableArchiveFormat
 {
     public const string Name = "nostos-portable";
     public const int Version = 1;
-    public const int DataVersion = 1;
+    // Bumped from 1 to 2 with the introduction of WritingNotes membership
+    // relationships (issue #491). Archives with DataVersion 1 remain supported.
+    public const int DataVersion = 2;
     public const string ManifestPath = "manifest.json";
     public const string DataPath = "data/library.json";
     public const string BookMediaKind = "book";
@@ -22,7 +24,8 @@ internal sealed record PortableLibraryData(
     List<PortableNoteConcept> NoteConcepts,
     List<PortableWriting> Writings,
     List<PortableBookAcquisition> BookAcquisitions,
-    PortableAssistantSettings? AssistantSettings);
+    PortableAssistantSettings? AssistantSettings,
+    List<PortableWritingNote>? WritingNotes = null);
 
 internal sealed record PortableWork(
     Guid Id,
@@ -113,6 +116,11 @@ internal sealed record PortableWriting(
     Guid? ParentId,
     DateTime CreatedAt,
     DateTime UpdatedAt);
+
+internal sealed record PortableWritingNote(
+    Guid WritingId,
+    Guid NoteId,
+    DateTime AddedAt);
 
 internal sealed record PortableBookAcquisition(
     Guid Id,
