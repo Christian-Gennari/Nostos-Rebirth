@@ -215,7 +215,7 @@ export class AssistantComponent {
     }
 
     if (this.router) {
-      void this.router.navigate(['/reader', source.bookId], { queryParams });
+      void this.router.navigate(['/read', source.bookId], { queryParams });
     }
   }
 
