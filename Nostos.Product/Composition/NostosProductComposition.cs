@@ -136,7 +136,8 @@ public static class NostosProductComposition
         services.AddScoped(sp => new AssistantCapabilityRegistry(AssistantCapabilities.Build(
             sp.GetRequiredService<INoteService>(),
             sp.GetRequiredService<ILibraryService>(),
-            sp.GetRequiredService<IConceptRepository>())));
+            sp.GetRequiredService<IConceptRepository>(),
+            sp.GetRequiredService<IBookTextSearchService>())));
 
         services.Configure<AcquisitionOptions>(
             configuration.GetSection(AcquisitionOptions.SectionName));
