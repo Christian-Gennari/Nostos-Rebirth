@@ -278,8 +278,11 @@ public sealed class BookTextIngestionScheduler(
 
         try
         {
-            await artifacts.DeleteBookArtifactsAsync(bookId, ct);
+            // Invalidate retrieval first. If derived-object cleanup is slower or
+            // temporarily unavailable, a replaced source must still stop serving
+            // chunks from the previous revision immediately.
             await index.ScheduleAsync(bookId, sourceFileName, format, ct);
+            await artifacts.DeleteBookArtifactsAsync(bookId, ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
