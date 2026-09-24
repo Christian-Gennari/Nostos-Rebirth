@@ -11,7 +11,7 @@ import { ConceptAutocompleteService } from '../ui/concept-autocomplete-panel/con
 
 // DTOs & Interfaces
 import { Note, noteNavigationTarget } from '../core/dtos/note.dtos';
-import { IReader, TocItem } from './reader.interface';
+import { IReader, ReaderSourceTarget, TocItem } from './reader.interface';
 import { isTypingTarget, pageActionForKey } from './reader-keyboard';
 import {
   DEFAULT_HIGHLIGHT_COLOUR,
@@ -152,6 +152,7 @@ export class ReaderShell implements OnInit {
   notesOpen = signal(false);
   tocOpen = signal(false);
   ready = signal(false);
+  private sourceNavigationConsumed = false;
   highlightMode = signal(false);
   /**
    * The book's highlighter pen (issue #208). Remembered per BOOK, like the
@@ -237,11 +238,63 @@ export class ReaderShell implements OnInit {
           this.book.set(b);
           this.loading.set(false);
           this.loadNotes(b.id);
-          setTimeout(() => this.ready.set(true), 100);
+          setTimeout(() => {
+            this.ready.set(true);
+            this.navigateGroundedSource();
+          }, 100);
         },
         error: () => this.loading.set(false),
       });
     }
+  }
+
+
+  private navigateGroundedSource(attempt = 0): void {
+    if (this.sourceNavigationConsumed) return;
+
+    const params = this.route.snapshot.queryParamMap;
+    const sourcePage = Number(params.get('sourcePage'));
+    const sourceCfi = params.get('sourceCfi');
+    const sourceHref = params.get('sourceHref');
+    const sourceSpineRaw = params.get('sourceSpine');
+    const sourceOffsetRaw = params.get('sourceOffset');
+    const sourceExcerpt = params.get('sourceExcerpt');
+
+    let target: ReaderSourceTarget | null = null;
+    if (Number.isInteger(sourcePage) && sourcePage > 0) {
+      target = {
+        type: 'pdf',
+        pdfPage: sourcePage,
+        pdfPageLabel: params.get('sourcePageLabel'),
+      };
+    } else if (sourceCfi || sourceHref) {
+      const spine = sourceSpineRaw === null ? null : Number(sourceSpineRaw);
+      const offset = sourceOffsetRaw === null ? null : Number(sourceOffsetRaw);
+      target = {
+        type: 'epub',
+        epubCfi: sourceCfi,
+        epubResourceHref: sourceHref,
+        epubSpineIndex: Number.isInteger(spine) ? spine : null,
+        epubTextOffset: Number.isInteger(offset) && (offset ?? -1) >= 0 ? offset : null,
+        excerpt: sourceExcerpt,
+      };
+    }
+
+    if (!target) {
+      this.sourceNavigationConsumed = true;
+      return;
+    }
+
+    const reader = this.activeReader();
+    if (!reader?.goToSource) {
+      if (attempt < 12) {
+        setTimeout(() => this.navigateGroundedSource(attempt + 1), 50);
+      }
+      return;
+    }
+
+    this.sourceNavigationConsumed = true;
+    void reader.goToSource(target);
   }
 
   loadConcepts() {
