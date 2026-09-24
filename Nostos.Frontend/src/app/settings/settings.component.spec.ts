@@ -451,6 +451,26 @@ describe('SettingsComponent backup-only surface', () => {
     expect(aiProviderServiceMock.get).not.toHaveBeenCalled();
   });
 
+  it('fails closed when Cloud does not advertise e-reader access', () => {
+    capabilitiesServiceMock.get.mockReturnValueOnce(
+      of({ ...cloudCapabilities, supportsEreaderAccess: false }),
+    );
+    opdsServiceMock.getInfo.mockClear();
+    opdsServiceMock.getManagedAccess.mockClear();
+
+    render();
+
+    expect(fixture.componentInstance.activeSettingsSection()).toBe('assistant');
+    expect(
+      fixture.debugElement
+        .queryAll(By.css('.settings-nav-copy'))
+        .map((item) => item.nativeElement.textContent.trim()),
+    ).toEqual(['Assistant', 'Appearance']);
+    expect(fixture.nativeElement.querySelector('#library-data')).toBeNull();
+    expect(opdsServiceMock.getInfo).not.toHaveBeenCalled();
+    expect(opdsServiceMock.getManagedAccess).not.toHaveBeenCalled();
+  });
+
   it('keeps the Cloud voice toggle as product intent instead of provider configuration', () => {
     capabilitiesServiceMock.get.mockReturnValueOnce(of(cloudCapabilities));
     aiProviderServiceMock.update.mockClear();
