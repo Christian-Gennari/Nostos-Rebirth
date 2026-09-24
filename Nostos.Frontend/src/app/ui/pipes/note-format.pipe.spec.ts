@@ -10,7 +10,7 @@ describe('NoteFormatPipe', () => {
     const html = pipe.transform('Thinking about [[Freedom]].', map);
 
     expect(html).toContain('class="concept-tag clickable"');
-    expect(html).toContain('href="/brain?conceptId=concept-1"');
+    expect(html).toContain('href="/second-brain?conceptId=concept-1"');
     expect(html).toContain('data-concept-id="concept-1"');
     expect(html).toContain('open concept evidence in Brain');
     expect(html).toContain('>Freedom</a>');
