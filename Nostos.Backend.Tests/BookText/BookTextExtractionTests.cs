@@ -24,6 +24,14 @@ public sealed class BookTextExtractionTests
             .ToArray();
 
         Assert.Equal([0, 1, 3], pages);
+
+        var labels = document.Blocks
+            .Select(block => Assert.IsType<PdfBookTextSourceLocator>(
+                block.SourceSegments.Single().Locator))
+            .Select(locator => locator.PageLabel)
+            .ToArray();
+        Assert.Equal(["i", "ii", "2"], labels);
+
         Assert.Contains("CHAPTER ONE", document.Blocks[0].Text);
         Assert.Contains("chapter continues across a page boundary", document.Blocks[1].Text);
         Assert.Contains("CHAPTER TWO", document.Blocks[2].Text);
