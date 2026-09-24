@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Nostos.Product.BookText;
+using Xunit;
 
 namespace Nostos.Backend.Tests.BookText;
 
@@ -64,8 +65,8 @@ public sealed class BookTextFoundationTests
         var json = JsonSerializer.Serialize(record, Json);
         var restored = JsonSerializer.Deserialize<BookTextArtifactRecord>(json, Json);
 
-        Assert.Contains("\"recordType\":\"block\"", json, StringComparison.Ordinal);
-        Assert.Contains("\"type\":\"pdf\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"recordType\":\"block\"", json);
+        Assert.Contains("\"type\":\"pdf\"", json);
 
         var block = Assert.IsType<BookTextArtifactBlock>(restored);
         Assert.Equal(2, block.SourceSegments.Count);
@@ -127,7 +128,7 @@ public sealed class BookTextFoundationTests
         var json = JsonSerializer.Serialize(record, Json);
         var restored = JsonSerializer.Deserialize<BookTextArtifactRecord>(json, Json);
 
-        Assert.Contains("\"recordType\":\"manifest\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"recordType\":\"manifest\"", json);
         var manifest = Assert.IsType<BookTextArtifactManifest>(restored);
         Assert.Equal(BookTextArtifactSchema.CurrentVersion, manifest.SchemaVersion);
         Assert.Equal(hash.ToLowerInvariant(), manifest.Source.SourceSha256);
@@ -144,15 +145,14 @@ public sealed class BookTextFoundationTests
         Assert.Equal("application/pdf", first.ContentType);
 
         var source = Encoding.ASCII.GetString(first.Bytes);
-        Assert.StartsWith("%PDF-1.4", source, StringComparison.Ordinal);
-        Assert.Contains("/Count 4", source, StringComparison.Ordinal);
+        Assert.StartsWith("%PDF-1.4", source);
+        Assert.Contains("/Count 4", source);
         Assert.Contains(
             "/PageLabels << /Nums [0 << /S /r >> 2 << /S /D /St 1 >>] >>",
-            source,
-            StringComparison.Ordinal);
+            source);
         Assert.Equal(2, Count(source, "A repeated sentence appears here."));
-        Assert.Contains("This line ends with inter-", source, StringComparison.Ordinal);
-        Assert.Contains("national prose on the next line.", source, StringComparison.Ordinal);
+        Assert.Contains("This line ends with inter-", source);
+        Assert.Contains("national prose on the next line.", source);
     }
 
     [Fact]
@@ -179,12 +179,12 @@ public sealed class BookTextFoundationTests
         var chapterTwoA = ReadEntry(archive, "OEBPS/chapter-2a.xhtml");
         var chapterTwoB = ReadEntry(archive, "OEBPS/chapter-2b.xhtml");
 
-        Assert.Contains("<em>nested</em>", chapterOne, StringComparison.Ordinal);
-        Assert.Contains("Café déjà vu — Göteborg &amp; Malmö.", chapterOne, StringComparison.Ordinal);
-        Assert.Contains("The duplicate quotation belongs to chapter one.", chapterOne, StringComparison.Ordinal);
-        Assert.Contains("The duplicate quotation belongs to chapter one.", chapterTwoA, StringComparison.Ordinal);
-        Assert.Contains("chapter-2b.xhtml#continuation", chapterTwoA, StringComparison.Ordinal);
-        Assert.Contains("id=\"continuation\"", chapterTwoB, StringComparison.Ordinal);
+        Assert.Contains("<em>nested</em>", chapterOne);
+        Assert.Contains("Café déjà vu — Göteborg &amp; Malmö.", chapterOne);
+        Assert.Contains("The duplicate quotation belongs to chapter one.", chapterOne);
+        Assert.Contains("The duplicate quotation belongs to chapter one.", chapterTwoA);
+        Assert.Contains("chapter-2b.xhtml#continuation", chapterTwoA);
+        Assert.Contains("id=\"continuation\"", chapterTwoB);
     }
 
     [Fact]
