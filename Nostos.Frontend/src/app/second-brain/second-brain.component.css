@@ -1572,12 +1572,19 @@
   transition: opacity var(--motion-fast) var(--ease-out);
 }
 
-:host ::ng-deep .concept-tag {
+:host ::ng-deep a.concept-tag {
   color: var(--color-brand-accent);
   font-weight: var(--fw-medium);
   background: transparent;
   border-bottom: 1px solid color-mix(in srgb, var(--color-brand-accent) 30%, transparent);
   padding-bottom: 1px;
+}
+
+:host ::ng-deep .concept-tag--unresolved {
+  color: var(--color-text-muted);
+  font-weight: var(--fw-regular);
+  border-bottom-style: dashed;
+  border-bottom-color: var(--border-color);
 }
 
 .empty-notes-state {
