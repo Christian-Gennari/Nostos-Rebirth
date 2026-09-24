@@ -7,6 +7,8 @@ import {
   CreateWritingDto,
   UpdateWritingDto,
   MoveWritingDto,
+  WritingSourceDto,
+  AddWritingSourceDto,
 } from '../dtos/writing.dtos';
 
 @Injectable({
@@ -45,5 +47,21 @@ export class WritingsService {
   // DELETE: Remove item and its children
   delete(id: string): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/${id}`);
+  }
+
+  // GET: Fetch kept source notes for a writing document
+  listSources(writingId: string): Observable<WritingSourceDto[]> {
+    return this.http.get<WritingSourceDto[]>(`${this.baseUrl}/${writingId}/notes`);
+  }
+
+  // POST: Add a kept source note to a writing document
+  addSource(writingId: string, noteId: string): Observable<WritingSourceDto> {
+    const dto: AddWritingSourceDto = { noteId };
+    return this.http.post<WritingSourceDto>(`${this.baseUrl}/${writingId}/notes`, dto);
+  }
+
+  // DELETE: Remove a kept source note from a writing document
+  removeSource(writingId: string, noteId: string): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/${writingId}/notes/${noteId}`);
   }
 }

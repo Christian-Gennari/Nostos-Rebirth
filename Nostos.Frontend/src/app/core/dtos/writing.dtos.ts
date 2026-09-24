@@ -27,3 +27,22 @@ export interface UpdateWritingDto {
 export interface MoveWritingDto {
   newParentId?: string | null;
 }
+
+export interface AddWritingSourceDto {
+  noteId: string;
+}
+
+export interface WritingSourceDto {
+  id: string;
+  bookId: string;
+  bookTitle?: string | null;
+  content: string;
+  selectedText?: string | null;
+  cfiRange?: string | null;
+  createdAt: string;
+  addedAt: string;
+  sourceAnchorKind?: string;
+  sourceAnchorValue?: string | null;
+  anchorVerified?: boolean;
+}
+
