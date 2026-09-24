@@ -58,6 +58,14 @@
 
 .brain-header-title {
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.brain-header-heading {
+  display: flex;
   align-items: baseline;
   gap: 0.6rem;
   min-width: 0;
@@ -73,14 +81,21 @@
   flex-shrink: 0;
 }
 
-/* Corrects the old `margin-top: -0.55rem`, which was compensating for the rail
-   header's `flex-direction: column` gap. In this row the stats simply sit on the
-   baseline beside the title. */
+/* Inventory is secondary metadata beside the surface name, not a second
+   headline. The filtered result count stays in the live region instead of
+   competing visually with these library totals. */
 .index-stats {
   color: var(--color-text-muted);
   font-size: 0.72rem;
   letter-spacing: 0.02em;
   white-space: nowrap;
+}
+
+.brain-header-purpose {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  line-height: 1.3;
 }
 
 /* Title left, controls right. The search keeps a bounded measure so it never
@@ -482,13 +497,6 @@
     opacity 0.15s,
     background 0.15s,
     color 0.15s;
-}
-
-.brain-header .badge-count {
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  justify-content: center;
 }
 
 /* Tracks the active row's fill, like the tree's badge on a selected
