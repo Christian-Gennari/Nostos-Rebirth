@@ -359,6 +359,27 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
         position: relative;
       }
 
+      /* Match the eventual editor surface while TinyMCE is still loading.
+         Without this, the native textarea can paint the browser's white
+         default for a frame before Oxide replaces it in dark mode. */
+      :host > textarea {
+        display: block;
+        width: 100%;
+        height: 100%;
+        padding: 0;
+        color: var(--editor-ui-text, var(--color-text-main));
+        background: var(--editor-ui-bg, var(--bg-surface));
+        border: 0;
+        outline: 0;
+        resize: none;
+      }
+
+      /* Oxide briefly mounts a throbber over the editing area during init.
+         Keep that transient surface on the active app theme as well. */
+      :host ::ng-deep .tox .tox-throbber {
+        background-color: var(--editor-ui-bg, var(--bg-surface)) !important;
+      }
+
       /* --- Nostos chrome bridge (expert design §3) ---
          One constant skin ('oxide'); every color below is driven by the
          app's --editor-ui-* tokens, which follow the global theme through
@@ -622,6 +643,10 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
 
     setup: (editor: any) => {
       this.editor = editor;
+
+      // Apply the iframe theme at TinyMCE PreInit, before content CSS paints.
+      // Waiting for init allows one light frame to flash in dark mode.
+      editor.on('PreInit', () => this.syncIframeTheme(editor));
       editor.on('Change Undo Redo blur', () => this.onHtmlChange(editor.getContent()));
       editor.on('NodeChange KeyUp', () => this.followCaret(editor));
 
@@ -632,7 +657,8 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
 
       editor.on('init', () => {
         editor.getBody().style.opacity = '1';
-        this.syncIframeTheme();
+        // Re-read the latest theme as init can finish after the user toggles it.
+        this.syncIframeTheme(editor);
         // Optional: Safety check in case content loaded before init
         if (this.htmlContent && !editor.getContent()) {
           editor.setContent(this.htmlContent);
@@ -682,10 +708,10 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.destroyEditor();
   }
 
-  private syncIframeTheme() {
-    if (!this.editor) return;
+  private syncIframeTheme(editor = this.editor) {
+    if (!editor) return;
     try {
-      const doc = this.editor.getDoc();
+      const doc = editor.getDoc();
       if (!doc) return;
       const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
       if (isDark) {
