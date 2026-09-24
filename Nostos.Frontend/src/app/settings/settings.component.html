@@ -616,6 +616,88 @@
         </div>
       </section>
 
+      @if (managedAiUsageAvailable()) {
+      <section class="settings-card" data-testid="managed-ai-usage-card">
+        <div class="card-header">
+          <div class="card-header-copy">
+            <h2>Ask Nostos usage</h2>
+          </div>
+        </div>
+
+        <div class="card-body">
+          @if (managedAiUsageFailed()) {
+            <div class="setting-row">
+              <div class="setting-label">
+                <span class="label-text">Could not load usage</span>
+                <span class="label-desc">Nostos could not read your managed AI allowance. Reload Settings to try again.</span>
+              </div>
+            </div>
+          } @else if (managedAiUsage(); as usage) {
+            <div class="setting-row">
+              <div class="setting-label">
+                <span class="label-text">Included allowance</span>
+                <span class="label-desc">
+                  {{ managedAiUsageCopy() }}
+                  @if (usage.renewsAtUtc) {
+                    Renews {{ usage.renewsAtUtc | date: 'MMM d' }}.
+                  }
+                </span>
+              </div>
+            </div>
+
+            @if (usage.refill.state !== 'not_offered') {
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span class="label-text">AI refill balance</span>
+                  <span class="label-desc">{{ managedAiRefillCopy() }}</span>
+                </div>
+              </div>
+            }
+          } @else {
+            <div class="setting-row">
+              <div class="setting-label">
+                <span class="label-text">Loading usage…</span>
+                <span class="label-desc">Checking your current Ask Nostos allowance.</span>
+              </div>
+            </div>
+          }
+
+          @if (aiRefillPacksFailed()) {
+            <div class="setting-row">
+              <div class="setting-label">
+                <span class="label-text">AI refills are temporarily unavailable</span>
+                <span class="label-desc">Your existing allowance and any purchased refill balance are unchanged.</span>
+              </div>
+            </div>
+          } @else {
+            @for (pack of aiRefillPacks(); track pack.packId) {
+              <div class="setting-row" data-testid="ai-refill-pack">
+                <div class="setting-label">
+                  <span class="label-text">{{ pack.displayName }}</span>
+                  <span class="label-desc">
+                    Adds prepaid Ask Nostos capacity that remains available until used.
+                    @if (pack.displayPrice) {
+                      {{ pack.displayPrice }}
+                    }
+                  </span>
+                </div>
+                <button
+                  appButton
+                  variant="secondary"
+                  type="button"
+                  [disabled]="aiRefillCheckoutBusy() !== null"
+                  (click)="buyAiRefill(pack.packId)"
+                  [attr.aria-label]="'Buy ' + pack.displayName"
+                >
+                  {{ aiRefillCheckoutBusy() === pack.packId ? 'Opening…' : 'Add refill' }}
+                </button>
+              </div>
+            }
+          }
+        </div>
+      </section>
+      }
+
       @if (canConfigureAiProvider()) {
       <!-- AI provider: the LLM and voice-STT endpoints, moved out of
            appsettings.json. Both sub-sections share one Save; the API key is
