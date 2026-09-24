@@ -277,11 +277,17 @@ describe('ReaderShell grounded book-text source navigation', () => {
     fixture.detectChanges();
     fixture.detectChanges();
 
+    // ReaderShell intentionally queries the concrete PdfReader type, so the
+    // lightweight stub is not populated through @ViewChild in this spec. Attach
+    // the already-rendered stub before the shell's 100 ms grounded-navigation
+    // settle runs, exactly as the other PDF shell tests do.
+    const stub = fixture.debugElement.query(By.directive(PdfReaderStub))
+      .componentInstance as PdfReaderStub;
+    (fixture.componentInstance as unknown as { pdfReader: PdfReaderStub }).pdfReader = stub;
+
     await new Promise((resolve) => setTimeout(resolve, 130));
     fixture.detectChanges();
 
-    const stub = fixture.debugElement.query(By.directive(PdfReaderStub))
-      .componentInstance as PdfReaderStub;
     expect(stub.goToSource).toHaveBeenCalledTimes(1);
     expect(stub.goToSource).toHaveBeenCalledWith({
       type: 'pdf',
