@@ -21,6 +21,7 @@ import { NotesService } from '../core/services/notes.service';
 import { Note, NoteSearchHit } from '../core/dtos/note.dtos';
 import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
+import { NoteFormatPipe } from '../ui/pipes/note-format.pipe';
 import {
   ConceptsService,
   ConceptDto,
@@ -76,6 +77,7 @@ import {
     InputDirective,
     DropdownComponent,
     NoteCardComponent,
+    NoteFormatPipe,
     ConfirmModal,
     ConceptMapComponent,
     ConceptInputComponent,
