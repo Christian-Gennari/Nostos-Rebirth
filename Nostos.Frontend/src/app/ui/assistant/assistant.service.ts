@@ -37,6 +37,28 @@ export interface AssistantEntry {
   text: string;
   anchorLabel: string | null;
   meta: string | null;
+  sources?: AssistantSourceReferenceDto[];
+}
+
+export interface AssistantSourceLocatorDto {
+  type: 'pdf' | 'epub' | 'audio' | string;
+  pdfPageIndex?: number | null;
+  pdfPageLabel?: string | null;
+  epubSpineIndex?: number | null;
+  epubResourceHref?: string | null;
+  epubCfi?: string | null;
+  startTextOffset?: number | null;
+  endTextOffset?: number | null;
+}
+
+export interface AssistantSourceReferenceDto {
+  bookId: string;
+  bookTitle: string;
+  bookAuthor: string | null;
+  format: string;
+  sourceSha256: string;
+  excerpt: string;
+  locators: AssistantSourceLocatorDto[];
 }
 
 /** One remembered turn; the ordered log the model is told on the next request. */
@@ -110,6 +132,8 @@ export interface AssistantTurnResponse {
   capturedNoteId?: string | null;
   /** Immediate Act capabilities that actually completed successfully. */
   executedCapabilities?: string[];
+  /** Server-grounded passages with exact source locators. */
+  sources?: AssistantSourceReferenceDto[];
 }
 
 /** The turn request the bridge accepts. */
@@ -674,7 +698,7 @@ export class AssistantService {
 
         if (response.reply) {
           this.turnLog.update((log) => [...log, { role: 'assistant', text: response.reply }]);
-          this.pushEntry('assistant', response.reply, null, null);
+          this.pushEntry('assistant', response.reply, null, null, response.sources ?? []);
         }
 
         // A backend-requested follow-up arrives as the same deterministic prompt
@@ -727,11 +751,12 @@ export class AssistantService {
     text: string,
     anchorLabel: string | null,
     meta: string | null,
+    sources: AssistantSourceReferenceDto[] = [],
   ): void {
     entrySeq += 1;
     this.entries.update((entries) => [
       ...entries,
-      { id: `a${entrySeq}`, kind, text, anchorLabel, meta },
+      { id: `a${entrySeq}`, kind, text, anchorLabel, meta, sources },
     ]);
   }
 
