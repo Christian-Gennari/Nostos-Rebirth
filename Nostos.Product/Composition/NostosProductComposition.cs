@@ -97,6 +97,7 @@ public static class NostosProductComposition
         services.TryAddScoped<IBookTextLifecycle, BookTextLifecycle>();
         services.AddScoped<BookTextIngestionEngine>();
         services.AddScoped<IBookTextSearchService, BookTextSearchService>();
+        services.AddScoped<BookTextBackfillService>();
 
         services.AddSingleton(LibraryReceiptRetentionOptions.Normalize(
             configuration.GetSection("LibraryReceiptRetention").Get<LibraryReceiptRetentionOptions>()
