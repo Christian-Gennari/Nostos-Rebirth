@@ -25,6 +25,7 @@
     </div>
 
     <div class="reader-header-tools">
+      @if (!loadError() && fileType()) {
       <button
         appIconButton
         icon="list"
@@ -79,6 +80,7 @@
         [class.active]="typoOpen()"
         data-testid="typo-toggle"
       ></button>
+      }
       }
     </div>
   </header>
