@@ -15,7 +15,8 @@ using Nostos.Backend.Services;
 using Nostos.Backend.Services.Ai;
 using Nostos.Backend.Services.Library;
 using Nostos.Backend.Services.Notes;
-using Nostos.Backend.Services.Portability;\nusing Nostos.Product.BookText;
+using Nostos.Backend.Services.Portability;
+using Nostos.Product.BookText;
 
 namespace Nostos.Product.Composition;
 
