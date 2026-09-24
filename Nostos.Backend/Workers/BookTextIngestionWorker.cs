@@ -13,6 +13,24 @@ public sealed class BookTextIngestionWorker(
     {
         logger.LogInformation("Book-text ingestion worker started.");
 
+        try
+        {
+            using var initialScope = scopes.CreateScope();
+            await initialScope.ServiceProvider
+                .GetRequiredService<BookTextBackfillService>()
+                .ScheduleMissingAsync(stoppingToken);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            return;
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(
+                "Book-text startup backfill failed with {ExceptionType}; the worker will continue processing already queued books.",
+                exception.GetType().Name);
+        }
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
