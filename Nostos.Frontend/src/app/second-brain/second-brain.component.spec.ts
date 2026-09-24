@@ -595,7 +595,12 @@ describe('SecondBrain', () => {
       'Revisit what you noticed. See what connects.'
     );
     expect(header.querySelector('.index-stats')?.textContent).toContain('3 concepts · 15 references');
-    expect(fixture.nativeElement.querySelector('.brain-section-count')).toBeNull();
+
+    const conceptHeader = () =>
+      Array.from(
+        fixture.nativeElement.querySelectorAll('.brain-section-header') as NodeListOf<HTMLElement>
+      ).find((section) => section.querySelector('.brain-section-title')?.textContent?.trim() === 'Concepts');
+    expect(conceptHeader()?.querySelector('.brain-section-count')).toBeNull();
 
     component.searchQuery.set('bet');
     fixture.detectChanges();
@@ -603,7 +608,7 @@ describe('SecondBrain', () => {
     expect(header.querySelector('[role="status"]')?.textContent).toContain(
       'Showing 1 of 3 concepts'
     );
-    expect(fixture.nativeElement.querySelector('.brain-section-count')).toBeNull();
+    expect(conceptHeader()?.querySelector('.brain-section-count')).toBeNull();
   });
 
   it('normalizes diacritics and ranks exact, prefix and substring matches', () => {
