@@ -98,7 +98,6 @@
   }
 }
 
-
 .error-overlay {
   position: absolute;
   inset: 0;
@@ -106,13 +105,13 @@
   display: grid;
   place-items: center;
   padding: 1.5rem;
-  background: var(--bg-surface, #fff);
+  background: var(--bg-surface);
 }
 
 .error-state {
   width: min(30rem, 100%);
   text-align: center;
-  color: var(--color-text-main, #1a1a1a);
+  color: var(--color-text-main);
 }
 
 .error-state h2 {
@@ -123,7 +122,7 @@
 
 .error-state p {
   margin: 0;
-  color: var(--color-text-muted, #777);
+  color: var(--color-text-muted);
   line-height: 1.5;
 }
 
