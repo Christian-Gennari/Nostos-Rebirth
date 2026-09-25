@@ -11,6 +11,7 @@ using Nostos.Backend.Providers.Contracts;
 using Nostos.Backend.Providers.Discovery;
 using Nostos.Backend.Providers.Gutenberg;
 using Nostos.Backend.Providers.LibriVox;
+using Nostos.Backend.Providers.StandardEbooks;
 using Nostos.Backend.Providers.Wikisource;
 using Nostos.Backend.Serialization;
 using Nostos.Backend.Services;
@@ -183,6 +184,21 @@ public static class NostosProductComposition
                 "Nostos/1.0 (+https://github.com/Christian-Gennari/Nostos-Rebirth)");
         });
         services.AddSingleton<IContentProvider, GutenbergProvider>();
+
+        // Standard Ebooks approved Nostos for OPDS access by whitelisting this
+        // project User-Agent. There is deliberately no shared feed credential:
+        // SelfHosted and Cloud use the same provider identity, and no secret is
+        // embedded in the client or public repository.
+        services.AddHttpClient(StandardEbooksProvider.HttpClientName, client =>
+        {
+            client.BaseAddress = new Uri(StandardEbooksCatalog.BaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(20);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(
+                StandardEbooksProvider.ApprovedUserAgent);
+            client.DefaultRequestHeaders.Accept.ParseAdd(
+                StandardEbooksProvider.OpdsAccept);
+        });
+        services.AddSingleton<IContentProvider, StandardEbooksProvider>();
 
         services.AddHttpClient(WikisourceProvider.HttpClientName, client =>
         {
