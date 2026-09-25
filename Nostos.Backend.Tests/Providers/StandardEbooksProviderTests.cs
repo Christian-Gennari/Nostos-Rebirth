@@ -78,7 +78,7 @@ public sealed class StandardEbooksProviderTests
         handler ??= new StubHttpMessageHandler();
         var factory = new StubHttpClientFactory(
             handler,
-            new Uri(StandardEbooksCatalog.BaseUrl));
+            new Uri("https://standardebooks.org"));
         var provider = new StandardEbooksProvider(
             factory,
             NullLogger<StandardEbooksProvider>.Instance);
@@ -94,13 +94,13 @@ public sealed class StandardEbooksProviderTests
         provider.DisplayName.Should().Be("Standard Ebooks");
         provider.RightsNotice.Should().Be("Public domain in the United States.");
 
-        provider.Capabilities.Should().HaveFlag(ProviderCapabilities.Search);
-        provider.Capabilities.Should().HaveFlag(ProviderCapabilities.ItemRetrieval);
-        provider.Capabilities.Should().HaveFlag(ProviderCapabilities.EbookAcquisition);
-        provider.Capabilities.Should().HaveFlag(ProviderCapabilities.CoverArt);
-        provider.Capabilities.Should().HaveFlag(ProviderCapabilities.RightsInformation);
-        provider.Capabilities.Should().NotHaveFlag(ProviderCapabilities.AudiobookAcquisition);
-        provider.Capabilities.Should().NotHaveFlag(ProviderCapabilities.RequiresAssembly);
+        provider.Capabilities.HasFlag(ProviderCapabilities.Search).Should().BeTrue();
+        provider.Capabilities.HasFlag(ProviderCapabilities.ItemRetrieval).Should().BeTrue();
+        provider.Capabilities.HasFlag(ProviderCapabilities.EbookAcquisition).Should().BeTrue();
+        provider.Capabilities.HasFlag(ProviderCapabilities.CoverArt).Should().BeTrue();
+        provider.Capabilities.HasFlag(ProviderCapabilities.RightsInformation).Should().BeTrue();
+        provider.Capabilities.HasFlag(ProviderCapabilities.AudiobookAcquisition).Should().BeFalse();
+        provider.Capabilities.HasFlag(ProviderCapabilities.RequiresAssembly).Should().BeFalse();
 
         provider.AllowedHosts.Should().Equal("standardebooks.org");
         provider.MaxParts.Should().Be(1);
