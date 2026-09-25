@@ -29,6 +29,92 @@ public sealed class BookLookupServiceTests
         outcome.Failed.Should().BeTrue();
     }
 
+
+    [Fact]
+    public async Task OpenLibrary_empty_legacy_result_falls_back_to_canonical_isbn_endpoint()
+    {
+        var handler = Handler(
+            request =>
+                request.RequestUri?.AbsolutePath switch
+                {
+                    "/api/books" => Json("{}"),
+                    var path when path == $"/isbn/{Isbn}.json" => Json(OpenLibraryCanonicalMatch),
+                    _ => new HttpResponseMessage(HttpStatusCode.NotFound),
+                },
+            _ => Json("""{"items":[]}"""));
+
+        var outcome = await Service(handler).LookupCombinedDetailedAsync(Isbn);
+
+        outcome.Metadata.Should().NotBeNull();
+        outcome.Metadata!.Title.Should().Be("Fictions (canonical)");
+        outcome.Metadata.Author.Should().Be("Jorge Luis Borges");
+        outcome.Metadata.Publisher.Should().Be("Penguin");
+        outcome.Metadata.PlaceOfPublication.Should().Be("London");
+        outcome.Metadata.PublishedDate.Should().Be("2000");
+        outcome.Metadata.PageCount.Should().Be(176);
+        outcome.Metadata.Edition.Should().Be("Penguin Classics");
+        outcome.Metadata.Language.Should().Be("eng");
+        outcome.Metadata.Categories.Should().Be("Fiction, Short stories");
+        outcome.Failed.Should().BeFalse();
+        handler.RecordedRequestPaths.Should().Contain($"/isbn/{Isbn}.json");
+    }
+
+    [Fact]
+    public async Task OpenLibrary_legacy_404_falls_back_to_canonical_isbn_endpoint()
+    {
+        var handler = Handler(
+            request =>
+                request.RequestUri?.AbsolutePath switch
+                {
+                    "/api/books" => new HttpResponseMessage(HttpStatusCode.NotFound),
+                    var path when path == $"/isbn/{Isbn}.json" => Json(OpenLibraryCanonicalKeyOnlyMatch),
+                    _ => new HttpResponseMessage(HttpStatusCode.NotFound),
+                },
+            _ => Json("""{"items":[]}"""));
+
+        var outcome = await Service(handler).LookupCombinedDetailedAsync(Isbn);
+
+        outcome.Metadata.Should().NotBeNull();
+        outcome.Metadata!.Title.Should().Be("Fictions (canonical key)");
+        outcome.Metadata.Author.Should().Be("/authors/OL13640A");
+        outcome.Failed.Should().BeFalse();
+        handler.RecordedRequestPaths.Should().Contain($"/isbn/{Isbn}.json");
+    }
+
+    [Fact]
+    public async Task OpenLibrary_legacy_rate_limit_is_not_downgraded_to_not_found()
+    {
+        var handler = Handler(
+            request =>
+                request.RequestUri?.AbsolutePath switch
+                {
+                    "/api/books" => new HttpResponseMessage(HttpStatusCode.TooManyRequests),
+                    var path when path == $"/isbn/{Isbn}.json" =>
+                        new HttpResponseMessage(HttpStatusCode.NotFound),
+                    _ => new HttpResponseMessage(HttpStatusCode.NotFound),
+                },
+            _ => Json("""{"items":[]}"""));
+
+        var outcome = await Service(handler).LookupCombinedDetailedAsync(Isbn);
+
+        outcome.Metadata.Should().BeNull();
+        outcome.Failed.Should().BeTrue();
+        handler.RecordedRequestPaths.Should().Contain($"/isbn/{Isbn}.json");
+    }
+
+    [Fact]
+    public async Task OpenLibrary_404_on_both_endpoints_is_a_genuine_not_found()
+    {
+        var handler = Handler(
+            _ => new HttpResponseMessage(HttpStatusCode.NotFound),
+            _ => Json("""{"items":[]}"""));
+
+        var outcome = await Service(handler).LookupCombinedDetailedAsync(Isbn);
+
+        outcome.Metadata.Should().BeNull();
+        outcome.Failed.Should().BeFalse();
+    }
+
     [Fact]
     public async Task GoogleBooks_success_survives_OpenLibrary_failure()
     {
@@ -134,6 +220,32 @@ public sealed class BookLookupServiceTests
             "publish_date": "2000",
             "number_of_pages": 176
           }
+        }
+        """;
+
+    private const string OpenLibraryCanonicalMatch =
+        """
+        {
+          "title": "Fictions (canonical)",
+          "authors": [{ "key": "/authors/OL13640A", "name": "Jorge Luis Borges" }],
+          "publishers": ["Penguin"],
+          "publish_places": ["London"],
+          "publish_date": "2000",
+          "number_of_pages": 176,
+          "edition_name": "Penguin Classics",
+          "languages": [{ "key": "/languages/eng" }],
+          "subjects": ["Fiction", "Short stories"]
+        }
+        """;
+
+    private const string OpenLibraryCanonicalKeyOnlyMatch =
+        """
+        {
+          "title": "Fictions (canonical key)",
+          "authors": [{ "key": "/authors/OL13640A" }],
+          "publishers": ["Penguin"],
+          "publish_date": "2000",
+          "number_of_pages": 176
         }
         """;
 

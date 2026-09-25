@@ -117,6 +117,10 @@ public static class NostosProductComposition
             client.Timeout = TimeSpan.FromSeconds(15);
             client.DefaultRequestHeaders.UserAgent.ParseAdd(
                 "Nostos/1.0 (+https://github.com/Christian-Gennari/Nostos-Rebirth)");
+        }).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+        {
+            AllowAutoRedirect = true,
+            MaxAutomaticRedirections = 5,
         });
 
         services.AddScoped<BookLookupService>();
