@@ -526,162 +526,217 @@
             </app-form-field>
           </div>
 
-          <!-- The source search, shown INSTEAD of the form, not as one of its
-               tabs: picking a result seeds the form and hands over to it. -->
+          <!-- Unified discovery: providers are provenance on results, not a
+               choice the reader must make before searching. -->
           <div class="tab-content" [hidden]="!sourceMode()">
-            @if (providersLoading()) {
-              <p class="source-hint">Loading sources…</p>
-            } @else if (providersError()) {
-              <p class="source-error">
-                <nostos-icon name="warning-circle" [size]="14"></nostos-icon> {{ providersError() }}
-              </p>
-            } @else {
-              @if (providerList().length > 1) {
-                <div class="source-choices" role="radiogroup" aria-label="Source">
-                  @for (provider of providerList(); track provider.id) {
-                    <button
-                      type="button"
-                      class="source-choice"
-                      [class.active]="provider.id === selectedProviderId()"
-                      [disabled]="!!runningAcquisition()"
-                      (click)="chooseProvider(provider.id)"
-                    >
-                      {{ provider.displayName }}
-                    </button>
-                  }
-                </div>
-              }
+            @if (providersError()) {
+              <p class="source-hint">{{ providersError() }}</p>
+            }
 
-              <div class="source-search-field">
-                <label class="source-search-label" for="source-query">
-                  Search {{ selectedProvider()?.displayName || 'the source' }}
-                </label>
-                <div class="source-search">
-                  <input
-                    id="source-query"
-                    appInput
-                    controlSize="compact"
-                    class="source-search-input"
-                    type="search"
-                    autocomplete="off"
-                    placeholder="Title or author"
-                    [ngModel]="sourceQuery()"
-                    (ngModelChange)="sourceQuery.set($event)"
-                    [ngModelOptions]="{ standalone: true }"
-                    [disabled]="!!runningAcquisition()"
-                    (keydown.enter)="$event.preventDefault(); searchSource()"
-                  />
-                  <button
-                    type="button"
-                    appButton
-                    variant="secondary"
-                    (click)="searchSource()"
-                    [disabled]="
-                      sourceQuery().trim().length < 2 || sourceSearching() || !!runningAcquisition()
-                    "
-                  >
-                    <nostos-icon name="magnifying-glass" [size]="14"></nostos-icon>
-                    {{ sourceSearching() ? 'Searching…' : 'Search' }}
-                  </button>
-                </div>
-                <!-- Says plainly what this is: a catalogue search, not a
-                     second library. -->
-                <span class="source-hint">
-                  Searches a public catalogue. Nothing is added to your library until you import it.
-                </span>
+            <div class="source-search-field">
+              <label class="source-search-label" for="source-query">
+                Search free books and audiobooks
+              </label>
+              <div class="source-search">
+                <input
+                  id="source-query"
+                  appInput
+                  controlSize="compact"
+                  class="source-search-input"
+                  type="search"
+                  autocomplete="off"
+                  placeholder="Title or author"
+                  [ngModel]="sourceQuery()"
+                  (ngModelChange)="sourceQuery.set($event)"
+                  [ngModelOptions]="{ standalone: true }"
+                  [disabled]="!!runningAcquisition()"
+                  (keydown.enter)="$event.preventDefault(); searchSource()"
+                />
+                <button
+                  type="button"
+                  appButton
+                  variant="secondary"
+                  (click)="searchSource()"
+                  [disabled]="
+                    sourceQuery().trim().length < 2 || sourceSearching() || !!runningAcquisition()
+                  "
+                >
+                  <nostos-icon name="magnifying-glass" [size]="14"></nostos-icon>
+                  {{ sourceSearching() ? 'Searching…' : 'Search' }}
+                </button>
               </div>
 
-              @if (sourceNotice()) {
-                <p class="source-hint">{{ sourceNotice() }}</p>
-              }
+              <div class="source-filters" role="group" aria-label="Material type">
+                <button
+                  type="button"
+                  class="source-filter"
+                  [class.active]="sourceKind() === 'all'"
+                  [attr.aria-pressed]="sourceKind() === 'all'"
+                  [disabled]="!!runningAcquisition()"
+                  (click)="setSourceKind('all')"
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  class="source-filter"
+                  [class.active]="sourceKind() === 'ebook'"
+                  [attr.aria-pressed]="sourceKind() === 'ebook'"
+                  [disabled]="!!runningAcquisition()"
+                  (click)="setSourceKind('ebook')"
+                >
+                  E-books
+                </button>
+                <button
+                  type="button"
+                  class="source-filter"
+                  [class.active]="sourceKind() === 'audiobook'"
+                  [attr.aria-pressed]="sourceKind() === 'audiobook'"
+                  [disabled]="!!runningAcquisition()"
+                  (click)="setSourceKind('audiobook')"
+                >
+                  Audiobooks
+                </button>
+              </div>
 
-              @if (sourceSearchError()) {
-                <p class="source-error">
-                  <nostos-icon name="warning-circle" [size]="14"></nostos-icon> {{ sourceSearchError() }}
-                </p>
-              }
+              <span class="source-hint">
+                Searches public catalogues. Nothing is added to your library until you import it.
+              </span>
+            </div>
 
-              @if (
-                sourceSearched() &&
-                !sourceSearching() &&
-                sourceResults().length === 0 &&
-                !sourceSearchError()
-              ) {
-                <p class="source-hint">No matching books were found for “{{ sourceQuery() }}”.</p>
+            @for (notice of sourceNotices(); track notice.providerId) {
+              @if (notice.notice; as message) {
+                <p class="source-hint">{{ notice.displayName }}: {{ message }}</p>
               }
+            }
 
-              @if (sourceResults().length > 0) {
-                <ul class="source-results">
-                  @for (item of sourceResults(); track item.externalId) {
-                    <li>
-                      <button
-                        type="button"
-                        class="source-result"
-                        [class.active]="selectedItem()?.externalId === item.externalId"
-                        [disabled]="!!runningAcquisition()"
-                        (click)="selectSourceItem(item)"
-                      >
-                        @if (item.coverUrl) {
-                          <img class="source-cover" [src]="item.coverUrl" alt="" loading="lazy" />
-                        } @else {
-                          <span class="source-cover source-cover-empty" aria-hidden="true"></span>
+            @for (failure of sourceFailures(); track failure.providerId) {
+              <p class="source-error">
+                <nostos-icon name="warning-circle" [size]="14"></nostos-icon>
+                {{ failure.displayName }} couldn't be searched right now.
+              </p>
+            }
+
+            @if (sourceSearchError()) {
+              <p class="source-error">
+                <nostos-icon name="warning-circle" [size]="14"></nostos-icon>
+                {{ sourceSearchError() }}
+              </p>
+            }
+
+            @if (allSourcesFailed() && !sourceSearchError()) {
+              <p class="source-error">
+                <nostos-icon name="warning-circle" [size]="14"></nostos-icon>
+                The free book sources are unavailable right now.
+              </p>
+            } @else if (
+              sourceSearched() &&
+              !sourceSearching() &&
+              sourceResults().length === 0 &&
+              !sourceSearchError()
+            ) {
+              <p class="source-hint">No matching books were found for “{{ sourceQuery() }}”.</p>
+            }
+
+            @if (sourceResults().length > 0) {
+              <ul class="source-results">
+                @for (item of sourceResults(); track sourceItemKey(item)) {
+                  <li>
+                    <button
+                      type="button"
+                      class="source-result"
+                      [class.active]="isSelectedSourceItem(item)"
+                      [disabled]="!!runningAcquisition()"
+                      (click)="selectSourceItem(item)"
+                    >
+                      @if (item.coverUrl) {
+                        <img class="source-cover" [src]="item.coverUrl" alt="" loading="lazy" />
+                      } @else {
+                        <span class="source-cover source-cover-empty" aria-hidden="true"></span>
+                      }
+                      <span class="source-result-text">
+                        <span class="source-result-title">{{ item.title }}</span>
+                        @if (item.author) {
+                          <span class="source-result-author">{{ item.author }}</span>
                         }
-                        <span class="source-result-text">
-                          <span class="source-result-title">{{ item.title }}</span>
-                          @if (item.author) {
-                            <span class="source-result-author">{{ item.author }}</span>
-                          }
-                          @if (item.language || item.categories) {
-                            <span class="source-result-meta">
-                              {{ item.language || ''
-                              }}{{ item.language && item.categories ? ' · ' : ''
-                              }}{{ item.categories || '' }}
-                            </span>
-                          }
-                          @if (sourceFacts(item)) {
-                            <span class="source-result-meta">{{ sourceFacts(item) }}</span>
-                          }
+                        <span class="source-result-provenance">
+                          {{ mediaKindLabel(item) }} · {{ providerName(item.providerId) }}
                         </span>
-                      </button>
-                    </li>
-                  }
-                </ul>
-              }
+                        @if (item.language || item.categories) {
+                          <span class="source-result-meta">
+                            {{ item.language || ''
+                            }}{{ item.language && item.categories ? ' · ' : ''
+                            }}{{ item.categories || '' }}
+                          </span>
+                        }
+                        @if (sourceFacts(item)) {
+                          <span class="source-result-meta">{{ sourceFacts(item) }}</span>
+                        }
+                      </span>
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
 
-              @if (sourceHasMore()) {
+            @if (sourceHasMore()) {
+              <p class="source-hint">
+                Showing the first combined results — refine the search for more specific matches.
+              </p>
+            }
+
+            @if (selectedSourceItem(); as item) {
+              <div class="source-detail">
+                <h4 class="source-detail-title">{{ item.title }}</h4>
+                @if (item.author) {
+                  <p class="source-detail-author">{{ item.author }}</p>
+                }
                 <p class="source-hint">
-                  Showing the first page of results — refine the search for more specific matches.
+                  {{ mediaKindLabel(item) }} · {{ providerName(item.providerId) }}
                 </p>
-              }
+                @if (sourceFacts(item)) {
+                  <p class="source-hint">{{ sourceFacts(item) }}</p>
+                }
+                @if (item.description) {
+                  <p class="source-detail-description">{{ item.description }}</p>
+                }
 
-              @if (selectedSourceItem(); as item) {
-                <div class="source-detail">
-                  <h4 class="source-detail-title">{{ item.title }}</h4>
-                  @if (item.author) {
-                    <p class="source-detail-author">{{ item.author }}</p>
-                  }
-                  @if (sourceFacts(item)) {
-                    <p class="source-hint">{{ sourceFacts(item) }}</p>
-                  }
-                  @if (item.description) {
-                    <p class="source-detail-description">{{ item.description }}</p>
+                @if (item.mediaKind === 'ebook' && item.assets.length > 0) {
+                  @if (ebookFormatFamilies().length > 1) {
+                    <fieldset class="source-format-families">
+                      <legend>Format</legend>
+                      @for (family of ebookFormatFamilies(); track family) {
+                        <label class="source-format-family">
+                          <input
+                            type="radio"
+                            name="sourceFormatFamily"
+                            [value]="family"
+                            [checked]="selectedFormatFamily() === family"
+                            [disabled]="!!runningAcquisition()"
+                            (change)="selectFormatFamily(family)"
+                          />
+                          <span>{{ family }}</span>
+                          @if (family === 'EPUB') {
+                            <span class="source-format-recommended">Recommended</span>
+                          }
+                        </label>
+                      }
+                    </fieldset>
+                  } @else if (ebookFormatFamilies().length === 1) {
+                    <p class="source-hint">Format: {{ ebookFormatFamilies()[0] }}</p>
                   }
 
-                  @if (item.assets.length > 1) {
-                    <!-- Collapsed by default. The source has already picked the
-                         format it recommends and almost every import takes it, so
-                         the list is there for the reader who cares which file
-                         actually arrives — not as a decision in the way. -->
+                  @if (assetsForSelectedFamily().length > 1) {
                     <details class="source-formats">
                       <summary class="source-formats-summary">
                         <span class="source-formats-current">{{ selectedAssetLabel() }}</span>
                         <span class="source-formats-change">
-                          <span class="source-formats-when-closed">Change</span>
+                          <span class="source-formats-when-closed">Options</span>
                           <span class="source-formats-when-open">Done</span>
                         </span>
                       </summary>
                       <div class="source-formats-list">
-                        @for (asset of item.assets; track asset.id) {
+                        @for (asset of assetsForSelectedFamily(); track asset.id) {
                           <label class="source-asset">
                             <input
                               type="radio"
@@ -699,70 +754,54 @@
                         }
                       </div>
                     </details>
-                  } @else if (item.assets.length === 1) {
-                    <p class="source-hint">
-                      Format: {{ item.assets[0].label
-                      }}{{
-                        formatBytes(item.assets[0].sizeBytes)
-                          ? ' · ' + formatBytes(item.assets[0].sizeBytes)
-                          : ''
-                      }}
-                    </p>
                   }
+                } @else if (item.mediaKind === 'audiobook' && item.assets.length > 0) {
+                  <p class="source-hint">Format: Audiobook</p>
+                }
 
-                  @if (item.rightsStatement) {
-                    <p class="source-rights">
-                      <!-- Status first, provenance second: the reader's question is
-                           whether they may keep the book. Who says so is the
-                           smaller half of the answer, so it trails in brackets and
-                           carries the link out to the catalogue page, which the
-                           provider name already implies — a separate "view at
-                           source" link named the same place twice.
-                           Attribution, not assertion: Nostos reports the
-                           catalogue's claim rather than making one of its own. -->
-                      <span class="source-rights-status">{{ rightsText() }}</span>
-                      @if (item.sourceUrl) {
-                        <a
-                          class="source-rights-link"
-                          [href]="item.sourceUrl"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          >(via {{ seededSourceName() }}
-                          <nostos-icon name="arrow-square-out" [size]="12"></nostos-icon>)</a
-                        >
-                      } @else {
-                        <span class="source-rights-via">(via {{ seededSourceName() }})</span>
-                      }
-                    </p>
-                  } @else if (item.sourceUrl) {
-                    <p class="source-rights">
-                      <!-- Nothing claimed about rights, so the only thing left to
-                           say is where the book came from. -->
+                @if (item.rightsStatement) {
+                  <p class="source-rights">
+                    <span class="source-rights-status">{{ rightsText() }}</span>
+                    @if (item.sourceUrl) {
                       <a
                         class="source-rights-link"
                         [href]="item.sourceUrl"
                         target="_blank"
                         rel="noopener noreferrer"
-                        >{{ seededSourceName() }}
-                        <nostos-icon name="arrow-square-out" [size]="12"></nostos-icon></a
+                        >(via {{ providerName(item.providerId) }}
+                        <nostos-icon name="arrow-square-out" [size]="12"></nostos-icon>)</a
                       >
-                    </p>
-                  }
+                    } @else {
+                      <span class="source-rights-via"
+                        >(via {{ providerName(item.providerId) }})</span
+                      >
+                    }
+                  </p>
+                } @else if (item.sourceUrl) {
+                  <p class="source-rights">
+                    <a
+                      class="source-rights-link"
+                      [href]="item.sourceUrl"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      >{{ providerName(item.providerId) }}
+                      <nostos-icon name="arrow-square-out" [size]="12"></nostos-icon></a
+                    >
+                  </p>
+                }
 
-                  <button
-                    type="button"
-                    appButton
-                    variant="primary"
-                    class="source-action"
-                    (click)="seedFromSelectedItem()"
-                    [disabled]="item.assets.length === 0 || !!runningAcquisition()"
-                  >
-                    <nostos-icon name="download-simple" [size]="14"></nostos-icon>
-                    Use this book
-                  </button>
-
-                </div>
-              }
+                <button
+                  type="button"
+                  appButton
+                  variant="primary"
+                  class="source-action"
+                  (click)="seedFromSelectedItem()"
+                  [disabled]="item.assets.length === 0 || !!runningAcquisition()"
+                >
+                  <nostos-icon name="download-simple" [size]="14"></nostos-icon>
+                  Use this book
+                </button>
+              </div>
             }
           </div>
         </div>
