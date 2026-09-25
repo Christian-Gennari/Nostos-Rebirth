@@ -54,7 +54,11 @@ public sealed record ProviderAsset(
     ProviderMediaKind Kind,
     /// <summary>Short label shown to the user (e.g. "EPUB3 (E-readers incl. Send-to-Kindle)").</summary>
     string Label,
-    /// <summary>The source's own name for the format; informational only.</summary>
+    /// <summary>
+    /// Normalized content format when known (for example application/epub+zip
+    /// or application/pdf); provider-specific source formats remain allowed
+    /// for representations such as assembled audiobook inputs.
+    /// </summary>
     string SourceFormat,
     long? SizeBytes = null,
     /// <summary>The provider's default choice when the caller names no asset.</summary>
