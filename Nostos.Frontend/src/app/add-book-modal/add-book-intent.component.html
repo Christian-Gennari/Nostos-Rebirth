@@ -3,7 +3,7 @@
     [isOpen]="true"
     variant="dialog"
     cardClass="add-intent-card"
-    [maxWidth]="'420px'"
+    [maxWidth]="'440px'"
     [layer]="100"
     [headDivider]="false"
     ariaLabelledBy="add-intent-title"
@@ -14,28 +14,47 @@
   >
     <div class="add-intent-head" shellHeader>
       <h2 id="add-intent-title" class="add-intent-title">Add a book</h2>
+      <p class="add-intent-subtitle">How is this book coming into Nostos?</p>
     </div>
 
     <div class="add-intent-choices">
-      <button type="button" class="add-intent-choice" (click)="manual.emit()">
+      <button type="button" class="add-intent-choice" (click)="upload.emit()">
         <span class="add-intent-mark" aria-hidden="true">
-          <nostos-icon name="book" [size]="16"></nostos-icon>
+          <nostos-icon name="upload-simple" [size]="16"></nostos-icon>
         </span>
         <span class="add-intent-text">
-          <span class="add-intent-label">Add by hand</span>
-          <span class="add-intent-hint">Type the title, author and details yourself</span>
+          <span class="add-intent-label">Upload a book file</span>
+          <span class="add-intent-hint">Choose an EPUB, PDF, or supported audiobook file from this device</span>
         </span>
       </button>
 
       <button type="button" class="add-intent-choice" (click)="source.emit()">
         <span class="add-intent-mark" aria-hidden="true">
-          <nostos-icon name="download-simple" [size]="16"></nostos-icon>
+          <nostos-icon name="magnifying-glass" [size]="16"></nostos-icon>
         </span>
         <span class="add-intent-text">
-          <span class="add-intent-label">Import from a source</span>
-          <span class="add-intent-hint">
-            Project Gutenberg and LibriVox — search, then review the details
-          </span>
+          <span class="add-intent-label">Find a free book</span>
+          <span class="add-intent-hint">Search free books and audiobooks in one place</span>
+        </span>
+      </button>
+
+      <button type="button" class="add-intent-choice" (click)="physical.emit()">
+        <span class="add-intent-mark" aria-hidden="true">
+          <nostos-icon name="bookmark-simple" [size]="16"></nostos-icon>
+        </span>
+        <span class="add-intent-text">
+          <span class="add-intent-label">Add a physical book</span>
+          <span class="add-intent-hint">Identify a print book by ISBN, with manual entry as a fallback</span>
+        </span>
+      </button>
+
+      <button type="button" class="add-intent-choice" (click)="manual.emit()">
+        <span class="add-intent-mark" aria-hidden="true">
+          <nostos-icon name="pencil-simple" [size]="16"></nostos-icon>
+        </span>
+        <span class="add-intent-text">
+          <span class="add-intent-label">Enter manually</span>
+          <span class="add-intent-hint">Create a library record when no file or lookup is useful</span>
         </span>
       </button>
     </div>
