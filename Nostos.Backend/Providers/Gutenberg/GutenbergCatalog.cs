@@ -8,8 +8,11 @@ namespace Nostos.Backend.Providers.Gutenberg;
 internal sealed record GutenbergAsset(
     string Id,
     string Label,
+    /// <summary>Normalized MIME/format family used by the UI and acquisition planner.</summary>
     string SourceFormat,
     Uri Url,
+    string FileExtension,
+    string OutputLabel,
     long? SizeBytes = null,
     bool IsPreferred = false);
 
@@ -192,20 +195,22 @@ internal static class GutenbergCatalog
         foreach (var link in links)
         {
             var href = (string?)link.Attribute("href");
-            var contentType = (string?)link.Attribute("type");
+            var contentType = ((string?)link.Attribute("type"))?.Trim().ToLowerInvariant();
 
-            // Only EPUB. Every Gutenberg title with a Kindle file has an EPUB
-            // alongside it, and Nostos has no MOBI reader — listing a format the
-            // user can select but never open would be dead UI. Adding a reader is
-            // explicitly out of scope.
-            if (contentType != "application/epub+zip" || string.IsNullOrWhiteSpace(href))
+            // Only representations Nostos can actually open. PDF is accepted
+            // only when Gutenberg's machine-readable OPDS entry advertises it;
+            // no PDF URL is synthesized from the human-facing site.
+            if (string.IsNullOrWhiteSpace(href)
+                || contentType is not ("application/epub+zip" or "application/pdf"))
+            {
                 continue;
+            }
 
             if (!Uri.TryCreate(new Uri(BaseUrl), href, out var url) || url.Scheme != Uri.UriSchemeHttps)
                 continue;
 
-            var format = FormatFromUrl(url);
-            if (format is null)
+            var assetId = AssetIdFromUrl(url, contentType);
+            if (assetId is null)
                 continue;
 
             long? size = long.TryParse(
@@ -213,21 +218,25 @@ internal static class GutenbergCatalog
                 ? parsed
                 : null;
 
+            var isPdf = contentType == "application/pdf";
             yield return new GutenbergAsset(
-                Id: format,
-                Label: (string?)link.Attribute("title") ?? format,
-                SourceFormat: format,
+                Id: assetId,
+                Label: (string?)link.Attribute("title") ?? (isPdf ? "PDF" : "EPUB"),
+                SourceFormat: contentType,
                 Url: url,
+                FileExtension: isPdf ? ".pdf" : ".epub",
+                OutputLabel: isPdf ? "PDF" : "EPUB",
                 SizeBytes: size);
         }
     }
 
     /// <summary>
-    /// "/ebooks/1342.epub3.images" becomes "epub3-images". Derived from the href
-    /// rather than the link's title so the id stays stable if the wording of a
-    /// label changes.
+    /// Derives a stable provider asset id from Gutenberg's acquisition href.
+    /// Existing EPUB ids are preserved (e.g. epub3-images). PDF variants use
+    /// the same suffix normalization (pdf, pdf-images, ...), so multiple
+    /// genuinely advertised PDF representations remain independently selectable.
     /// </summary>
-    private static string? FormatFromUrl(Uri url)
+    private static string? AssetIdFromUrl(Uri url, string contentType)
     {
         var file = Path.GetFileName(url.AbsolutePath);
         var separator = file.IndexOf('.');
@@ -237,10 +246,12 @@ internal static class GutenbergCatalog
         var suffix = file[(separator + 1)..];
         var slug = suffix.Replace('.', '-').ToLowerInvariant();
 
-        // A variant we do not recognise is not offered at all: an unknown
-        // format would otherwise become an importable asset that nothing
-        // downstream understands.
-        return PreferredFormats.Contains(slug, StringComparer.Ordinal) ? slug : null;
+        if (contentType == "application/epub+zip")
+            return PreferredFormats.Contains(slug, StringComparer.Ordinal) ? slug : null;
+
+        return slug == "pdf" || slug.StartsWith("pdf-", StringComparison.Ordinal)
+            ? slug
+            : null;
     }
 
     private static int PreferenceIndex(string assetId)
