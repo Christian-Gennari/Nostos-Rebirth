@@ -84,6 +84,7 @@
     <Compile Remove="Providers\Discovery\**\*.cs" />
     <Compile Remove="Providers\Gutenberg\**\*.cs" />
     <Compile Remove="Providers\LibriVox\**\*.cs" />
+    <Compile Remove="Providers\StandardEbooks\**\*.cs" />
     <Compile Remove="Providers\Wikisource\**\*.cs" />
 
     <Compile Remove="Endpoints\BooksEndpoints.cs" />
