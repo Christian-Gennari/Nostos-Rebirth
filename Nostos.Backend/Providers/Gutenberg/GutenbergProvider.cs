@@ -75,7 +75,7 @@ public sealed partial class GutenbergProvider : IContentProvider,
 
     public long MaxTotalBytes => MaxEbookBytes;
 
-    /// <summary>One EPUB per import: Gutenberg exposes no multi-file ebook.</summary>
+    /// <summary>One ebook asset per import: Gutenberg exposes no multi-file ebook.</summary>
     public int MaxParts => 1;
 
     // --- IProviderSearch -------------------------------------------------
@@ -133,7 +133,7 @@ public sealed partial class GutenbergProvider : IContentProvider,
             : book.Assets.FirstOrDefault(a => string.Equals(a.Id, request.AssetId, StringComparison.OrdinalIgnoreCase));
 
         if (asset is null)
-            throw ProviderException.AssetUnavailableFor(Id, book.Id, request.AssetId ?? "epub");
+            throw ProviderException.AssetUnavailableFor(Id, book.Id, request.AssetId ?? "ebook");
 
         return new ProviderAcquisitionPlan(
             ProviderId: Id,
@@ -155,11 +155,11 @@ public sealed partial class GutenbergProvider : IContentProvider,
             [
                 new ProviderDownloadPart(
                     Url: asset.Url,
-                    FileExtension: ".epub",
+                    FileExtension: asset.FileExtension,
                     ExpectedBytes: asset.SizeBytes,
                     Label: asset.Label),
             ],
-            Output: new ProviderOutput(".epub", "application/epub+zip", "EPUB"),
+            Output: new ProviderOutput(asset.FileExtension, asset.SourceFormat, asset.OutputLabel),
             Cover: GutenbergCatalog.CoverFor(book.Id),
             Source: new ProviderSourceInfo(
                 ItemUrl: $"{GutenbergCatalog.BaseUrl}/ebooks/{book.Id}",
