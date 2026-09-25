@@ -28,6 +28,8 @@ export interface ProviderAsset {
 export interface ProviderItem {
   providerId: string;
   externalId: string;
+  /** Available even on thin search results; never infer this from providerId. */
+  mediaKind: 'ebook' | 'audiobook';
   title: string;
   subtitle: string | null;
   author: string | null;
@@ -57,6 +59,20 @@ export interface ProviderSearchResult {
    * would read as a broken search.
    */
   notice: string | null;
+}
+
+export interface ProviderDiscoverySourceStatus {
+  providerId: string;
+  displayName: string;
+  succeeded: boolean;
+  notice: string | null;
+  errorCode: string | null;
+}
+
+export interface ProviderDiscoverySearchResult {
+  items: ProviderItem[];
+  hasMore: boolean;
+  sources: ProviderDiscoverySourceStatus[];
 }
 
 /**
