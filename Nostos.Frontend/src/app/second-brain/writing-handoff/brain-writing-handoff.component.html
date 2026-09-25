@@ -16,14 +16,16 @@
         </p>
       </div>
       <button
+        appIconButton
+        icon="x"
+        size="xs"
+        [glyphSize]="16"
         type="button"
         class="handoff-close"
         aria-label="Close writing picker"
         [disabled]="saving()"
         (click)="cancel()"
-      >
-        ×
-      </button>
+      ></button>
     </header>
 
     @if (loadingDestinations()) {
