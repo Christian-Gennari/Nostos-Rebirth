@@ -9,8 +9,8 @@ namespace Nostos.Backend.Providers.Wikisource;
 /// English Wikisource as a Nostos ebook source, backed by WS Export OPDS.
 ///
 /// The provider only describes and resolves remote content. The common
-/// acquisition layer downloads the chosen EPUB and turns it into an ordinary
-/// local Nostos book.
+/// acquisition layer downloads the chosen ebook representation and turns it
+/// into an ordinary local Nostos book.
 /// </summary>
 public sealed class WikisourceProvider : IContentProvider,
     IProviderSearch,
