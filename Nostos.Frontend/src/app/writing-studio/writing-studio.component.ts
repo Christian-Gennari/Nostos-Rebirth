@@ -2,6 +2,7 @@ import {
   Component,
   inject,
   OnInit,
+  AfterViewInit,
   signal,
   effect,
   computed,
@@ -14,6 +15,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DragDropModule } from '@angular/cdk/drag-drop';
+import { firstValueFrom } from 'rxjs';
 
 import { WritingsService } from '../core/services/writings.service';
 import { ToastService } from '../core/services/toast.service';
@@ -23,7 +25,10 @@ import { NotesService } from '../core/services/notes.service';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
 import { WritingDto, WritingContentDto, WritingSourceDto } from '../core/dtos/writing.dtos';
 import { Note } from '../core/dtos/note.dtos';
-import { MarkdownEditorComponent } from '../ui/markdown-editor/markdown-editor.component';
+import {
+  MarkdownEditorComponent,
+  MarkdownEditorTransientState,
+} from '../ui/markdown-editor/markdown-editor.component';
 import { FlatTreeComponent } from '../ui/flat-tree/flat-tree.component';
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
 import { ButtonComponent } from '../ui/button/button.component';
@@ -39,6 +44,14 @@ import {
   hasMeaningfulSelectedText,
   sourceHumanLabel,
 } from './source-insertion.helpers';
+import {
+  hasStudioSourceReturnState,
+  readerReturnOriginState,
+  readStudioSourceReturnSnapshot,
+  StudioSourceReturnSnapshotV1,
+  withStudioSourceReturnState,
+  withoutStudioSourceReturnState,
+} from '../core/navigation/studio-reader-navigation';
 
 /** localStorage flag for typewriter mode in the studio. */
 const TYPEWRITER_KEY = 'nostos.typewriter';
@@ -97,7 +110,7 @@ function readTypewriter(): boolean {
   templateUrl: './writing-studio.component.html',
   styleUrls: ['./writing-studio.component.css'],
 })
-export class WritingStudio implements OnInit {
+export class WritingStudio implements OnInit, AfterViewInit {
   private writingsService = inject(WritingsService);
   private toast = inject(ToastService);
   private conceptsService = inject(ConceptsService);
@@ -115,6 +128,18 @@ export class WritingStudio implements OnInit {
   private handledWritingHandoffId: string | null = null;
   private handoffOpenGeneration = 0;
   private writingTreeLoaded = false;
+
+  // Autosaves and explicit "open source" flushes share one serialized lane.
+  // A newer generation supersedes stale UI responses, while queue ordering
+  // guarantees an older request can never land on the server after the flush.
+  private saveGeneration = 0;
+  private saveQueue: Promise<void> = Promise.resolve();
+  private pendingSaveCount = 0;
+
+  // Reader excursions are represented only by short-lived browser history
+  // state. Nothing here is persisted to Writing content or the backend.
+  private pendingSourceReturnSnapshot: StudioSourceReturnSnapshotV1 | null = null;
+  private pendingInspectedSourceId: string | null = null;
 
   isMobile = signal(window.innerWidth < 768);
   showFileSidebar = signal(true);
@@ -332,19 +357,12 @@ export class WritingStudio implements OnInit {
       }
 
       this.saveStatus.set('Unsaved');
+      const generation = ++this.saveGeneration;
 
       const timer = setTimeout(() => {
-        this.saveStatus.set('Saving...');
-
-        this.writingsService.update(item.id, { name: title, content: text }).subscribe({
-          next: (updated) => {
-            this.saveStatus.set('Saved');
-            this.activeItem.set(updated);
-            if (title !== item.name) {
-              this.loadTree();
-            }
-          },
-          error: () => this.saveStatus.set('Unsaved'),
+        void this.queueWritingSave(item, title, text, generation).catch(() => {
+          // Autosave failure is represented by saveStatus. Explicit source
+          // navigation handles the same failure with user feedback below.
         });
       }, 2000);
 
@@ -353,6 +371,7 @@ export class WritingStudio implements OnInit {
   }
 
   ngOnInit() {
+    this.prepareSourceReturnRestore();
     this.watchWritingHandoff();
     this.loadTree();
     this.loadBrain();
@@ -361,6 +380,10 @@ export class WritingStudio implements OnInit {
     if (this.isMobile()) {
       this.showFileSidebar.set(false);
     }
+  }
+
+  ngAfterViewInit(): void {
+    this.tryRestoreEditorSourceReturn();
   }
 
   closeSidebars() {
@@ -469,6 +492,14 @@ export class WritingStudio implements OnInit {
         // kept list of the document the writer has since switched to.
         if (this.activeItem()?.id !== writingId) return;
         this.keptSources.set(sources);
+        if (
+          this.pendingInspectedSourceId &&
+          this.pendingSourceReturnSnapshot?.references?.mode === 'writing'
+        ) {
+          const match = this.keptNotes().find((note) => note.id === this.pendingInspectedSourceId);
+          if (match) this.inspectedSource.set(match);
+          this.pendingInspectedSourceId = null;
+        }
       },
       error: () => this.toast.error('Failed to load kept sources'),
     });
@@ -569,6 +600,8 @@ export class WritingStudio implements OnInit {
           this.showFileSidebar.set(false);
           if (fromHandoff) this.showBrainSidebar.set(false);
         }
+
+        if (fromHandoff) this.restoreSourceReturnSurface(contentDto);
       },
       error: () => {
         if (
@@ -698,13 +731,33 @@ export class WritingStudio implements OnInit {
         bookTitle: n.bookTitle,
       }));
       this.selectedConceptNotes.set(mapped);
+      if (
+        this.pendingInspectedSourceId &&
+        this.pendingSourceReturnSnapshot?.references?.mode === 'library' &&
+        this.pendingSourceReturnSnapshot.references.activeLibraryTab === 'brain'
+      ) {
+        const match = mapped.find((note) => note.id === this.pendingInspectedSourceId);
+        if (match) this.inspectedSource.set(match);
+        this.pendingInspectedSourceId = null;
+      }
     });
   }
 
   selectBook(id: string) {
     this.inspectedSource.set(null);
     this.selectedBookId.set(id);
-    this.notesService.list(id).subscribe((notes) => this.selectedBookNotes.set(notes));
+    this.notesService.list(id).subscribe((notes) => {
+      this.selectedBookNotes.set(notes);
+      if (
+        this.pendingInspectedSourceId &&
+        this.pendingSourceReturnSnapshot?.references?.mode === 'library' &&
+        this.pendingSourceReturnSnapshot.references.activeLibraryTab === 'notes'
+      ) {
+        const match = notes.find((note) => note.id === this.pendingInspectedSourceId);
+        if (match) this.inspectedSource.set(match);
+        this.pendingInspectedSourceId = null;
+      }
+    });
   }
 
   inspectSource(note: Note): void {
@@ -759,8 +812,24 @@ export class WritingStudio implements OnInit {
     if (this.isMobile()) this.showBrainSidebar.set(false);
   }
 
-  openSource(source: Note): void {
+  async openSource(source: Note): Promise<void> {
     if (!this.router || !source.bookId) return;
+
+    const active = this.activeItem();
+    if (!active) {
+      this.toast.error('Open a writing before opening a source');
+      return;
+    }
+
+    // Capture editor/UI context before any asynchronous save can move focus.
+    const snapshot = this.captureSourceReturnSnapshot(active.id);
+
+    // The 2s autosave debounce must never turn "Open source" into a data-loss
+    // path. The explicit flush joins the same serialized save lane and only
+    // navigation after the latest title/prose is safely persisted.
+    if (!(await this.flushActiveWritingBeforeSource(active))) return;
+
+    this.attachSourceReturnSnapshot(snapshot);
 
     const kind = source.sourceAnchorKind?.trim().toLowerCase();
     const value = source.sourceAnchorValue?.trim();
@@ -768,28 +837,223 @@ export class WritingStudio implements OnInit {
     if (source.anchorVerified === true && kind === 'pdf_page' && value) {
       const page = Number(value);
       if (Number.isInteger(page) && page > 0) {
-        void this.router.navigate(['/read', source.bookId], {
+        await this.navigateFromStudio(['/read', source.bookId], {
           queryParams: { sourcePage: page },
+          state: readerReturnOriginState(active.id),
         });
         return;
       }
     }
 
     if (source.anchorVerified === true && kind === 'epub_cfi' && value) {
-      void this.router.navigate(['/read', source.bookId], {
+      await this.navigateFromStudio(['/read', source.bookId], {
         queryParams: { sourceCfi: value },
+        state: readerReturnOriginState(active.id),
       });
       return;
     }
 
     const legacyCfi = source.cfiRange?.trim();
     if (legacyCfi?.startsWith('epubcfi(')) {
-      void this.router.navigate(['/read', source.bookId], {
+      await this.navigateFromStudio(['/read', source.bookId], {
         queryParams: { sourceCfi: legacyCfi },
+        state: readerReturnOriginState(active.id),
       });
       return;
     }
 
-    void this.router.navigate(['/library', source.bookId]);
+    // Unsupported/unverified anchors remain honest Book Detail fallbacks. The
+    // prepared Studio history entry still means ordinary browser Back restores
+    // the exact writing context, but Book Detail receives no Reader marker.
+    await this.navigateFromStudio(['/library', source.bookId]);
+  }
+
+  private captureSourceReturnSnapshot(writingId: string): StudioSourceReturnSnapshotV1 {
+    const editor = this.markdownEditor?.captureTransientState() ?? undefined;
+    return {
+      version: 1,
+      writingId,
+      ...(editor ? { editor } : {}),
+      references: {
+        mode: this.referenceMode(),
+        activeLibraryTab: this.activeSidebarTab(),
+        wasOpen: this.showBrainSidebar(),
+        inspectedSourceId: this.inspectedSource()?.id ?? null,
+        selectedConceptId: this.selectedConceptId(),
+        selectedBookId: this.selectedBookId(),
+      },
+    };
+  }
+
+  private async flushActiveWritingBeforeSource(item: WritingContentDto): Promise<boolean> {
+    const title = this.editorTitle();
+    const content = this.editorText();
+    const dirty = title !== item.name || content !== item.content;
+
+    // If no delayed/in-flight autosave exists and the document is already
+    // persisted, opening a source should not generate a redundant write.
+    if (!dirty && this.pendingSaveCount === 0) return true;
+
+    const generation = ++this.saveGeneration;
+    try {
+      await this.queueWritingSave(item, title, content, generation);
+      return true;
+    } catch {
+      if (generation === this.saveGeneration) this.saveStatus.set('Unsaved');
+      this.toast.error('Could not save this writing. Your draft is still open.');
+      return false;
+    }
+  }
+
+  private queueWritingSave(
+    item: WritingContentDto,
+    title: string,
+    content: string,
+    generation: number,
+  ): Promise<void> {
+    this.pendingSaveCount++;
+
+    const run = async () => {
+      // A newer debounce/flush superseded this request before it began.
+      if (generation !== this.saveGeneration) return;
+
+      this.saveStatus.set('Saving...');
+      try {
+        const updated = await firstValueFrom(
+          this.writingsService.update(item.id, { name: title, content }),
+        );
+
+        // An explicit flush may have been queued behind this request. Let that
+        // newer write own the UI and final server state.
+        if (generation !== this.saveGeneration) return;
+        if (this.activeItem()?.id !== item.id) return;
+
+        this.activeItem.set(updated);
+        this.saveStatus.set('Saved');
+        if (title !== item.name) this.loadTree();
+      } catch (error) {
+        if (generation === this.saveGeneration) this.saveStatus.set('Unsaved');
+        throw error;
+      }
+    };
+
+    const queued = this.saveQueue.catch(() => undefined).then(run);
+    this.saveQueue = queued.catch(() => undefined);
+    void queued.finally(() => {
+      this.pendingSaveCount = Math.max(0, this.pendingSaveCount - 1);
+    });
+    return queued;
+  }
+
+  private attachSourceReturnSnapshot(snapshot: StudioSourceReturnSnapshotV1): void {
+    const canonicalUrl = `/studio?writingId=${encodeURIComponent(snapshot.writingId)}`;
+    window.history.replaceState(
+      withStudioSourceReturnState(window.history.state, snapshot),
+      '',
+      canonicalUrl,
+    );
+    this.pendingSourceReturnSnapshot = snapshot;
+  }
+
+  private async navigateFromStudio(
+    commands: readonly unknown[],
+    extras?: {
+      queryParams?: Record<string, unknown>;
+      state?: Record<string, unknown>;
+    },
+  ): Promise<void> {
+    const navigated = await this.router?.navigate(commands as any[], extras as any);
+    if (navigated === false) {
+      // Staying in Studio must not leave a return snapshot waiting to replay.
+      this.consumeSourceReturnSnapshot();
+    }
+  }
+
+  private prepareSourceReturnRestore(): void {
+    const state = window.history.state;
+    this.pendingSourceReturnSnapshot = readStudioSourceReturnSnapshot(state);
+
+    // Malformed/old versions are one-shot state too. Remove them rather than
+    // letting a stale blob survive unrelated Studio visits.
+    if (!this.pendingSourceReturnSnapshot && hasStudioSourceReturnState(state)) {
+      this.consumeSourceReturnSnapshot();
+    }
+  }
+
+  private restoreSourceReturnSurface(content: WritingContentDto): void {
+    const snapshot = this.pendingSourceReturnSnapshot;
+    if (!snapshot) return;
+
+    if (snapshot.writingId !== content.id) {
+      this.consumeSourceReturnSnapshot();
+      return;
+    }
+
+    const references = snapshot.references;
+    if (references) {
+      this.referenceMode.set(references.mode);
+      this.activeSidebarTab.set(references.activeLibraryTab);
+      this.selectedConceptId.set(references.selectedConceptId ?? null);
+      this.selectedBookId.set(references.selectedBookId ?? null);
+      this.pendingInspectedSourceId = references.inspectedSourceId ?? null;
+
+      if (this.isMobile()) {
+        // Mobile remains one-pane: Documents never reopens over the returned
+        // editor. The reference drawer may reopen because its existing close
+        // control is the explicit route back to drafting.
+        this.showFileSidebar.set(false);
+        this.showBrainSidebar.set(references.wasOpen);
+      } else {
+        this.showBrainSidebar.set(references.wasOpen);
+      }
+
+      if (references.mode === 'library') {
+        if (references.activeLibraryTab === 'brain' && references.selectedConceptId) {
+          this.selectConcept(references.selectedConceptId);
+        } else if (references.activeLibraryTab === 'notes' && references.selectedBookId) {
+          this.selectBook(references.selectedBookId);
+        } else {
+          this.pendingInspectedSourceId = null;
+        }
+      }
+    }
+
+    // ViewChild may not exist yet for synchronous test/service observables.
+    // ngAfterViewInit retries without polling; real HTTP handoffs generally
+    // arrive after the editor view already exists.
+    queueMicrotask(() => this.tryRestoreEditorSourceReturn());
+  }
+
+  private tryRestoreEditorSourceReturn(): void {
+    const snapshot = this.pendingSourceReturnSnapshot;
+    const active = this.activeItem();
+    const editor = this.markdownEditor;
+    if (!snapshot || !active || snapshot.writingId !== active.id || !editor) return;
+
+    const state = snapshot.editor as MarkdownEditorTransientState | undefined;
+    if (!state) {
+      this.consumeSourceReturnSnapshot();
+      return;
+    }
+
+    void editor.restoreTransientState(state, active.content).then(() => {
+      // Caret/scroll are best-effort, but this state represents one completed
+      // return cycle. Never let an unsupported bookmark replay on a later visit.
+      if (this.pendingSourceReturnSnapshot === snapshot) {
+        this.consumeSourceReturnSnapshot();
+      }
+    });
+  }
+
+  private consumeSourceReturnSnapshot(): void {
+    this.pendingSourceReturnSnapshot = null;
+    this.pendingInspectedSourceId = null;
+
+    if (!hasStudioSourceReturnState(window.history.state)) return;
+    window.history.replaceState(
+      withoutStudioSourceReturnState(window.history.state),
+      '',
+      `${window.location.pathname}${window.location.search}${window.location.hash}`,
+    );
   }
 }
