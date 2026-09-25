@@ -10,7 +10,7 @@ namespace Nostos.Backend.Providers.Gutenberg;
 /// Project Gutenberg as a Nostos content source.
 ///
 /// Everything Gutenberg-shaped stops at this boundary. Downstream only ever sees
-/// the normalized contracts: an imported book is an ordinary local EPUB, and
+/// the normalized contracts: an imported book is an ordinary local ebook, and
 /// nothing in the library, the reader, notes, work grouping or backups knows
 /// this provider exists.
 ///
@@ -220,11 +220,11 @@ public sealed partial class GutenbergProvider : IContentProvider,
         Assets: includeAssets
             ? book.Assets
                 .Select(asset => new ProviderAsset(
-                Id: asset.Id,
-                Kind: ProviderMediaKind.Ebook,
-                Label: asset.Label,
-                SourceFormat: asset.SourceFormat,
-                SizeBytes: asset.SizeBytes,
+                    Id: asset.Id,
+                    Kind: ProviderMediaKind.Ebook,
+                    Label: asset.Label,
+                    SourceFormat: asset.SourceFormat,
+                    SizeBytes: asset.SizeBytes,
                     IsPreferred: asset.IsPreferred))
                 .ToList()
             : [],
