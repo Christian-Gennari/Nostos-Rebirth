@@ -274,7 +274,7 @@ internal static class StandardEbooksCatalog
 
     private static string? NormalizeContentType(string? value)
     {
-        var type = value?.Split(';', 2)[0].Trim().ToLowerInvariant();
+        var type = value?.Split(';', 2, StringSplitOptions.TrimEntries)[0].ToLowerInvariant();
         return string.IsNullOrWhiteSpace(type) ? null : type;
     }
 
