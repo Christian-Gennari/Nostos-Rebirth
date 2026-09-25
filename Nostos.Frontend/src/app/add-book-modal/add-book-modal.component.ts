@@ -518,6 +518,7 @@ export class AddBookModal {
   sourceSearching = signal(false);
   sourceSearched = signal(false);
   sourceSearchError = signal<string | null>(null);
+  private sourceSearchVersion = 0;
 
   selectedItem = signal<ProviderItem | null>(null);
 
@@ -694,21 +695,31 @@ export class AddBookModal {
 
   searchSource(): void {
     const query = this.sourceQuery().trim();
-    if (query.length < 2 || this.sourceSearching()) return;
+    if (query.length < 2) return;
 
     const kind = this.sourceKind();
+    const version = ++this.sourceSearchVersion;
     this.sourceSearching.set(true);
     this.sourceSearchError.set(null);
     this.clearSourceSelection();
 
     this.providers
       .searchAll(query, kind === 'all' ? undefined : kind)
-      .pipe(finalize(() => this.sourceSearching.set(false)))
+      .pipe(
+        finalize(() => {
+          if (this.sourceSearchVersion === version) this.sourceSearching.set(false);
+        }),
+      )
       .subscribe({
         next: (result) => {
           // A response for a filter/query the user has already moved away from
           // must not replace the current discovery state.
-          if (this.sourceQuery().trim() !== query || this.sourceKind() !== kind) return;
+          if (
+            this.sourceSearchVersion !== version ||
+            this.sourceQuery().trim() !== query ||
+            this.sourceKind() !== kind
+          )
+            return;
 
           this.sourceResults.set(result.items);
           this.sourceStatuses.set(result.sources);
@@ -716,7 +727,12 @@ export class AddBookModal {
           this.sourceSearched.set(true);
         },
         error: (error) => {
-          if (this.sourceQuery().trim() !== query || this.sourceKind() !== kind) return;
+          if (
+            this.sourceSearchVersion !== version ||
+            this.sourceQuery().trim() !== query ||
+            this.sourceKind() !== kind
+          )
+            return;
 
           this.sourceResults.set([]);
           this.sourceStatuses.set([]);
