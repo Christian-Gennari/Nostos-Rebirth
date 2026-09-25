@@ -118,6 +118,13 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
     outline: none !important;
   }
 
+  body.nostos-typewriter {
+    /* Typewriter mode needs real scroll runway above and below the manuscript.
+       Without this, the first and last lines can never reach the 45% target. */
+    padding-top: 45vh;
+    padding-bottom: 55vh;
+  }
+
   body:focus,
   body:focus-visible {
     outline: none !important;
@@ -662,7 +669,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
       // Waiting for init allows one light frame to flash in dark mode.
       editor.on('PreInit', () => this.syncIframeTheme(editor));
       editor.on('Change Undo Redo blur', () => this.onHtmlChange(editor.getContent()));
-      editor.on('NodeChange KeyUp', () => this.followCaret(editor));
+      editor.on('Input KeyUp Click NodeChange', () => this.followCaret(editor));
 
       const updateWordCount = () => {
         const count = editor.plugins?.wordcount?.body?.getWordCount?.() ?? 0;
@@ -674,6 +681,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
         editor.getBody().style.opacity = '1';
         // Re-read the latest theme as init can finish after the user toggles it.
         this.syncIframeTheme(editor);
+        this.syncTypewriterLayout(editor);
         // Optional: Safety check in case content loaded before init
         if (this.htmlContent && !editor.getContent()) {
           editor.setContent(this.htmlContent);
@@ -686,6 +694,13 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   };
 
   constructor() {
+    // Typewriter is an input signal owned by Studio. Keep the iframe layout in
+    // sync without recreating TinyMCE when the toggle changes.
+    effect(() => {
+      this.typewriter();
+      this.syncTypewriterLayout();
+    });
+
     // 1. Handle External Content Updates (e.g. clicking a new file in sidebar)
     effect(async () => {
       const markdown = this.initialContent();
@@ -727,6 +742,44 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     this.pendingTransientRestore?.resolve(false);
     this.pendingTransientRestore = null;
     this.destroyEditor();
+  }
+
+  private syncTypewriterLayout(editor = this.editor): void {
+    if (!editor || !this.editorReady) return;
+
+    try {
+      const body = editor.getBody?.();
+      const win = editor.getWin?.();
+      if (!body?.classList?.toggle) return;
+
+      // Preserve the caret's visible position while the padding changes so
+      // toggling the mode itself never causes a disorienting jump.
+      const range = editor.selection?.getRng?.();
+      const before = caretViewportTop(range);
+
+      body.classList.toggle('nostos-typewriter', this.typewriter());
+
+      const after = caretViewportTop(range);
+      if (
+        before !== null &&
+        after !== null &&
+        after !== before &&
+        win &&
+        typeof win.scrollBy === 'function'
+      ) {
+        win.scrollBy(0, after - before);
+      }
+
+      if (this.typewriter()) {
+        queueMicrotask(() => {
+          if (this.editor === editor && this.editorReady && this.typewriter()) {
+            this.followCaret(editor);
+          }
+        });
+      }
+    } catch {
+      // Layout sync is best-effort; never make the editor unusable over it.
+    }
   }
 
   private syncIframeTheme(editor = this.editor) {
@@ -920,21 +973,22 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Typewriter scroll: nudge the iframe so the caret line sits near 45% of
-   * the viewport. Instant (never smooth — smooth lags behind typing), with a
-   * deadband so small drifts don't jitter the page. Defensive throughout:
-   * headless/test editors without a selection API simply do nothing.
+   * Typewriter scroll: keep the caret line near 45% of the iframe viewport.
+   * TinyMCE selections are usually collapsed ranges while typing, and browsers
+   * can report a zero rectangle for those ranges. caretViewportTop() probes an
+   * adjacent character/block when needed instead of silently giving up.
    */
   followCaret(editor: any): void {
     if (!this.typewriter()) return;
     try {
-      const rect = editor.selection?.getRng?.()?.getBoundingClientRect?.();
+      const rectTop = caretViewportTop(editor.selection?.getRng?.());
       const win = editor.getWin?.();
-      if (!rect || !win || typeof win.innerHeight !== 'number') return;
-      // A zero rect means the caret isn't laid out (hidden editor, tests).
-      if (rect.top === 0 && rect.height === 0) return;
-      const delta = caretScrollDelta(rect.top, win.innerHeight);
-      if (delta !== null) win.scrollBy(0, delta);
+      if (rectTop === null || !win || typeof win.innerHeight !== 'number') return;
+
+      const delta = caretScrollDelta(rectTop, win.innerHeight);
+      if (delta !== null && typeof win.scrollBy === 'function') {
+        win.scrollBy(0, delta);
+      }
     } catch {
       // Caret geometry is best-effort — never break typing over it.
     }
@@ -942,13 +996,79 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
 }
 
 /**
+ * Resolve the caret's top edge in iframe viewport coordinates.
+ *
+ * A collapsed DOM Range may expose { top: 0, height: 0 } even when the caret is
+ * visibly laid out. In that case, probe the adjacent text character (or nearby
+ * inline/block node) with a cloned range so measurement never mutates TinyMCE.
+ */
+export function caretViewportTop(range: any): number | null {
+  if (!range) return null;
+
+  const direct = usableCaretRectTop(range.getBoundingClientRect?.());
+  if (direct !== null) return direct;
+
+  if (range.collapsed === false || typeof range.cloneRange !== 'function') return null;
+
+  const container = range.startContainer;
+  const offset = Number(range.startOffset);
+  if (!container || !Number.isInteger(offset) || offset < 0) return null;
+
+  try {
+    if (container.nodeType === 3) {
+      const textLength =
+        typeof container.length === 'number'
+          ? container.length
+          : typeof container.data === 'string'
+            ? container.data.length
+            : 0;
+
+      if (textLength > 0) {
+        const probe = range.cloneRange();
+        if (offset > 0) {
+          probe.setStart(container, Math.min(offset - 1, textLength - 1));
+          probe.setEnd(container, Math.min(offset, textLength));
+        } else {
+          probe.setStart(container, 0);
+          probe.setEnd(container, Math.min(1, textLength));
+        }
+
+        const probed = usableCaretRectTop(probe.getBoundingClientRect?.());
+        if (probed !== null) return probed;
+      }
+    } else if (container.nodeType === 1) {
+      const children = container.childNodes;
+      const candidate = children?.[offset] ?? children?.[Math.max(0, offset - 1)];
+      const candidateTop = usableCaretRectTop(candidate?.getBoundingClientRect?.());
+      if (candidateTop !== null) return candidateTop;
+    }
+
+    const element = container.nodeType === 1 ? container : container.parentElement;
+    return usableCaretRectTop(element?.getBoundingClientRect?.());
+  } catch {
+    return null;
+  }
+}
+
+function usableCaretRectTop(rect: any): number | null {
+  const top = Number(rect?.top);
+  const height = Number(rect?.height);
+  if (!Number.isFinite(top)) return null;
+
+  // The all-zero DOMRect is the common "collapsed caret not laid out" failure.
+  if (top === 0 && (!Number.isFinite(height) || height === 0)) return null;
+
+  return top;
+}
+
+/**
  * Pixels to scroll so a caret at `rectTop` lands at 45% of `viewportHeight`,
- * or null inside the deadband / for invalid viewports. Pure for testability.
+ * or null inside a roughly one-line deadband / for invalid viewports.
  */
 export function caretScrollDelta(rectTop: number, viewportHeight: number): number | null {
   if (!isFinite(rectTop) || !isFinite(viewportHeight) || viewportHeight <= 0) return null;
   const delta = rectTop - viewportHeight * 0.45;
-  return Math.abs(delta) < 60 ? null : Math.round(delta);
+  return Math.abs(delta) < 32 ? null : Math.round(delta);
 }
 
 
