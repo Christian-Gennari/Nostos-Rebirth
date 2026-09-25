@@ -3,7 +3,9 @@
     class="modal-backdrop"
     [class.is-sheet]="variant() === 'sheet'"
     [style.z-index]="layer()"
-    (click)="onBackdropClick()"
+    (pointerdown)="onBackdropPointerDown($event)"
+    (pointerup)="onBackdropPointerUp($event)"
+    (pointercancel)="onBackdropPointerCancel($event)"
     role="presentation"
   >
     <div
