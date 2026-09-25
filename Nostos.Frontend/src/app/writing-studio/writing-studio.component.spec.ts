@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Component, input, output, Input } from '@angular/core';
-import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
+import { BehaviorSubject, Observable, Subject, of, throwError } from 'rxjs';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 
 import { WritingStudio } from './writing-studio.component';
@@ -24,6 +24,11 @@ class MarkdownEditorStub {
   readonly contentChange = output<string>();
   readonly wordCountChange = output<number>();
   readonly insertMarkdown = vi.fn(async (_markdown: string) => true);
+  readonly captureTransientState = vi.fn(() => ({
+    bookmark: { start: [1, 0], forward: true },
+    scrollY: 240,
+  }));
+  readonly restoreTransientState = vi.fn(async (_state: unknown, _expectedMarkdown: string) => true);
 }
 
 @Component({ selector: 'app-flat-tree', standalone: true, template: '' })
@@ -820,6 +825,7 @@ describe('WritingStudio kept sources (#491)', () => {
 
     localStorage.clear();
     document.body.classList.remove('nostos-zen');
+    window.history.replaceState({}, '', '/studio');
 
     fixture = TestBed.createComponent(WritingStudio);
     component = fixture.componentInstance;
@@ -1197,21 +1203,41 @@ describe('WritingStudio kept sources (#491)', () => {
     );
   });
 
-  it('keeps Open source separate and uses only supported reader navigation', () => {
+  it('keeps Open source typed navigation while adding only an explicit Studio origin marker', async () => {
     const navigate = vi.fn(() => Promise.resolve(true));
     (component as any).router = { navigate };
+    component.activeItem.set(sampleDoc1);
+    component.editorTitle.set(sampleDoc1.name);
+    component.editorText.set(sampleDoc1.content);
+    fixture.detectChanges();
 
-    component.openSource(sourceBeta as any);
+    window.history.replaceState({ navigationId: 7, unrelated: 'preserve-me' }, '', '/studio');
+
+    await component.openSource(sourceBeta as any);
+    expect(window.location.pathname + window.location.search).toBe('/studio?writingId=doc-1');
+    expect(window.history.state.unrelated).toBe('preserve-me');
+    expect(window.history.state.nostosStudioSourceReturn).toMatchObject({
+      version: 1,
+      writingId: 'doc-1',
+      editor: { scrollY: 240 },
+      references: { mode: 'writing', activeLibraryTab: 'brain' },
+    });
     expect(navigate).toHaveBeenLastCalledWith(['/read', 'book-2'], {
       queryParams: { sourcePage: 42 },
+      state: {
+        nostosReaderReturnOrigin: { version: 1, kind: 'studio', writingId: 'doc-1' },
+      },
     });
 
-    component.openSource(sourceAlpha as any);
+    await component.openSource(sourceAlpha as any);
     expect(navigate).toHaveBeenLastCalledWith(['/read', 'book-1'], {
       queryParams: { sourceCfi: 'epubcfi(/6/2)' },
+      state: {
+        nostosReaderReturnOrigin: { version: 1, kind: 'studio', writingId: 'doc-1' },
+      },
     });
 
-    component.openSource({
+    await component.openSource({
       id: 'physical',
       bookId: 'book-3',
       bookTitle: 'Physical Book',
@@ -1222,6 +1248,127 @@ describe('WritingStudio kept sources (#491)', () => {
       anchorVerified: true,
     });
     expect(navigate).toHaveBeenLastCalledWith(['/library', 'book-3']);
+  });
+
+  it('keeps legacy EPUB CFI navigation and never puts return/editor state in query params', async () => {
+    const navigate = vi.fn(() => Promise.resolve(true));
+    (component as any).router = { navigate };
+    component.activeItem.set(sampleDoc1);
+    component.editorTitle.set(sampleDoc1.name);
+    component.editorText.set(sampleDoc1.content);
+    fixture.detectChanges();
+
+    await component.openSource({
+      ...sourceAlpha,
+      sourceAnchorKind: null,
+      sourceAnchorValue: null,
+      anchorVerified: false,
+      cfiRange: 'epubcfi(/8/4)',
+    } as any);
+
+    expect(navigate).toHaveBeenCalledWith(['/read', 'book-1'], {
+      queryParams: { sourceCfi: 'epubcfi(/8/4)' },
+      state: {
+        nostosReaderReturnOrigin: { version: 1, kind: 'studio', writingId: 'doc-1' },
+      },
+    });
+    expect(navigate.mock.calls[0][1].queryParams).toEqual({ sourceCfi: 'epubcfi(/8/4)' });
+  });
+
+  it('does not leave Studio when there is no active Writing return context', async () => {
+    const navigate = vi.fn(() => Promise.resolve(true));
+    (component as any).router = { navigate };
+
+    await component.openSource(sourceBeta as any);
+
+    expect(navigate).not.toHaveBeenCalled();
+    expect(toastService.error).toHaveBeenCalledWith('Open a writing before opening a source');
+  });
+
+  it('does not write an already-saved Writing merely to open a source', async () => {
+    const navigate = vi.fn(() => Promise.resolve(true));
+    (component as any).router = { navigate };
+    component.activeItem.set(sampleDoc1);
+    component.editorTitle.set(sampleDoc1.name);
+    component.editorText.set(sampleDoc1.content);
+    fixture.detectChanges();
+    writingsService.update.mockClear();
+
+    await component.openSource(sourceBeta as any);
+
+    expect(writingsService.update).not.toHaveBeenCalled();
+    expect(navigate).toHaveBeenCalledTimes(1);
+  });
+
+  it('flushes pending prose before source navigation and keeps the draft on save failure', async () => {
+    const navigate = vi.fn(() => Promise.resolve(true));
+    (component as any).router = { navigate };
+    component.activeItem.set(sampleDoc1);
+    component.editorTitle.set(sampleDoc1.name);
+    component.editorText.set('Newest unsaved paragraph');
+    fixture.detectChanges();
+
+    writingsService.update.mockReturnValueOnce(
+      throwError(() => new Error('save failed')),
+    );
+
+    await component.openSource(sourceBeta as any);
+
+    expect(writingsService.update).toHaveBeenCalledWith('doc-1', {
+      name: sampleDoc1.name,
+      content: 'Newest unsaved paragraph',
+    });
+    expect(navigate).not.toHaveBeenCalled();
+    expect(component.editorText()).toBe('Newest unsaved paragraph');
+    expect(component.saveStatus()).toBe('Unsaved');
+    expect(toastService.error).toHaveBeenCalledWith(
+      'Could not save this writing. Your draft is still open.',
+    );
+  });
+
+  it('serializes an older autosave ahead of the source flush so stale content cannot win last', async () => {
+    vi.useFakeTimers();
+    try {
+      const navigate = vi.fn(() => Promise.resolve(true));
+      (component as any).router = { navigate };
+      const oldSave = new Subject<WritingContentDto>();
+      const latestSave = new Subject<WritingContentDto>();
+      writingsService.update
+        .mockReturnValueOnce(oldSave.asObservable())
+        .mockReturnValueOnce(latestSave.asObservable());
+
+      component.activeItem.set(sampleDoc1);
+      component.editorTitle.set(sampleDoc1.name);
+      component.editorText.set('Older debounce text');
+      fixture.detectChanges();
+      await vi.advanceTimersByTimeAsync(2000);
+
+      component.editorText.set('Latest text before source');
+      fixture.detectChanges();
+      const opening = component.openSource(sourceBeta as any);
+      await Promise.resolve();
+
+      expect(writingsService.update).toHaveBeenCalledTimes(1);
+      oldSave.next({ ...sampleDoc1, content: 'Older debounce text' });
+      oldSave.complete();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(writingsService.update).toHaveBeenCalledTimes(2);
+      expect(writingsService.update).toHaveBeenLastCalledWith('doc-1', {
+        name: sampleDoc1.name,
+        content: 'Latest text before source',
+      });
+
+      latestSave.next({ ...sampleDoc1, content: 'Latest text before source' });
+      latestSave.complete();
+      await opening;
+
+      expect(navigate).toHaveBeenCalledTimes(1);
+      expect(component.activeItem()?.content).toBe('Latest text before source');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
