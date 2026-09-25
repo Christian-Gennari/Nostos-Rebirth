@@ -79,6 +79,12 @@ public sealed record ProviderSourceInfo(
 public sealed record ProviderItem(
     string ProviderId,
     string ExternalId,
+    /// <summary>
+    /// Normalized content kind carried even by thin search results. Assets are
+    /// intentionally absent from search results, so callers must not infer the
+    /// item's kind from a provider id or from detail-only assets.
+    /// </summary>
+    ProviderMediaKind MediaKind,
     ProviderMetadata Metadata,
     IReadOnlyList<ProviderAsset> Assets,
     ProviderCover? Cover = null,
