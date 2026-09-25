@@ -333,7 +333,7 @@ describe('ReaderShell Studio return origin (#510/#511)', () => {
   it.each([
     [{ sourcePage: 42 }, 'sourcePage'],
     [{ sourceCfi: 'epubcfi(/6/2)' }, 'sourceCfi'],
-  ])('never infers Studio origin from %s', async (queryParams) => {
+  ])('never infers Studio origin from %s', async (queryParams, _label) => {
     const fixture = await configureReaderShell(queryParams as Record<string, string | number>);
     const router = TestBed.inject(Router);
     const location = TestBed.inject(Location);
