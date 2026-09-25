@@ -210,6 +210,7 @@ public sealed partial class GutenbergProvider : IContentProvider,
     private ProviderItem ToProviderItem(GutenbergBook book) => new(
         ProviderId: Id,
         ExternalId: book.Id,
+        MediaKind: ProviderMediaKind.Ebook,
         Metadata: new ProviderMetadata(
             Title: book.Title,
             Author: book.Author,
