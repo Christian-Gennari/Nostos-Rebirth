@@ -113,6 +113,7 @@ export class WritingStudio implements OnInit {
   private writingHandoffSubscription: { unsubscribe(): void } | null = null;
   private requestedWritingId: string | null = null;
   private handledWritingHandoffId: string | null = null;
+  private handoffOpenGeneration = 0;
   private writingTreeLoaded = false;
 
   isMobile = signal(window.innerWidth < 768);
@@ -434,6 +435,7 @@ export class WritingStudio implements OnInit {
   private handleWritingHandoffId(rawId: string | null): void {
     const writingId = rawId?.trim() || null;
     this.requestedWritingId = writingId;
+    this.handoffOpenGeneration++;
 
     if (!writingId) {
       this.handledWritingHandoffId = null;
@@ -453,7 +455,7 @@ export class WritingStudio implements OnInit {
       return;
     }
 
-    this.openWritingDocument(item.id, true);
+    this.openWritingDocument(item.id, true, this.handoffOpenGeneration);
   }
 
   getNameForId(id: string): string {
@@ -538,12 +540,25 @@ export class WritingStudio implements OnInit {
   handleItemSelected(node: any) {
     const item = node as WritingDto;
     if (item.type === 'Folder') return;
+
+    // Manual selection wins over any slower route-handoff request already in flight.
+    this.handoffOpenGeneration++;
     this.openWritingDocument(item.id, false);
   }
 
-  private openWritingDocument(id: string, fromHandoff: boolean): void {
+  private openWritingDocument(
+    id: string,
+    fromHandoff: boolean,
+    handoffGeneration?: number,
+  ): void {
     this.writingsService.get(id).subscribe({
       next: (contentDto) => {
+        if (
+          fromHandoff &&
+          (handoffGeneration !== this.handoffOpenGeneration || this.requestedWritingId !== id)
+        ) {
+          return;
+        }
         this.activeItem.set(contentDto);
         this.editorTitle.set(contentDto.name);
         this.editorText.set(contentDto.content);
@@ -652,6 +667,16 @@ export class WritingStudio implements OnInit {
       });
   }
 
+  setReferenceMode(mode: 'writing' | 'library'): void {
+    if (this.referenceMode() !== mode) this.inspectedSource.set(null);
+    this.referenceMode.set(mode);
+  }
+
+  setLibraryTab(tab: 'brain' | 'notes'): void {
+    if (this.activeSidebarTab() !== tab) this.inspectedSource.set(null);
+    this.activeSidebarTab.set(tab);
+  }
+
   selectConcept(id: string) {
     this.inspectedSource.set(null);
     this.selectedConceptId.set(id);
@@ -682,6 +707,10 @@ export class WritingStudio implements OnInit {
 
   closeInspectedSource(): void {
     this.inspectedSource.set(null);
+  }
+
+  sourceDisplayLocator(source: Note): string | null {
+    return sourceHumanLabel(source)?.locator ?? null;
   }
 
   canInsertQuote(source: Note | null = this.inspectedSource()): boolean {
