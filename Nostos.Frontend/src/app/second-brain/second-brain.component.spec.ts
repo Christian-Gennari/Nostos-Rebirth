@@ -300,7 +300,7 @@ describe('SecondBrain', () => {
 
       expect(component.selectedSourceCount()).toBe(2);
       expect(component.selectedSourceNoteIds()).toEqual(
-        new Set(['c-alpha-newest', 'c-alpha-oldest'])
+        new Set(['c-alpha-newest', 'c-alpha-middle'])
       );
       expect(fixture.nativeElement.textContent).toContain('2 selected');
       expect(fixture.nativeElement.textContent).toContain('Keep with writing…');
