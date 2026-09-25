@@ -16,6 +16,12 @@ interface EditorMock {
   insertContent: (html: string) => void;
   focus: () => void;
   getBody: () => { style: Record<string, string> };
+  getWin?: () => { scrollY?: number; scrollTo?: (x: number, y: number) => void };
+  selection?: {
+    getBookmark?: (...args: unknown[]) => unknown;
+    moveToBookmark?: (bookmark: unknown) => void;
+    getRng?: () => unknown;
+  };
   plugins: { wordcount: { body: { getWordCount: () => number } } };
 }
 
@@ -51,6 +57,8 @@ describe('MarkdownEditorComponent', () => {
   let registeredEditorEvents: string[];
   let insertContentCalls: string[];
   let focusCalls: number;
+  let moveToBookmarkCalls: unknown[];
+  let scrollToCalls: Array<[number, number]>;
 
   function installTinyMceMock() {
     initCalls = [];
@@ -60,6 +68,8 @@ describe('MarkdownEditorComponent', () => {
     registeredEditorEvents = [];
     insertContentCalls = [];
     focusCalls = 0;
+    moveToBookmarkCalls = [];
+    scrollToCalls = [];
 
     (globalThis as Record<string, unknown>)['tinymce'] = {
       init: (config: InitConfig) => {
@@ -88,6 +98,14 @@ describe('MarkdownEditorComponent', () => {
           focus: () => {
             focusCalls++;
           },
+          selection: {
+            getBookmark: () => ({ start: [1, 0], forward: true }),
+            moveToBookmark: (bookmark) => moveToBookmarkCalls.push(bookmark),
+          },
+          getWin: () => ({
+            scrollY: 320,
+            scrollTo: (x, y) => scrollToCalls.push([x, y]),
+          }),
           getBody: () => ({ style: {} }),
           plugins: { wordcount: { body: { getWordCount: () => wordCountValue } } },
         };
@@ -246,6 +264,55 @@ describe('MarkdownEditorComponent', () => {
     expect(markdown).toContain('Selected passage');
     expect(markdown).toContain('The Republic');
     expect(markdown).toContain('After caret');
+  });
+
+  it('captures a history-safe TinyMCE bookmark and iframe scroll position', () => {
+    expect(fixture.componentInstance.captureTransientState()).toEqual({
+      bookmark: { start: [1, 0], forward: true },
+      scrollY: 320,
+    });
+  });
+
+  it('omits a bookmark that cannot be structured-cloned while preserving scroll', () => {
+    editors[0].selection!.getBookmark = () => ({ node: () => 'not cloneable' });
+
+    expect(fixture.componentInstance.captureTransientState()).toEqual({ scrollY: 320 });
+  });
+
+  it('restores selection and scroll without emitting a content change', async () => {
+    const before = emitted.length;
+    const restored = await fixture.componentInstance.restoreTransientState(
+      { bookmark: { start: [2, 0] }, scrollY: 480 },
+      '# Title',
+    );
+    await Promise.resolve();
+
+    expect(restored).toBe(true);
+    expect(moveToBookmarkCalls).toEqual([{ start: [2, 0] }]);
+    expect(scrollToCalls).toContainEqual([0, 480]);
+    expect(emitted).toHaveLength(before);
+  });
+
+  it('fails safely when capture/restore runs before editor readiness or with invalid state', async () => {
+    (fixture.componentInstance as any).editorReady = false;
+    expect(fixture.componentInstance.captureTransientState()).toBeNull();
+    expect(await fixture.componentInstance.restoreTransientState({}, '# Title')).toBe(false);
+  });
+
+  it('queues restore until the requested document content has been applied', async () => {
+    const restore = fixture.componentInstance.restoreTransientState(
+      { bookmark: { start: [3, 0] }, scrollY: 640 },
+      'Second document',
+    );
+
+    await Promise.resolve();
+    expect(moveToBookmarkCalls).toEqual([]);
+
+    fixture.componentRef.setInput('initialContent', 'Second document');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(await restore).toBe(true);
+    expect(moveToBookmarkCalls).toEqual([{ start: [3, 0] }]);
   });
 
   it('fails safely when the TinyMCE instance is not ready instead of inventing a position', async () => {
