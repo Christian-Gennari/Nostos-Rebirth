@@ -8,6 +8,7 @@ using Nostos.Backend.Providers;
 using Nostos.Backend.Providers.Acquisition;
 using Nostos.Backend.Providers.Acquisition.Media;
 using Nostos.Backend.Providers.Contracts;
+using Nostos.Backend.Providers.Discovery;
 using Nostos.Backend.Providers.Gutenberg;
 using Nostos.Backend.Providers.LibriVox;
 using Nostos.Backend.Providers.Wikisource;
@@ -157,6 +158,7 @@ public static class NostosProductComposition
         });
 
         services.AddSingleton<IProviderRegistry, ProviderRegistry>();
+        services.AddSingleton<ProviderDiscoveryService>();
         services.TryAddSingleton<
             IAcquisitionWorkingRootProvider,
             DefaultAcquisitionWorkingRootProvider>();
