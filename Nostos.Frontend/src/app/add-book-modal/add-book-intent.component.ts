@@ -5,13 +5,10 @@ import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 import { ButtonComponent } from '../ui/button/button.component';
 
 /**
- * The question Add Book should have asked first: is this book coming from
- * somewhere, or are you typing it in?
+ * Add Book starts with acquisition: how is the reader giving Nostos this book?
  *
- * It matters because the answer decides what the user needs next. Importing ends
- * at a prefilled form; adding by hand starts at an empty one. Handing someone 21
- * fields and a provider tab before knowing which of those they want makes them
- * find their own way to the right door.
+ * The answer decides which focused surface should come next. Rich bibliographic
+ * metadata belongs after acquisition/identification, not in front of it.
  */
 @Component({
   selector: 'app-add-book-intent',
@@ -23,11 +20,17 @@ import { ButtonComponent } from '../ui/button/button.component';
 export class AddBookIntent {
   isOpen = input.required<boolean>();
 
-  /** Add an empty book by hand. */
-  manual = output<void>();
+  /** Choose a supported local ebook/audiobook file. */
+  upload = output<void>();
 
-  /** Find the book at a source and import it. */
+  /** Find free reading material through the unified provider discovery flow. */
   source = output<void>();
+
+  /** Identify a physical book, led by ISBN lookup. */
+  physical = output<void>();
+
+  /** Create a metadata record without file/source/identifier acquisition. */
+  manual = output<void>();
 
   cancel = output<void>();
 }
