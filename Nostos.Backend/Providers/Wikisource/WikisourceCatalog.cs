@@ -45,9 +45,11 @@ internal static class WikisourceCatalog
     private static readonly XNamespace DcTerms = DcTermsNamespace;
     private static readonly XNamespace Xml = XNamespace.Xml;
 
-    public static bool IsAtomDocument(XDocument document) =>
-        document.Root?.Name is var root
-        && (root == Atom + "feed" || root == Atom + "entry");
+    public static bool IsAtomDocument(XDocument document)
+    {
+        var root = document.Root?.Name;
+        return root == Atom + "feed" || root == Atom + "entry";
+    }
 
     public static IReadOnlyList<WikisourceBook> Parse(XDocument document)
     {
