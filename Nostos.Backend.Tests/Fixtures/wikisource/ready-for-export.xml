@@ -1,37 +1,52 @@
-<?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom" xmlns:dcterms="http://purl.org/dc/terms/">
-  <id>https://ws-export.wmcloud.org/opds/en/Ready_for_export.xml</id>
-  <title>English Wikisource — Ready for export</title>
-  <entry>
-    <id>https://en.wikisource.org/wiki/Pride_and_Prejudice</id>
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:dc="http://purl.org/dc/elements/1.1/"
+      xmlns:dcterms="http://purl.org/dc/terms/"
+      xml:lang="en">
+  <title>Ready for export</title>
+  <updated>2026-09-25T00:00:00+00:00</updated>
+  <id xsi:type="dcterms:URI">https://en.wikisource.org/wiki/Category:Ready_for_export</id>
+  <entry xml:lang="en">
     <title>Pride and Prejudice</title>
-    <author><name>Jane Austen</name></author>
-    <summary>A novel of manners.</summary>
-    <dcterms:language>en</dcterms:language>
-    <category term="Fiction" />
+    <id xsi:type="dcterms:URI">https://en.wikisource.org/wiki/Pride_and_Prejudice</id>
+    <updated>2026-09-25T00:00:00+00:00</updated>
     <rights>Public Domain</rights>
+    <author><name>Jane Austen</name></author>
+    <category label="Fiction" term="Fiction" />
+    <dc:language xsi:type="dcterms:RFC4646">en</dc:language>
+    <dc:source xsi:type="dcterms:URI">https://en.wikisource.org/wiki/Pride_and_Prejudice</dc:source>
+    <dcterms:issued xsi:type="dcterms:W3CDTF">1813</dcterms:issued>
+    <dc:publisher>Wikisource</dc:publisher>
+    <link rel="alternate" type="application/atom+xml;type=entry;profile=opds-catalog" href="https://ws-export.wmcloud.org/?lang=en&amp;format=atom&amp;page=Pride+and+Prejudice" />
     <link rel="alternate" type="text/html" href="https://en.wikisource.org/wiki/Pride_and_Prejudice" />
-    <link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="https://ws-export.wmcloud.org/?lang=en&amp;format=epub&amp;page=Pride%20and%20Prejudice" />
+    <link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="https://ws-export.wmcloud.org/?lang=en&amp;format=epub&amp;page=Pride+and+Prejudice" />
     <link rel="http://opds-spec.org/image" type="image/jpeg" href="https://thumb.wikimedia.org/example/pride.jpg" />
   </entry>
-  <entry>
-    <id>https://en.wikisource.org/wiki/A_Modern_Essay</id>
+  <entry xml:lang="en">
     <title>A Modern Essay</title>
-    <author><name>Example Author</name></author>
-    <dcterms:language>en</dcterms:language>
-    <category term="Essay" />
+    <id xsi:type="dcterms:URI">https://en.wikisource.org/wiki/A_Modern_Essay</id>
+    <updated>2026-09-25T00:00:00+00:00</updated>
     <rights>CC-BY-SA 3.0</rights>
+    <author><name>Example Author</name></author>
+    <category label="Essay" term="Essay" />
+    <dc:language xsi:type="dcterms:RFC4646">en</dc:language>
+    <dc:source xsi:type="dcterms:URI">https://en.wikisource.org/wiki/A_Modern_Essay</dc:source>
+    <link rel="alternate" type="application/atom+xml;type=entry;profile=opds-catalog" href="https://ws-export.wmcloud.org/?lang=en&amp;format=atom&amp;page=A+Modern+Essay" />
     <link rel="alternate" type="text/html" href="https://en.wikisource.org/wiki/A_Modern_Essay" />
-    <link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="https://ws-export.wmcloud.org/?lang=en&amp;format=epub&amp;page=A%20Modern%20Essay" />
+    <link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="https://ws-export.wmcloud.org/?lang=en&amp;format=epub&amp;page=A+Modern+Essay" />
     <link rel="http://opds-spec.org/image" type="image/png" href="https://upload.wikimedia.org/example/essay.png" />
   </entry>
-  <entry>
-    <id>https://en.wikisource.org/wiki/Alice%27s_Adventures_in_Wonderland</id>
+  <entry xml:lang="en">
     <title>Alice's Adventures in Wonderland</title>
-    <author><name>Lewis Carroll</name></author>
-    <dcterms:language>en</dcterms:language>
+    <id xsi:type="dcterms:URI">https://en.wikisource.org/wiki/Alice%27s_Adventures_in_Wonderland</id>
+    <updated>2026-09-25T00:00:00+00:00</updated>
     <rights>Public Domain</rights>
+    <author><name>Lewis Carroll</name></author>
+    <dc:language xsi:type="dcterms:RFC4646">en</dc:language>
+    <dc:source xsi:type="dcterms:URI">https://en.wikisource.org/wiki/Alice%27s_Adventures_in_Wonderland</dc:source>
+    <link rel="alternate" type="application/atom+xml;type=entry;profile=opds-catalog" href="https://ws-export.wmcloud.org/?lang=en&amp;format=atom&amp;page=Alice%27s+Adventures+in+Wonderland" />
     <link rel="alternate" type="text/html" href="https://en.wikisource.org/wiki/Alice%27s_Adventures_in_Wonderland" />
-    <link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="https://ws-export.wmcloud.org/?lang=en&amp;format=epub&amp;page=Alice%27s%20Adventures%20in%20Wonderland" />
+    <link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="https://ws-export.wmcloud.org/?lang=en&amp;format=epub&amp;page=Alice%27s+Adventures+in+Wonderland" />
   </entry>
 </feed>
