@@ -20,7 +20,7 @@ export class CloudEntryComponent {
   }
 
   async checkout(): Promise<void> {
-    const url = await this.entry.beginCheckout();
+    const url = await this.entry.beginCheckout(this.entry.selectedOffer()?.offerId ?? null);
     if (url) globalThis.location.assign(url);
   }
 

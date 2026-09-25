@@ -38,12 +38,14 @@ export interface CloudEntryView {
 @Injectable({ providedIn: 'root' })
 export class CloudEntryService {
   private readonly session = signal<CloudSession | null>(null);
+  private readonly requestedOffer = signal<string | null>(null);
   private pollHandle: ReturnType<typeof setTimeout> | undefined;
 
   readonly view = signal<CloudEntryView>({ kind: 'loading' });
   readonly actionPending = signal(false);
   readonly actionError = signal<string | null>(null);
   readonly productReady = computed(() => this.view().kind === 'product');
+  readonly selectedOffer = computed(() => this.view().onboarding?.selectedOffer ?? null);
 
   constructor(
     private readonly capabilities: DeploymentCapabilitiesService,
@@ -55,6 +57,7 @@ export class CloudEntryService {
   async initialize(force = false): Promise<void> {
     this.clearPoll();
     this.actionError.set(null);
+    this.requestedOffer.set(null);
     this.view.set({ kind: 'loading' });
 
     try {
@@ -64,6 +67,8 @@ export class CloudEntryService {
         this.view.set({ kind: 'product' });
         return;
       }
+
+      this.requestedOffer.set(this.readOfferFromLocation());
 
       const session = await firstValueFrom(this.auth.getSession(force));
       this.session.set(session);
@@ -87,7 +92,7 @@ export class CloudEntryService {
   loginUrl(): string {
     const location = globalThis.location;
     const returnUrl = `${location.pathname}${location.search}${location.hash}` || '/';
-    return this.auth.loginUrl(returnUrl);
+    return this.auth.loginUrl(returnUrl, this.requestedOffer());
   }
 
   async retry(): Promise<void> {
@@ -104,12 +109,20 @@ export class CloudEntryService {
     await this.refreshOnboarding();
   }
 
-  async beginCheckout(): Promise<string | null> {
+  async beginCheckout(offerId: string | null): Promise<string | null> {
+    const selectedOffer = this.selectedOffer();
+    if (!selectedOffer || !offerId || offerId !== selectedOffer.offerId) {
+      this.actionError.set('Choose a valid Cloud plan before continuing to checkout.');
+      return null;
+    }
+
     this.actionPending.set(true);
     this.actionError.set(null);
 
     try {
-      const redirect = await firstValueFrom(this.onboarding.createCheckout());
+      const redirect = await firstValueFrom(
+        this.onboarding.createCheckout(selectedOffer.offerId),
+      );
       return redirect.url;
     } catch {
       this.actionError.set('Checkout is temporarily unavailable. Try again.');
@@ -178,7 +191,7 @@ export class CloudEntryService {
     this.clearPoll();
 
     try {
-      const snapshot = await firstValueFrom(this.onboarding.getState());
+      const snapshot = await firstValueFrom(this.onboarding.getState(this.requestedOffer()));
       await this.applyOnboarding(snapshot);
     } catch {
       this.view.set({ kind: 'backend_error' });
@@ -245,6 +258,13 @@ export class CloudEntryService {
         this.view.set({ kind: 'account_unavailable', onboarding: snapshot });
         return;
     }
+  }
+
+  private readOfferFromLocation(): string | null {
+    const location = globalThis.location;
+    if (location.pathname !== '/start' && location.pathname !== '/start/') return null;
+
+    return new URLSearchParams(location.search).get('offer');
   }
 
   private schedulePoll(): void {

@@ -47,6 +47,7 @@ describe('CloudEntryService', () => {
 
   beforeEach(() => {
     localStorage.clear();
+    history.replaceState({}, '', '/');
 
     capabilities = { get: vi.fn() };
     auth = { getSession: vi.fn(), loginUrl: vi.fn() };
@@ -95,11 +96,122 @@ describe('CloudEntryService', () => {
       accountState: null,
       account: null,
     }));
+    auth.loginUrl.mockReturnValue('/api/auth/login?returnUrl=%2Flibrary');
 
     await service.initialize();
 
     expect(service.view().kind).toBe('signed_out');
     expect(service.productReady()).toBe(false);
+
+    expect(service.loginUrl()).toBe('/api/auth/login?returnUrl=%2Flibrary');
+    expect(auth.loginUrl).toHaveBeenCalledWith('/', null);
+  });
+
+  it('preserves a raw start offer through authentication without trusting it as checkout state', async () => {
+    history.replaceState({}, '', '/start?offer=Pro-Annual');
+    capabilities.get.mockReturnValue(of(cloudCapabilities));
+    auth.getSession.mockReturnValue(of({
+      authenticated: false,
+      accountState: null,
+      account: null,
+    }));
+    auth.loginUrl.mockReturnValue(
+      '/api/auth/login?returnUrl=%2Fstart%3Foffer%3DPro-Annual',
+    );
+
+    await service.initialize();
+
+    expect(service.loginUrl()).toBe(
+      '/api/auth/login?returnUrl=%2Fstart%3Foffer%3DPro-Annual',
+    );
+    expect(auth.loginUrl).toHaveBeenCalledWith('/start?offer=Pro-Annual', 'Pro-Annual');
+    expect(service.selectedOffer()).toBeNull();
+  });
+
+  it('uses the server-validated canonical offer for checkout', async () => {
+    history.replaceState({}, '', '/start?offer=Pro-Annual');
+    capabilities.get.mockReturnValue(of(cloudCapabilities));
+    auth.getSession.mockReturnValue(of(session));
+    onboarding.getState.mockReturnValue(of({
+      state: 'subscription_required',
+      subscriptionStatus: 'None',
+      ready: false,
+      canCheckout: true,
+      canCheckSubscription: false,
+      canManageSubscription: false,
+      canRetry: false,
+      selectedOffer: {
+        offerId: 'pro-annual',
+        planName: 'Pro',
+        billingCadence: 'Annual',
+      },
+    }));
+    onboarding.createCheckout.mockReturnValue(of({
+      url: 'https://checkout.example.test/session',
+    }));
+
+    await service.initialize();
+
+    expect(onboarding.getState).toHaveBeenCalledWith('Pro-Annual');
+    expect(service.selectedOffer()).toEqual({
+      offerId: 'pro-annual',
+      planName: 'Pro',
+      billingCadence: 'Annual',
+    });
+
+    const url = await service.beginCheckout(service.selectedOffer()?.offerId ?? null);
+
+    expect(url).toBe('https://checkout.example.test/session');
+    expect(onboarding.createCheckout).toHaveBeenCalledWith('pro-annual');
+  });
+
+  it('does not submit an unvalidated browser offer to checkout', async () => {
+    history.replaceState({}, '', '/start?offer=pro-annual');
+    capabilities.get.mockReturnValue(of(cloudCapabilities));
+    auth.getSession.mockReturnValue(of(session));
+    onboarding.getState.mockReturnValue(of({
+      state: 'subscription_required',
+      subscriptionStatus: 'None',
+      ready: false,
+      canCheckout: true,
+      canCheckSubscription: false,
+      canManageSubscription: false,
+      canRetry: false,
+      selectedOffer: null,
+    }));
+
+    await service.initialize();
+
+    expect(await service.beginCheckout('pro-annual')).toBeNull();
+    expect(onboarding.createCheckout).not.toHaveBeenCalled();
+    expect(service.actionError()).toContain('valid Cloud plan');
+  });
+
+  it('keeps the selected offer across a refresh of the start URL', async () => {
+    history.replaceState({}, '', '/start?offer=standard-annual');
+    capabilities.get.mockReturnValue(of(cloudCapabilities));
+    auth.getSession.mockReturnValue(of(session));
+    onboarding.getState.mockReturnValue(of({
+      state: 'subscription_required',
+      subscriptionStatus: 'None',
+      ready: false,
+      canCheckout: true,
+      canCheckSubscription: false,
+      canManageSubscription: false,
+      canRetry: false,
+      selectedOffer: {
+        offerId: 'standard-annual',
+        planName: 'Standard',
+        billingCadence: 'Annual',
+      },
+    }));
+
+    await service.initialize();
+    await service.initialize(true);
+
+    expect(onboarding.getState).toHaveBeenNthCalledWith(1, 'standard-annual');
+    expect(onboarding.getState).toHaveBeenNthCalledWith(2, 'standard-annual');
+    expect(service.selectedOffer()?.offerId).toBe('standard-annual');
   });
 
   it('never flashes the normal app while subscription access is missing', async () => {

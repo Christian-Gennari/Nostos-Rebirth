@@ -4,6 +4,11 @@ import { WorkspaceLayout } from './layout/workspace-layout/workspace-layout.comp
 
 export const routes: Routes = [
   {
+    path: 'start',
+    loadComponent: () =>
+      import('./cloud-entry/cloud-start.component').then((m) => m.CloudStartComponent),
+  },
+  {
     path: '',
     component: Home,
   },

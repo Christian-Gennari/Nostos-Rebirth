@@ -21,12 +21,18 @@
       @case ('subscription_required') {
         <p class="cloud-entry__eyebrow">Nostos Cloud</p>
         <h1>Start your Cloud library.</h1>
-        <p>Continue to checkout to activate the trial or subscription configured for Nostos Cloud.</p>
+        @if (entry.selectedOffer(); as offer) {
+          <p>
+            Continue with <strong>{{ offer.planName }}</strong> on {{ offer.billingCadence }} billing.
+          </p>
+        } @else {
+          <p>Choose a Cloud plan to continue to checkout.</p>
+        }
         <button
           appButton
           variant="primary"
           type="button"
-          [disabled]="entry.actionPending()"
+          [disabled]="entry.actionPending() || !entry.selectedOffer()"
           [busy]="entry.actionPending()"
           (click)="checkout()"
         >
@@ -44,7 +50,7 @@
               appButton
               variant="primary"
               type="button"
-              [disabled]="entry.actionPending()"
+              [disabled]="entry.actionPending() || !entry.selectedOffer()"
               [busy]="entry.actionPending()"
               (click)="checkout()"
             >
