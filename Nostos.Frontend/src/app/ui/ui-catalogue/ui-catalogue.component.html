@@ -404,6 +404,65 @@
     </div>
   </section>
 
+  <section class="catalogue-section" aria-labelledby="catalogue-toast">
+    <div class="catalogue-section-heading">
+      <div>
+        <p class="catalogue-kicker">Pattern</p>
+        <h2 id="catalogue-toast">Toast</h2>
+      </div>
+      <p>
+        Transient, non-blocking feedback with polite success/info announcements and assertive errors.
+      </p>
+    </div>
+
+    <div class="catalogue-grid">
+      <div class="catalogue-example">
+        <span class="catalogue-label">Semantic variants</span>
+        <div class="catalogue-row">
+          <button
+            appButton
+            variant="secondary"
+            type="button"
+            (click)="showCatalogueToast('success')"
+          >
+            Show success toast
+          </button>
+          <button
+            appButton
+            variant="secondary"
+            type="button"
+            (click)="showCatalogueToast('info')"
+          >
+            Show info toast
+          </button>
+          <button
+            appButton
+            variant="secondary"
+            type="button"
+            (click)="showCatalogueToast('error')"
+          >
+            Show error toast
+          </button>
+        </div>
+      </div>
+
+      <div class="catalogue-example">
+        <span class="catalogue-label">Wrapping and stack</span>
+        <p class="catalogue-example-copy">
+          These use the real root-level notification system, including its stack cap and dismiss interaction.
+        </p>
+        <div class="catalogue-row">
+          <button appButton variant="secondary" type="button" (click)="showLongCatalogueToast()">
+            Show long message
+          </button>
+          <button appButton variant="secondary" type="button" (click)="showStackedCatalogueToasts()">
+            Show stacked toasts
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="catalogue-section" aria-labelledby="catalogue-dialog">
     <div class="catalogue-section-heading">
       <div>

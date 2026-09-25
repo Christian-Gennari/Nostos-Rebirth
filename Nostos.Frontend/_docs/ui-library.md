@@ -16,7 +16,7 @@ Nostos UI v1 has four layers:
 | --- | --- | --- |
 | **Foundations** | `src/styles.css` token graph | colour, type, radius, elevation, motion, focus, control heights |
 | **Primitives** | `src/app/ui/` | Button, IconButton, Input/Textarea, Dropdown, Switch, Chip, Badge |
-| **Patterns** | shared composition/recipes | FormField, ModalShell + DialogActions, segmented visual recipe |
+| **Patterns** | shared composition/recipes | FormField, ModalShell + DialogActions, Toast, segmented visual recipe |
 | **Product components** | feature surfaces | BookCard, NoteCard, Reader transport, Studio editor/tree, assistant recording, acquisition workflows |
 
 The boundary is semantic, not visual similarity. Use a primitive when the control is
@@ -528,15 +528,54 @@ WYSIWYG editor wrapping TinyMCE with markdown round-trip.
 ## ToastContainerComponent
 
 **Selector:** `app-toast-container`  
-**File:** `src/app/ui/toast-container/`
+**File:** `src/app/ui/toast-container/`  
+**Entry point:** `ToastService` in `src/app/core/services/toast.service.ts`
 
-Fixed top-right notification area. Renders `ToastService.toasts()` with slide-in animation.
+Toast is the canonical Nostos pattern for **transient, non-blocking feedback**. The root
+container is mounted once by `App`; feature code publishes through `ToastService`
+rather than rendering local snackbar/toast surfaces.
 
-Color-coded left borders:
+Use a toast when an action has completed or a short-lived state is useful to know
+without interrupting the current task. Keep blocking failures, retry/decision states,
+and information that remains relevant in the product surface itself. High-frequency
+background diagnostics belong in logs unless the user has something actionable to do.
 
-- Green → success
-- Red → error
-- Purple → info
+### Variants and announcements
+
+| Variant | Visual role | Assistive-technology contract |
+| --- | --- | --- |
+| `success` | restrained success accent | `role="status"`, `aria-live="polite"` |
+| `info` | neutral/primary accent | `role="status"`, `aria-live="polite"` |
+| `error` | restrained danger accent | `role="alert"`, `aria-live="assertive"` |
+
+The icon and message live inside the announced region. The dismiss action is a sibling
+`button[appIconButton]`, not a descendant of that region, so “Dismiss notification”
+is not read as part of the message. Toast appearance never moves focus; the native
+dismiss button remains keyboard reachable and carries both `aria-label` and `title`.
+
+### Lifetime, stack and copy
+
+- success/info default to 4 seconds; errors default to 5 seconds;
+- identical message + variant pairs are deduplicated and restart as one toast;
+- the visible stack is capped at three;
+- every toast can be dismissed explicitly;
+- copy should be concise action/result language: “Book details saved.” rather than
+  “Book details were saved successfully.”;
+- do not convert persistent Reader/open/retry failures into transient feedback merely
+  for visual consistency.
+
+### Motion, placement and layers
+
+Toast enter/leave uses Angular's current `animate.enter` / `animate.leave` path with
+`--motion-fast` and canonical easing tokens. Only opacity/transform animate; reduced
+motion removes the spatial animation.
+
+Desktop uses a compact top-right stack. Mobile switches to stable left/right gutters and
+includes safe-area insets. The container uses `--layer-system`: notifications sit above
+Assistant (`--layer-assistant`) and ordinary modal layers so system feedback is not
+hidden, while their top-edge placement avoids the bottom-anchored Assistant/Reader
+controls. The catalogue exposes success, info, error, long-copy and stacked states at
+desktop/mobile widths in light and dark themes.
 
 ---
 

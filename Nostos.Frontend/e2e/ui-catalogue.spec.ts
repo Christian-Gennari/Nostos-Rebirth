@@ -115,11 +115,55 @@ test.describe('Nostos UI v1 catalogue', () => {
         expect(overflow.document).toBeLessThanOrEqual(1);
         expect(overflow.body).toBeLessThanOrEqual(1);
 
+        await page.getByRole('button', { name: 'Show long message', exact: true }).click();
+        const longToast = page.locator('.toast-info').filter({
+          hasText: 'A long notification wraps cleanly',
+        });
+        await expect(longToast).toBeVisible();
+        await expect(longToast.locator('[role="status"]')).toHaveAttribute('aria-live', 'polite');
+        expect(await longToast.locator('[role="status"]').getByRole('button').count()).toBe(0);
+
+        const longToastGeometry = await longToast.evaluate((el) => {
+          const rect = el.getBoundingClientRect();
+          const message = el.querySelector<HTMLElement>('.toast-message');
+          const style = message ? getComputedStyle(message) : null;
+          return {
+            left: rect.left,
+            right: rect.right,
+            viewportWidth: window.innerWidth,
+            overflowWrap: style?.overflowWrap,
+          };
+        });
+        expect(longToastGeometry.left).toBeGreaterThanOrEqual(0);
+        expect(longToastGeometry.right).toBeLessThanOrEqual(longToastGeometry.viewportWidth);
+        expect(longToastGeometry.overflowWrap).toBe('anywhere');
+
+        await longToast
+          .getByRole('button', { name: 'Dismiss notification', exact: true })
+          .click();
+        await expect(longToast).toBeHidden();
+
+        await page.getByRole('button', { name: 'Show stacked toasts', exact: true }).click();
+        await expect(page.locator('.toast')).toHaveCount(3);
+        await expect(page.getByRole('status')).toHaveCount(2);
+        await expect(page.getByRole('alert')).toHaveCount(1);
+        await expect(page.getByRole('alert')).toHaveAttribute('aria-live', 'assertive');
+        expect(await page.getByRole('alert').getByRole('button').count()).toBe(0);
+        await expect(page.locator('.toast-dismiss').first()).toHaveAttribute(
+          'title',
+          'Dismiss notification',
+        );
+
         await page.screenshot({
           path: path.join(OUT, `${tc.name}.png`),
           fullPage: true,
           animations: 'disabled',
         });
+
+        for (let remaining = 3; remaining > 0; remaining--) {
+          await page.locator('.toast-dismiss').last().click();
+          await expect(page.locator('.toast')).toHaveCount(remaining - 1);
+        }
 
         await page.getByRole('button', { name: 'Open modal example', exact: true }).click();
         const dialog = page.getByRole('dialog', { name: 'Archive note?' });

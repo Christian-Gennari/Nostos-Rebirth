@@ -1102,6 +1102,19 @@ for (const relativePath of MIGRATED_UI_V1_TEMPLATES) {
   }
 }
 
+
+/**
+ * The root Toast pattern is the only generic transient-notification surface.
+ * Product-owned inline status/error UI remains legitimate; this only catches
+ * new components/classes that present themselves as generic toast/snackbar UI.
+ */
+function adHocNotificationSurface(raw, css) {
+  return (
+    /selector\s*:\s*['"][^'"]*(?:toast|snackbar)[^'"]*['"]/i.test(raw) ||
+    /\.(?:snackbar|toast-(?:container|message|dismiss|success|error|info))\b/i.test(css)
+  );
+}
+
 /**
  * Prove the scanner can fail. A rule that cannot be made to fire is not a check.
  * `--self-test` injects a known-bad snippet per rule and asserts each fires.
@@ -1125,6 +1138,7 @@ if (process.argv.includes('--self-test')) {
     ['raw-native-select', '<select><option>Old dropdown</option></select>'],
     ['migrated-surface-switch-copy',
       '.copied-switch { position: relative; width: 42px; height: 24px; border-radius: 999px; }'],
+    ['ad-hoc-notification-surface', '.snackbar-card { padding: 1rem; }'],
     // RULE 8 needs a TEMPLATE and a matching .css class, so its case is checked by
     // the same predicate the rule uses (a bare hyphenated attr that IS a known class).
     ['bare-attribute-not-class', '<button appIconButton desktop-only></button>'],
@@ -1189,6 +1203,7 @@ if (process.argv.includes('--self-test')) {
     }
     if (rule === 'raw-native-select') fired = rawNativeSelects(snippet).length > 0;
     if (rule === 'migrated-surface-switch-copy') fired = copiedSwitchGeometry(snippet).length > 0;
+    if (rule === 'ad-hoc-notification-surface') fired = adHocNotificationSurface('', snippet);
     if (fired) { ok++; console.log(`  ✔ ${rule} fires on its known-bad snippet`); }
     else console.log(`  ✖ ${rule} DID NOT FIRE — the rule is vacuous`);
     void fake; void before;
@@ -1243,6 +1258,7 @@ if (process.argv.includes('--self-test')) {
     'settings-local-switch-family', 'settings-local-form-family',
     'migrated-surface-legacy-generic-control', 'migrated-surface-unowned-raw-button',
     'migrated-surface-unowned-raw-field', 'raw-native-select', 'migrated-surface-switch-copy',
+    'ad-hoc-notification-surface',
     'visually-hidden (by-name + by-recipe)'];
   console.log(`\nself-test: ${ok}/${cases.length + 3} injected cases detected`);
   console.log(`rules implemented: ${RULES.length} (${RULES.join(', ')})`);
@@ -1337,6 +1353,75 @@ if (process.argv.includes('--self-test')) {
   }
 }
 
+
+
+/**
+ * RULE 9 — the canonical Toast pattern is the only generic transient-notification UI.
+ *
+ * This deliberately does NOT ban product-owned inline status/error surfaces. It blocks
+ * only another component/class that identifies itself as generic toast/snackbar chrome,
+ * and separately pins the accessibility/motion/layer contracts of the canonical owner.
+ */
+{
+  const canonicalPath = join(
+    SRC,
+    'app',
+    'ui',
+    'toast-container',
+    'toast-container.component.ts',
+  );
+  const candidates = [];
+
+  (function walkNotificationSources(dir) {
+    for (const entry of readdirSync(dir)) {
+      const p = join(dir, entry);
+      if (statSync(p).isDirectory()) {
+        walkNotificationSources(p);
+        continue;
+      }
+      if (p.endsWith('.spec.ts')) continue;
+      if (extname(p) === '.ts' || extname(p) === '.css') candidates.push(p);
+    }
+  })(SRC);
+
+  for (const p of candidates) {
+    if (p === canonicalPath) continue;
+    const raw = readFileSync(p, 'utf8');
+    const css = stripComments(cssOf(p, raw));
+    if (!adHocNotificationSurface(raw, css)) continue;
+
+    report(
+      'ad-hoc-notification-surface',
+      p,
+      1,
+      'Generic toast/snackbar UI must use ToastService + app-toast-container. ' +
+        'Keep persistent/product-owned statuses local, but do not fork the transient feedback pattern.',
+    );
+  }
+
+  const canonical = readFileSync(canonicalPath, 'utf8');
+  const dismissTag = canonical.match(/<button\b[^>]*toast-dismiss[^>]*>/s)?.[0] ?? '';
+  const contract = [
+    ['canonical appIconButton dismiss control', /\bappIconButton\b/.test(dismissTag)],
+    ['enter motion hook', /animate\.enter/.test(canonical)],
+    ['leave motion hook', /animate\.leave/.test(canonical)],
+    ['polite status semantics', /['"]status['"]/.test(canonical) && /['"]polite['"]/.test(canonical)],
+    ['assertive alert semantics', /['"]alert['"]/.test(canonical) && /['"]assertive['"]/.test(canonical)],
+    ['explicit live-region policy', /aria-live/.test(canonical)],
+    ['system stacking layer', /var\(--layer-system\)/.test(canonical)],
+  ];
+
+  for (const [name, present] of contract) {
+    if (present) continue;
+    report(
+      'canonical-toast-contract',
+      canonicalPath,
+      1,
+      'Toast lost its ' + name +
+        '; keep the shared notification pattern inside the Nostos UI contract.',
+    );
+  }
+}
 
 
 // ------------------------------------------------------------------- output

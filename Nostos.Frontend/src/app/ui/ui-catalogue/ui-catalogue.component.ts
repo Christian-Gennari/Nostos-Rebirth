@@ -4,6 +4,7 @@
  */
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { Theme, ThemeService } from '../../core/services/theme.service';
+import { ToastService, type ToastType } from '../../core/services/toast.service';
 import { BadgeComponent } from '../badge/badge.component';
 import { ButtonComponent } from '../button/button.component';
 import { ChipComponent } from '../chip/chip.component';
@@ -47,6 +48,7 @@ import { ViewToggleComponent, type ViewToggleOption } from '../view-toggle/view-
 })
 export class UiCatalogueComponent {
   private readonly themeService = inject(ThemeService);
+  private readonly toastService = inject(ToastService);
 
   readonly theme = this.themeService.theme;
   readonly selectedTab = signal<'primitives' | 'patterns'>('primitives');
@@ -69,6 +71,29 @@ export class UiCatalogueComponent {
     value: `chapter-${index + 1}`,
     label: `Chapter ${index + 1}`,
   })) satisfies readonly DropdownOption[];
+
+  showCatalogueToast(type: ToastType): void {
+    const messages: Record<ToastType, string> = {
+      success: 'Book details saved.',
+      error: 'Could not save book details.',
+      info: 'Metadata refresh started.',
+    };
+    this.toastService.show(messages[type], type, 30_000);
+  }
+
+  showLongCatalogueToast(): void {
+    this.toastService.show(
+      'A long notification wraps cleanly without pushing the dismiss control outside the stable toast width.',
+      'info',
+      30_000,
+    );
+  }
+
+  showStackedCatalogueToasts(): void {
+    this.toastService.show('Book details saved.', 'success', 30_000);
+    this.toastService.show('Metadata refresh started.', 'info', 30_000);
+    this.toastService.show('Could not save book details.', 'error', 30_000);
+  }
 
   setTheme(theme: Theme): void {
     this.themeService.setTheme(theme);
