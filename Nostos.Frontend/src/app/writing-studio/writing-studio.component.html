@@ -173,7 +173,7 @@
         </button>
       </div>
 
-      @if (!inspectedSource() && referenceMode() === 'library') {
+      @if (referenceMode() === 'library') {
         <div class="sidebar-tabs library-tabs" role="tablist" aria-label="Library browsing">
           <button
             class="tab-btn toggle-opt"
@@ -313,7 +313,7 @@
       </div>
     }
 
-    @if (referenceMode() === 'library') {
+    @if (!inspectedSource() && referenceMode() === 'library') {
       @if (activeSidebarTab() === 'brain') {
         <div class="search-box">
           <nostos-icon name="magnifying-glass" [size]="16"></nostos-icon>
