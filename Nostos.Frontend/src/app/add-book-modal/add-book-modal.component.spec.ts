@@ -159,7 +159,7 @@ describe('AddBookModal', () => {
   it('infers audiobook format from an uploaded audio file', () => {
     component.startIntent('upload');
     component.onFileSelected({
-      target: { files: [new File(['audio'], 'ulysses.m4b', { type: 'audio/mp4' }) },
+      target: { files: [new File(['audio'], 'ulysses.m4b', { type: 'audio/mp4' })] },
     } as unknown as Event);
 
     expect(component.form.type).toBe('audiobook');
