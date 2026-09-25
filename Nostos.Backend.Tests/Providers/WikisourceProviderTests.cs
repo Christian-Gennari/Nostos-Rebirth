@@ -165,6 +165,31 @@ public sealed class WikisourceProviderTests
     }
 
     [Fact]
+    public async Task Detail_WhenAtomAdvertisesPdf_UsesPublishedPdfLink()
+    {
+        var (provider, handler) = CreateProvider();
+        handler.RegisterXml(
+            "/?lang=en&format=atom&page=Pride%20and%20Prejudice",
+            LoadFixture("item-pride-and-prejudice-epub-pdf.atom"));
+
+        var item = await provider.GetItemAsync("Pride and Prejudice", CancellationToken.None);
+
+        item.Should().NotBeNull();
+        item!.Assets.Select(asset => asset.Id).Should().Equal("epub", "pdf");
+        item.Assets.Single(asset => asset.Id == "epub").IsPreferred.Should().BeTrue();
+
+        var plan = await provider.PlanAcquisitionAsync(
+            new ProviderAcquisitionRequest("Pride and Prejudice", AssetId: "pdf"),
+            CancellationToken.None);
+
+        plan.Should().NotBeNull();
+        plan!.Parts.Should().ContainSingle();
+        plan.Parts[0].Url.Should().Be(
+            new Uri("https://ws-export.wmcloud.org/?lang=en&format=pdf-a4&page=Pride+and+Prejudice"));
+        plan.Output.Should().Be(new ProviderOutput(".pdf", "application/pdf", "PDF"));
+    }
+
+    [Fact]
     public async Task PlanAcquisition_Pdf_UsesIndependentWsExportRoute()
     {
         var (provider, handler) = CreateProvider();
