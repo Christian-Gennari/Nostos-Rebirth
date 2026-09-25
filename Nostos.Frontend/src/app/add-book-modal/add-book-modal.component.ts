@@ -27,6 +27,8 @@ import { FormFieldComponent } from '../ui/form-field/form-field.component';
 import { InputDirective, TextareaDirective } from '../ui/form-control/form-control.directive';
 import { DropdownComponent, type DropdownOption } from '../ui/dropdown/dropdown.component';
 
+type AddBookIntentKind = 'upload' | 'source' | 'physical' | 'manual';
+
 @Component({
   selector: 'app-add-book-modal',
   standalone: true,
@@ -62,8 +64,10 @@ export class AddBookModal {
   // Inputs & Outputs
   isOpen = input.required<boolean>();
 
-  /** Open straight into the source search, for "Import from a source". */
+  /** Legacy direct-source entry kept for callers outside the Library chooser. */
   sourceFirst = input<boolean>(false);
+  /** Acquisition choice made by the Add Book chooser. */
+  initialIntent = input<AddBookIntentKind | null>(null);
   collections = input.required<Collection[]>();
   book = input<BookModel | null>(null);
   closeModal = output<void>();
@@ -71,20 +75,22 @@ export class AddBookModal {
   bookUpdated = output<BookModel>();
   deleteBook = output<void>();
 
-  // Tabs. Importing is no longer one of them: "where does this book come from"
-  // is answered before the form, not inside it (see `sourceMode`).
-  tabs = ['Book Info', 'Publishing', 'Files & Personal'] as const;
-  activeTab = signal<(typeof this.tabs)[number]>('Book Info');
-
   /**
-   * The source search, shown on its own before the form rather than as a fourth
-   * tab — the answer decides what the form is even for.
+   * Add Book is acquisition-first. This signal records the choice that brought
+   * the reader here; Edit Book bypasses acquisition entirely.
    */
+  flowIntent = signal<AddBookIntentKind>('manual');
   sourceMode = signal(false);
   private titleInput = viewChild<ElementRef<HTMLInputElement>>('titleInput');
+  private localFileInput = viewChild<ElementRef<HTMLInputElement>>('localFileInput');
+  private isbnInput = viewChild<ElementRef<HTMLInputElement>>('isbnInput');
+  private sourceQueryInput = viewChild<ElementRef<HTMLInputElement>>('sourceQueryInput');
 
   // Computed State
   isEditMode = computed(() => !!this.book());
+  awaitingLocalFile = computed(
+    () => !this.isEditMode() && this.flowIntent() === 'upload' && !this.selectedFile(),
+  );
   isFetching = signal(false);
 
   // Form State
@@ -155,57 +161,50 @@ export class AddBookModal {
 
   constructor() {
     effect(() => {
-      if (this.isOpen()) {
-        const currentBook = this.book();
-        if (currentBook) {
-          this.fillForm(currentBook);
-        } else {
-          this.resetForm();
-        }
-        // An edit never starts at the source search: importing is a way to ADD a
-        // book, and there is nothing to search for when changing one. Routed
-        // through `enterSourceMode` so the providers are loaded either way.
-        if (this.sourceFirst() && !currentBook) {
-          this.enterSourceMode();
-        } else {
-          this.sourceMode.set(false);
-        }
+      if (!this.isOpen()) return;
+
+      const currentBook = this.book();
+      if (currentBook) {
+        this.fillForm(currentBook);
+        this.flowIntent.set('manual');
+        this.sourceMode.set(false);
         setTimeout(() => this.titleInput()?.nativeElement?.focus(), 0);
+        return;
       }
+
+      this.resetForm();
+      const intent: AddBookIntentKind = this.sourceFirst()
+        ? 'source'
+        : (this.initialIntent() ?? 'manual');
+      this.startIntent(intent);
     });
   }
 
-  setTab(tab: (typeof this.tabs)[number]) {
-    this.activeTab.set(tab);
-  }
+  startIntent(intent: AddBookIntentKind): void {
+    if (this.isEditMode()) return;
 
-  onTabKeydown(event: KeyboardEvent, tab: (typeof this.tabs)[number]): void {
-    const currentIndex = this.tabs.indexOf(tab);
-    let nextIndex: number | null = null;
+    this.flowIntent.set(intent);
+    this.sourceMode.set(false);
 
-    switch (event.key) {
-      case 'ArrowRight':
-        nextIndex = (currentIndex + 1) % this.tabs.length;
-        break;
-      case 'ArrowLeft':
-        nextIndex = (currentIndex - 1 + this.tabs.length) % this.tabs.length;
-        break;
-      case 'Home':
-        nextIndex = 0;
-        break;
-      case 'End':
-        nextIndex = this.tabs.length - 1;
-        break;
-      default:
-        return;
+    if (intent === 'source') {
+      this.enterSourceMode();
+      setTimeout(() => this.sourceQueryInput()?.nativeElement?.focus(), 0);
+      return;
     }
 
-    event.preventDefault();
-    this.activeTab.set(this.tabs[nextIndex]);
+    if (intent === 'upload') {
+      this.form.type = 'ebook';
+      setTimeout(() => this.localFileInput()?.nativeElement?.focus(), 0);
+      return;
+    }
 
-    const tablist = (event.currentTarget as HTMLElement | null)?.closest('[role="tablist"]');
-    const tabs = tablist?.querySelectorAll<HTMLElement>('[role="tab"]');
-    tabs?.item(nextIndex).focus();
+    if (intent === 'physical') {
+      this.form.type = 'physical';
+      setTimeout(() => this.isbnInput()?.nativeElement?.focus(), 0);
+      return;
+    }
+
+    setTimeout(() => this.titleInput()?.nativeElement?.focus(), 0);
   }
 
   onTypeChange(type: string): void {
@@ -255,7 +254,6 @@ export class AddBookModal {
       personalReview: b.personalReview || '',
     };
     this.clearChosenFiles();
-    this.activeTab.set('Book Info'); // Reset to first tab
     this.resetSourceTab();
   }
 
@@ -295,8 +293,7 @@ export class AddBookModal {
     this.isFetching.set(false);
     this.fileDragActive.set(false);
     this.coverDragActive.set(false);
-    this.activeTab.set('Book Info');
-    // The source tab holds its own search, selection and job state; a stale
+    // The source search holds its own selection and job state; a stale
     // poll from a previous visit must not survive into this one.
     this.resetSourceTab();
   }
@@ -368,7 +365,27 @@ export class AddBookModal {
 
   onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
-    this.selectedFile.set(input.files?.[0] ?? null);
+    const file = input.files?.[0] ?? null;
+    this.selectedFile.set(file);
+    this.fileDragActive.set(false);
+
+    if (!file) return;
+
+    const lower = file.name.toLowerCase();
+    const audio =
+      file.type.startsWith('audio/') ||
+      ['.mp3', '.m4a', '.m4b'].some((extension) => lower.endsWith(extension));
+    this.form.type = audio ? 'audiobook' : 'ebook';
+
+    if (!this.form.title.trim()) {
+      this.form.title = file.name
+        .replace(/\.[^.]+$/, '')
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    setTimeout(() => this.titleInput()?.nativeElement?.focus(), 0);
   }
 
   onCoverSelected(event: Event) {
@@ -817,9 +834,10 @@ export class AddBookModal {
 
     this.sourceImportError.set(null);
     this.acquisition.set(null);
-    // The search has done its job: the form is the rest of the flow.
+    // The search has done its job: the compact review is the rest of the flow.
     this.sourceMode.set(false);
-    this.setTab('Book Info');
+    this.flowIntent.set('source');
+    setTimeout(() => this.titleInput()?.nativeElement?.focus(), 0);
   }
 
   /**

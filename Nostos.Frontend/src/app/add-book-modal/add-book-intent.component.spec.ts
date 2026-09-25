@@ -3,14 +3,15 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { AddBookIntent } from './add-book-intent.component';
 
 /**
- * The Add Book chooser. Its whole job is to ask one question and report the
- * answer, so the tests pin the two answers and that cancelling is a third.
+ * The Add Book chooser answers one acquisition question. These tests keep the
+ * four user-facing paths stable without coupling them to provider internals.
  */
 describe('AddBookIntent', () => {
   let fixture: ReturnType<typeof TestBed.createComponent<AddBookIntent>>;
   let component: AddBookIntent;
 
-  const choices = () => fixture.nativeElement.querySelectorAll('.add-intent-choice') as NodeListOf<HTMLElement>;
+  const choices = () =>
+    fixture.nativeElement.querySelectorAll('.add-intent-choice') as NodeListOf<HTMLElement>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({ imports: [AddBookIntent] }).compileComponents();
@@ -28,16 +29,23 @@ describe('AddBookIntent', () => {
     expect(fixture.nativeElement.querySelector('.add-intent-card')).toBeNull();
   });
 
-  it('offers exactly two ways to add a book, each said in full', () => {
-    expect(choices().length).toBe(2);
+  it('offers four acquisition-oriented ways to add a book', () => {
+    expect(choices().length).toBe(4);
 
     const text = fixture.nativeElement.textContent;
-    expect(text).toContain('Add by hand');
-    expect(text).toContain('Import from a source');
-    // Each choice explains itself: the labels alone assume the user knows what
-    // "from a source" means here.
-    expect(text).toContain('Type the title, author and details yourself');
-    expect(text).toContain('Project Gutenberg and LibriVox');
+    expect(text).toContain('Upload a book file');
+    expect(text).toContain('Find a free book');
+    expect(text).toContain('Add a physical book');
+    expect(text).toContain('Enter manually');
+
+    expect(text).toContain('EPUB, PDF, or supported audiobook file');
+    expect(text).toContain('Search free books and audiobooks in one place');
+    expect(text).toContain('Identify a print book by ISBN');
+    expect(text).toContain('Create a library record when no file or lookup is useful');
+
+    expect(text).not.toContain('Project Gutenberg');
+    expect(text).not.toContain('LibriVox');
+    expect(text).not.toContain('Wikisource');
   });
 
   it('exposes the question as a labelled dialog', () => {
@@ -49,21 +57,39 @@ describe('AddBookIntent', () => {
     );
   });
 
-  it('emits manual for the by-hand choice and source for the import one', () => {
-    let manual = 0;
+  it('emits the selected acquisition intent', () => {
+    let upload = 0;
     let source = 0;
-    component.manual.subscribe(() => manual++);
+    let physical = 0;
+    let manual = 0;
+
+    component.upload.subscribe(() => upload++);
     component.source.subscribe(() => source++);
+    component.physical.subscribe(() => physical++);
+    component.manual.subscribe(() => manual++);
 
     choices()[0].click();
     choices()[1].click();
+    choices()[2].click();
+    choices()[3].click();
 
-    expect(manual).toBe(1);
+    expect(upload).toBe(1);
     expect(source).toBe(1);
+    expect(physical).toBe(1);
+    expect(manual).toBe(1);
+  });
+
+  it('uses semantic buttons for every acquisition choice', () => {
+    for (const choice of Array.from(choices())) {
+      expect(choice.tagName).toBe('BUTTON');
+      expect((choice as HTMLButtonElement).type).toBe('button');
+    }
   });
 
   it('uses the canonical button primitive for the ordinary Cancel action', () => {
-    const cancel = fixture.nativeElement.querySelector('.add-intent-actions button') as HTMLButtonElement;
+    const cancel = fixture.nativeElement.querySelector(
+      '.add-intent-actions button',
+    ) as HTMLButtonElement;
     expect(cancel.classList.contains('nostos-button')).toBe(true);
     expect(cancel.classList.contains('nostos-button--secondary')).toBe(true);
   });

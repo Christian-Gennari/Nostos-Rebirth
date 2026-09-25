@@ -191,10 +191,10 @@ export class Library implements OnInit, OnDestroy {
   ] satisfies readonly ViewToggleOption[];
   readonly sidebarExpanded = this.preferences.sidebarExpanded;
   showAddModal = signal(false);
-  /** The "how are you adding this?" step that now precedes the form. */
+  /** The acquisition chooser that precedes Add Book. */
   showAddIntent = signal(false);
-  /** Open the form straight into the source search. */
-  addSourceFirst = signal(false);
+  /** The chooser's answer is passed to the focused Add Book surface. */
+  addIntent = signal<'upload' | 'source' | 'physical' | 'manual' | null>(null);
 
   toggleSidebar(): void {
     this.preferences.setSidebarExpanded(!this.sidebarExpanded());
@@ -493,31 +493,44 @@ export class Library implements OnInit, OnDestroy {
 
   // ... (Modals and Actions remain unchanged)
   /**
-   * Add Book asks which kind of add it is before opening the form. Importing and
-   * typing a book in end at different places — a prefilled form and an empty one
-   * — and the answer decides which surface the user needs.
+   * Add Book records the acquisition choice before opening the focused review
+   * surface. The modal owns the rest of that flow.
    */
   openAddIntent(): void {
     this.showAddIntent.set(true);
   }
-  addByHand(): void {
-    this.addSourceFirst.set(false);
+
+  private openAddFlow(intent: 'upload' | 'source' | 'physical' | 'manual'): void {
+    this.addIntent.set(intent);
     this.showAddIntent.set(false);
     this.showAddModal.set(true);
   }
+
+  addUpload(): void {
+    this.openAddFlow('upload');
+  }
+
   addFromSource(): void {
-    this.addSourceFirst.set(true);
-    this.showAddIntent.set(false);
-    this.showAddModal.set(true);
+    this.openAddFlow('source');
   }
+
+  addPhysical(): void {
+    this.openAddFlow('physical');
+  }
+
+  addByHand(): void {
+    this.openAddFlow('manual');
+  }
+
   openAddModal(): void {
-    this.showAddModal.set(true);
+    this.openAddFlow('manual');
   }
+
   closeAddModal(): void {
     this.showAddModal.set(false);
-    // The next open starts from the chooser's answer, not this one.
-    this.addSourceFirst.set(false);
+    this.addIntent.set(null);
   }
+
   openEditModal(book: Book): void {
     this.editTarget.set(book);
     this.showEditModal.set(true);

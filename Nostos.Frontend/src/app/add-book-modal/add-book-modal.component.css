@@ -1,11 +1,13 @@
-/* The backdrop, the card and the entry animation now live in `app-modal-shell`
-   (see `ui/modal-shell`). This file styles the form that sits inside it. */
-/* Layout only: the shell supplies this row's padding and its divider. */
+/* The shell owns the backdrop, sheet geometry, scrolling and entry motion.
+   This file styles the acquisition/review content inside that shared frame. */
 .modal-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.75rem;
+}
+.modal-header > div {
+  min-width: 0;
 }
 .modal-header h2 {
   margin: 0;
@@ -13,80 +15,215 @@
   font-size: 1.4rem;
   font-weight: 600;
 }
-.modal-tabs {
-  display: flex;
-  /* Wrap rather than overflow. The four tabs total ~419px inside a ~338px strip
-     on a phone, and the strip does not scroll, so the last one was clipped off
-     the right edge with no way to reach it (measured: 99% off-screen, only
-     0.56px visible). Wrapping keeps every tab reachable at every width, and on
-     a wide dialog the tabs still sit on one row because they fit. */
-  flex-wrap: wrap;
-  border-bottom: 1px solid var(--border-color);
-  padding: 0 1.25rem;
-  background: var(--bg-surface-alt);
-  flex-shrink: 0;
-}
-.tab-btn {
-  background: none;
-  border: none;
-  padding: 0.8rem 1rem;
-  font-size: 0.88rem;
-  font-weight: 500;
+.modal-subtitle {
+  margin: 0.2rem 0 0;
   color: var(--color-text-light);
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;}
-.tab-btn:hover {
-  color: var(--color-text-main);
-}
-.tab-btn.active {
-  color: var(--color-primary);
-  border-bottom-color: var(--color-primary);
+  font-size: var(--text-sm);
+  line-height: 1.45;
 }
 
-/* On a narrow dialog the tabs wrap onto a second row; share each row evenly so
-   the wrapped strip looks deliberate rather than ragged. The padding is sized to
-   keep a 44px tap target once the row is shared between two tabs. 768px is the
-   app's mobile breakpoint — see the shell's sheet rule, which breaks at the
-   same width. */
-@media (max-width: 768px) {
-  .modal-tabs {
-    padding: 0 0.75rem;
-  }
-  .tab-btn {
-    flex: 1 1 auto;
-    justify-content: center;
-    padding: 0.75rem 0.6rem;
-  }
+.modal-form {
+  display: flex;
+  flex-direction: column;
 }
-/* Padding only: the shell owns the scrolling, so nothing here sets a height. */
 .modal-body {
-  padding: 1.5rem;
+  padding: 1.35rem 1.5rem 1.5rem;
 }
-.fade-in {
-  animation: fadeIn 0.3s ease-out;
+
+.review-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.acquisition-start {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.8rem 0.9rem;
+  align-items: start;
 }
-/* Product-owned sections that are not ordinary metadata fields keep their
-   own wrappers. Canonical labels/help/error presentation lives in FormField. */
+.acquisition-start__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-bg);
+  color: var(--color-text-main);
+}
+.acquisition-start__copy h3,
+.section-heading h3 {
+  margin: 0;
+  color: var(--color-text-main);
+  font-size: 0.96rem;
+  font-weight: 600;
+}
+.acquisition-start__copy p,
+.section-heading p {
+  margin: 0.2rem 0 0;
+  color: var(--color-text-light);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+.acquisition-start .file-drop-zone {
+  grid-column: 1 / -1;
+  margin-top: 0.35rem;
+}
+
+.review-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.8rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-alt);
+}
+.review-summary__visual {
+  display: flex;
+  flex: 0 0 48px;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 60px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--color-text-light);
+}
+.review-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.review-summary__copy {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+.review-summary__copy strong {
+  overflow: hidden;
+  color: var(--color-text-main);
+  font-size: 0.9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.review-summary__copy > span:not(.review-eyebrow) {
+  color: var(--color-text-light);
+  font-size: 0.76rem;
+}
+.review-eyebrow {
+  color: var(--color-text-light);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.review-change-file {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 36px;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--color-text-main);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.review-change-file:hover,
+.review-change-file:focus-within {
+  border-color: var(--border-focus);
+}
+.review-change-file__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.quick-identifier,
+.review-core {
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+.section-heading {
+  margin-bottom: 0.85rem;
+}
+
+.metadata-disclosure {
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+.metadata-disclosure__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  min-height: 54px;
+  padding: 0.7rem 0.9rem;
+  cursor: pointer;
+  list-style: none;
+}
+.metadata-disclosure__summary::-webkit-details-marker {
+  display: none;
+}
+.metadata-disclosure__summary > span:first-child {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.metadata-disclosure__summary strong {
+  color: var(--color-text-main);
+  font-size: 0.88rem;
+}
+.metadata-disclosure__summary small,
+.metadata-disclosure__state {
+  color: var(--color-text-light);
+  font-size: 0.74rem;
+}
+.metadata-disclosure__summary:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: -2px;
+}
+.metadata-disclosure__state .when-open {
+  display: none;
+}
+.metadata-disclosure[open] .metadata-disclosure__state .when-closed {
+  display: none;
+}
+.metadata-disclosure[open] .metadata-disclosure__state .when-open {
+  display: inline;
+}
+.metadata-groups {
+  border-top: 1px solid var(--border-color);
+}
+.metadata-group {
+  padding: 1rem;
+}
+.metadata-group + .metadata-group {
+  border-top: 1px solid var(--border-color);
+}
+
 .asset-field,
 .collection-field,
 .source-search-field {
   margin-bottom: 1rem;
 }
-
 .asset-field__label,
 .source-search-label {
   display: block;
@@ -95,7 +232,7 @@
   font-size: 0.85rem;
   font-weight: var(--fw-medium);
 }
-/* --- File Dropzone / Upload Area --- */
+
 .file-drop-zone {
   position: relative;
   display: flex;
@@ -104,19 +241,21 @@
   justify-content: center;
   gap: 0.25rem;
   border: 1.5px dashed var(--border-color);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--bg-hover);
   padding: 1.5rem;
   text-align: center;
-  transition:
-    border-color 0.15s,
-    background 0.15s;
+  transition: border-color 0.15s, background 0.15s;
   cursor: pointer;
   color: var(--color-text-light);
 }
-/* Border only, and NOT --color-primary: that is the ink role (dim green on
-   dark), so a hovered drop zone drew a green border. --border-focus is the
-   control-border role and is byte-identical in light (#121316), slate on dark. */
+.file-drop-zone--primary {
+  min-height: 150px;
+  padding: 2rem 1.5rem;
+}
+.file-drop-zone--cover {
+  min-height: 110px;
+}
 .file-drop-zone:hover,
 .file-drop-zone:focus-within,
 .file-drop-zone:active,
@@ -125,16 +264,14 @@
   background: var(--color-accent-bg);
 }
 .drop-zone-title {
+  color: var(--color-text-main);
   font-size: 0.88rem;
   font-weight: 500;
-  color: var(--color-text-main);
 }
 .drop-zone-hint {
-  font-size: 0.75rem;
   color: var(--color-text-light);
+  font-size: 0.75rem;
 }
-/* The native control is stretched across the zone: clicks and dropped files
-   both land on the input while the decorative content stays visible. */
 .file-input {
   position: absolute;
   inset: 0;
@@ -143,25 +280,28 @@
   opacity: 0;
   cursor: pointer;
 }
-.divider {
-  border: none;
-  border-top: 1px solid var(--border-color);
-  margin: 1.5rem 0;
+.cover-preview {
+  max-width: 100%;
+  max-height: 120px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  object-fit: contain;
 }
+
 .grid {
   display: grid;
   gap: 1rem;
   margin-bottom: 1rem;
 }
 .grid-2 {
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .input-group-fetch {
   display: flex;
   gap: 0.5rem;
 }
 .input-group-fetch .nostos-form-control {
-  flex-grow: 1;
+  flex: 1 1 auto;
   min-width: 0;
 }
 .btn-fetch {
@@ -173,28 +313,28 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  background: var(--color-info-bg);
   border: 1px solid var(--color-info-border);
   border-radius: var(--radius-md);
+  background: var(--color-info-bg);
   color: var(--color-info);
   font-size: 0.9rem;
   font-weight: var(--fw-medium);
-  margin-top: 1rem;
 }
-/* The shell's scroll region sizes this, so nothing here may clip the content or
-   fix a height — either would make everything below the fold unreachable. */
-.modal-form {
-  display: flex;
-  flex-direction: column;
-}
-
-/* Acquisition keeps its own workflow and result-row interaction model, while
-   ordinary source fields/actions consume the canonical UI primitives. */
 
 @media (max-width: 768px) {
+  .modal-body {
+    padding: 1.1rem 1rem 1.25rem;
+  }
   .grid-2 {
     grid-template-columns: 1fr;
     gap: 0.75rem;
+  }
+  .review-summary {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .review-change-file {
+    margin-left: 3.9rem;
   }
 }
 

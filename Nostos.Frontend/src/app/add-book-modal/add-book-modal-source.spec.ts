@@ -160,39 +160,17 @@ describe('AddBookModal — From a Source', () => {
     vi.restoreAllMocks();
   });
 
-  function tabLabels(): string[] {
-    return Array.from<Element>(fixture.nativeElement.querySelectorAll('.tab-btn')).map(
-      (b) => b.textContent?.trim() ?? '',
-    );
-  }
+  it('uses one shallow metadata disclosure instead of form tabs', () => {
+    expect(fixture.nativeElement.querySelector('[role="tablist"]')).toBeNull();
 
-  it('offers every form tab, and no import tab at all', () => {
-    // Importing is not a tab: it is a step BEFORE the form, entered from the
-    // Add Book chooser, so the form carries only the fields a book has.
-    expect(tabLabels()).toEqual(['Book Info', 'Publishing', 'Files & Personal']);
-  });
-
-  it('exposes the form sections as keyboard-navigable ARIA tabs', () => {
-    const tablist = fixture.nativeElement.querySelector('[role="tablist"]') as HTMLElement;
-    const tabs = Array.from<HTMLButtonElement>(tablist.querySelectorAll('[role="tab"]'));
-
-    expect(tablist.getAttribute('aria-label')).toBe('Book details sections');
-    expect(tabs).toHaveLength(3);
-    expect(tabs[0].getAttribute('aria-selected')).toBe('true');
-    expect(tabs[0].getAttribute('aria-controls')).toBe('book-info-panel');
-    expect(tabs[1].getAttribute('tabindex')).toBe('-1');
-
-    const bookInfoPanel = fixture.nativeElement.querySelector('#book-info-panel') as HTMLElement;
-    expect(bookInfoPanel.getAttribute('role')).toBe('tabpanel');
-    expect(bookInfoPanel.getAttribute('aria-labelledby')).toBe('book-info-tab');
-
-    tabs[0].focus();
-    tabs[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
-    fixture.detectChanges();
-
-    expect(component.activeTab()).toBe('Publishing');
-    expect(tabs[1].getAttribute('aria-selected')).toBe('true');
-    expect(document.activeElement).toBe(tabs[1]);
+    const disclosure = fixture.nativeElement.querySelector(
+      'details.metadata-disclosure',
+    ) as HTMLDetailsElement;
+    expect(disclosure).toBeTruthy();
+    expect(disclosure.open).toBe(false);
+    expect(disclosure.querySelectorAll('details')).toHaveLength(0);
+    expect(disclosure.textContent).toContain('More details');
+    expect(disclosure.textContent).toContain('Publication');
   });
 
   it('refuses to enter the source search when editing a book', () => {
@@ -211,10 +189,8 @@ describe('AddBookModal — From a Source', () => {
     fixture.detectChanges();
 
     expect(component.sourceMode()).toBe(true);
-    // The strip is not merely hidden — it is not rendered. `[hidden]` loses to
-    // any author `display` rule, and `.modal-tabs` is `display: flex`, which is
-    // exactly how the tabs stayed on screen above the search.
-    expect(fixture.nativeElement.querySelector('.modal-tabs')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[role="tablist"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('#source-query')).toBeTruthy();
     // And the sources have to actually be loaded, or the search has nothing to
     // run against. Found by pressing the button, not by reading the code.
     expect(component.providerList().length).toBeGreaterThan(0);
@@ -618,39 +594,32 @@ describe('AddBookModal — From a Source', () => {
     expect(inputs.some((i) => (i.getAttribute('accept') ?? '').includes('.epub'))).toBe(false);
     expect(inputs.some((i) => i.getAttribute('accept') === 'image/*')).toBe(false);
 
-    // It says what will happen instead of asking.
-    expect(fixture.nativeElement.textContent).toContain('no file needed');
-
-    // And the cover is shown, credited, and actually rendered — not merely
-    // present in a hidden tab, which is the trap this suite fell into before.
-    component.setTab('Files & Personal');
+    // Selecting the result still belongs to discovery. The compact review is
+    // shown only after the user chooses this book.
+    component.seedFromSelectedItem();
     fixture.detectChanges();
 
-    const wrapper = fixture.nativeElement.querySelector('.cover-from-source') as HTMLElement | null;
-    expect(wrapper).toBeTruthy();
-    expect(getComputedStyle(wrapper!).display).not.toBe('none');
-
-    const preview = wrapper!.querySelector('img') as HTMLImageElement;
+    const preview = fixture.nativeElement.querySelector('.review-cover') as HTMLImageElement;
+    expect(preview).toBeTruthy();
     expect(preview.getAttribute('src')).toBe(pride.coverUrl);
-    expect(wrapper!.textContent).toContain('Project Gutenberg');
+
+    const summary = fixture.nativeElement.querySelector('.review-summary') as HTMLElement;
+    expect(summary.textContent).toContain('Project Gutenberg');
+    expect(summary.textContent).toContain('EPUB');
   });
 
-  it('still offers both uploads for a hand-entered digital book, and names a chosen file', async () => {
+  it('keeps local file acquisition visible and offers cover upload only after the file is chosen', () => {
+    component.startIntent('upload');
     fixture.detectChanges();
 
-    const formatTrigger = fixture.nativeElement.querySelector('#book-type') as HTMLButtonElement;
-    formatTrigger.click();
-    fixture.detectChanges();
+    const firstInput = fixture.nativeElement.querySelector(
+      '.file-drop-zone--primary input[type="file"]',
+    ) as HTMLInputElement;
+    expect(firstInput).toBeTruthy();
 
-    const ebookOption = Array.from(
-      fixture.nativeElement.querySelectorAll(
-        'app-dropdown [role="option"]',
-      ) as NodeListOf<HTMLElement>,
-    ).find((option) => option.textContent?.includes('E-Book')) as HTMLElement;
-    ebookOption.click();
-    fixture.detectChanges();
-
-    component.setTab('Files & Personal');
+    const file = new File(['x'], 'book.epub', { type: 'application/epub+zip' });
+    Object.defineProperty(firstInput, 'files', { value: [file] });
+    firstInput.dispatchEvent(new Event('change'));
     fixture.detectChanges();
 
     const inputs = [
@@ -658,12 +627,7 @@ describe('AddBookModal — From a Source', () => {
     ] as HTMLInputElement[];
     expect(inputs.some((i) => (i.getAttribute('accept') ?? '').includes('.epub'))).toBe(true);
     expect(inputs.some((i) => i.getAttribute('accept') === 'image/*')).toBe(true);
-
-    // A chosen file names itself, so the zone never looks untouched.
-    const file = new File(['x'], 'book.epub', { type: 'application/epub+zip' });
-    component.selectedFile.set(file);
-    fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.chosen-file')?.textContent).toContain('book.epub');
+    expect(fixture.nativeElement.querySelector('.review-summary')?.textContent).toContain('book.epub');
   });
 
   it('hides the form submit button on the source tab', async () => {
@@ -767,8 +731,9 @@ describe('AddBookModal — From a Source', () => {
 
     // Picking a result ends at the form, not at a download: the metadata is
     // reviewed and completed first, so the book is created once and already right.
-    expect(component.activeTab()).toBe('Book Info');
+    expect(component.sourceMode()).toBe(false);
     expect(component.seededFromSource()).toBe(true);
+    expect(fixture.nativeElement.querySelector('[role="tablist"]')).toBeNull();
     expect(acquire).not.toHaveBeenCalled();
   });
 
