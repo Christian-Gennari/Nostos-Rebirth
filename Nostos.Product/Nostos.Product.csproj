@@ -78,6 +78,7 @@
     <Compile Include="..\Nostos.Backend\Providers\Discovery\**\*.cs" Link="Providers\Discovery\%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="..\Nostos.Backend\Providers\Gutenberg\**\*.cs" Link="Providers\Gutenberg\%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="..\Nostos.Backend\Providers\LibriVox\**\*.cs" Link="Providers\LibriVox\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\Nostos.Backend\Providers\StandardEbooks\**\*.cs" Link="Providers\StandardEbooks\%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="..\Nostos.Backend\Providers\Wikisource\**\*.cs" Link="Providers\Wikisource\%(RecursiveDir)%(Filename)%(Extension)" />
 
     <Compile Include="..\Nostos.Backend\Endpoints\BooksEndpoints.cs" Link="Endpoints\BooksEndpoints.cs" />
