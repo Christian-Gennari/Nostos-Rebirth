@@ -25,6 +25,7 @@ const librivox: ProviderSummary = {
 const recording: ProviderItem = {
   providerId: 'librivox',
   externalId: '2469',
+  mediaKind: 'audiobook',
   title: '1601: Conversation, as it was by the Social Fireside',
   subtitle: null,
   author: 'Mark Twain',
@@ -55,6 +56,7 @@ const recording: ProviderItem = {
 const ebook: ProviderItem = {
   providerId: 'gutenberg',
   externalId: '1952',
+  mediaKind: 'ebook',
   title: 'The Yellow Wallpaper',
   subtitle: null,
   author: 'Charlotte Perkins Gilman',
@@ -71,7 +73,7 @@ const ebook: ProviderItem = {
       id: 'epub3-images',
       kind: 'ebook',
       label: 'EPUB3',
-      sourceFormat: 'epub3-images',
+      sourceFormat: 'application/epub+zip',
       sizeBytes: 228882,
       isPreferred: true,
     },
@@ -95,6 +97,9 @@ describe('AddBookModal — audiobook source results', () => {
 
     providers = TestBed.inject(ProvidersService);
     vi.spyOn(providers, 'list').mockReturnValue(of([librivox]));
+    vi.spyOn(providers, 'item').mockImplementation((providerId) =>
+      of(providerId === 'librivox' ? recording : ebook),
+    );
 
     fixture = TestBed.createComponent(AddBookModal);
     component = fixture.componentInstance;
@@ -104,7 +109,21 @@ describe('AddBookModal — audiobook source results', () => {
   });
 
   async function render(items: ProviderItem[]): Promise<void> {
-    vi.spyOn(providers, 'search').mockReturnValue(of({ items, hasMore: false, notice: null }));
+    vi.spyOn(providers, 'searchAll').mockReturnValue(
+      of({
+        items: items.map((item) => ({ ...item, assets: [] })),
+        hasMore: false,
+        sources: [
+          {
+            providerId: items[0]?.providerId ?? 'librivox',
+            displayName: items[0]?.providerId === 'gutenberg' ? 'Project Gutenberg' : 'LibriVox',
+            succeeded: true,
+            notice: null,
+            errorCode: null,
+          },
+        ],
+      }),
+    );
     component.enterSourceMode();
     await fixture.whenStable();
     component.sourceQuery.set('anything');
@@ -130,7 +149,7 @@ describe('AddBookModal — audiobook source results', () => {
     // A single asset is stated plainly rather than offered as a radio choice
     // between one option.
     const text = fixture.nativeElement.textContent;
-    expect(text).toContain('Format: M4B audiobook (single file)');
+    expect(text).toContain('Format: Audiobook');
     expect(fixture.nativeElement.querySelectorAll('input[name="sourceAsset"]').length).toBe(0);
   });
 
