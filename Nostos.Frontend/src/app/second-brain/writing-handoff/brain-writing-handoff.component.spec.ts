@@ -3,10 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter, Router } from '@angular/router';
 
-import {
-  BrainWritingHandoffComponent,
-  BrainWritingHandoffResult,
-} from './brain-writing-handoff.component';
+import { BrainWritingHandoffComponent } from './brain-writing-handoff.component';
 import { WritingDto, WritingSourceDto } from '../../core/dtos/writing.dtos';
 import { ToastService } from '../../core/services/toast.service';
 
