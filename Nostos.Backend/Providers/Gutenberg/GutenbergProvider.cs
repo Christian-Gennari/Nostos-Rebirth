@@ -96,7 +96,7 @@ public sealed partial class GutenbergProvider : IContentProvider,
         var books = GutenbergCatalog.ParseSearch(feed);
         var perPage = GutenbergCatalog.ItemsPerPage(feed);
 
-        var items = books.Select(ToProviderItem).ToList();
+        var items = books.Select(book => ToProviderItem(book, includeAssets: false)).ToList();
 
         return new ProviderSearchPage(
             Items: items,
@@ -111,7 +111,7 @@ public sealed partial class GutenbergProvider : IContentProvider,
     public async Task<ProviderItem?> GetItemAsync(string externalId, CancellationToken ct)
     {
         var book = await LoadBookAsync(externalId, ct);
-        return book is null ? null : ToProviderItem(book);
+        return book is null ? null : ToProviderItem(book, includeAssets: true);
     }
 
     // --- IProviderAcquisitionPlanner -------------------------------------
@@ -207,7 +207,7 @@ public sealed partial class GutenbergProvider : IContentProvider,
         }
     }
 
-    private ProviderItem ToProviderItem(GutenbergBook book) => new(
+    private ProviderItem ToProviderItem(GutenbergBook book, bool includeAssets) => new(
         ProviderId: Id,
         ExternalId: book.Id,
         MediaKind: ProviderMediaKind.Ebook,
@@ -217,15 +217,17 @@ public sealed partial class GutenbergProvider : IContentProvider,
             Description: book.Description,
             Language: book.Language,
             Categories: book.Categories),
-        Assets: book.Assets
-            .Select(asset => new ProviderAsset(
+        Assets: includeAssets
+            ? book.Assets
+                .Select(asset => new ProviderAsset(
                 Id: asset.Id,
                 Kind: ProviderMediaKind.Ebook,
                 Label: asset.Label,
                 SourceFormat: asset.SourceFormat,
                 SizeBytes: asset.SizeBytes,
-                IsPreferred: asset.IsPreferred))
-            .ToList(),
+                    IsPreferred: asset.IsPreferred))
+                .ToList()
+            : [],
         Cover: GutenbergCatalog.CoverFor(book.Id),
         Source: new ProviderSourceInfo(
             ItemUrl: $"{GutenbergCatalog.BaseUrl}/ebooks/{book.Id}",
