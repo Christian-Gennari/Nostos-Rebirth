@@ -201,21 +201,26 @@
 
     @if (inspectedSource(); as source) {
       <section class="inspected-source-panel" aria-label="Inspected source">
-        <div class="inspected-source-heading">
-          <span>
-            Source
-            @if (sourceDisplayLocator(source); as locator) {
-              <span class="inspected-source-locator">· {{ locator }}</span>
-            }
-          </span>
+        <div class="inspected-source-nav">
           <button
-            appIconButton
-            size="xxs"
-            icon="x"
-            [glyphSize]="14"
+            appButton
+            variant="ghost"
+            size="sm"
+            class="inspected-source-back"
             (click)="closeInspectedSource()"
-            aria-label="Close inspected source"
-          ></button>
+            [attr.aria-label]="'Back to ' + inspectionReturnLabel()"
+          >
+            <nostos-icon name="arrow-left" [size]="16"></nostos-icon>
+            <span class="inspected-source-context">{{ inspectionReturnLabel() }}</span>
+          </button>
+          <span class="detail-title">Source</span>
+        </div>
+
+        <div class="inspected-source-heading">
+          <span>Selected note</span>
+          @if (sourceDisplayLocator(source); as locator) {
+            <span class="inspected-source-locator">{{ locator }}</span>
+          }
         </div>
 
         <app-note-card
@@ -266,8 +271,7 @@
           </button>
         </div>
       </section>
-    }
-
+    } @else {
     @if (referenceMode() === 'writing') {
       <div class="brain-content kept-sources-content">
         @if (!activeItem()) {
@@ -457,6 +461,7 @@
           }
         </div>
       }
+    }
     }
   </aside>
 
