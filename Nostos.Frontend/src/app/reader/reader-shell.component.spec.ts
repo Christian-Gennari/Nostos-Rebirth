@@ -2,7 +2,14 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { Component, forwardRef, input, output, signal } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
-import { ActivatedRoute, convertToParamMap, ParamMap, provideRouter } from '@angular/router';
+import {
+  ActivatedRoute,
+  convertToParamMap,
+  ParamMap,
+  provideRouter,
+  Router,
+} from '@angular/router';
+import { Location } from '@angular/common';
 import { BehaviorSubject, Subject, of, throwError } from 'rxjs';
 
 // @ts-expect-error — no @types/node in this repo; vitest resolves node:fs at
@@ -269,6 +276,94 @@ async function configureReaderShell(
 
   return TestBed.createComponent(ReaderShell);
 }
+
+describe('ReaderShell Studio return origin (#510/#511)', () => {
+  beforeEach(() => {
+    booksGetSpy.mockReset();
+    booksGetSpy.mockReturnValue(of(audiobook));
+    localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
+    mockMatchMedia();
+    window.history.replaceState({}, '', window.location.href);
+  });
+
+  afterEach(() => {
+    window.history.replaceState({}, '', window.location.href);
+  });
+
+  it('keeps the existing explicit Book Detail destination without a Studio marker', async () => {
+    const fixture = await configureReaderShell();
+    const router = TestBed.inject(Router);
+    const location = TestBed.inject(Location);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    const back = vi.spyOn(location, 'back');
+
+    fixture.detectChanges();
+    fixture.componentInstance.goBack();
+
+    expect(back).not.toHaveBeenCalled();
+    expect(navigate).toHaveBeenCalledWith(['/library', 'book-1'], { replaceUrl: true });
+    fixture.destroy();
+  });
+
+  it('uses history back only for the explicit namespaced Studio origin', async () => {
+    window.history.replaceState(
+      {
+        navigationId: 17,
+        nostosReaderReturnOrigin: { version: 1, kind: 'studio', writingId: 'writing-a' },
+      },
+      '',
+      window.location.href,
+    );
+
+    const fixture = await configureReaderShell({ sourcePage: 42 });
+    const router = TestBed.inject(Router);
+    const location = TestBed.inject(Location);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    const back = vi.spyOn(location, 'back');
+
+    fixture.detectChanges();
+    fixture.componentInstance.goBack();
+
+    expect(back).toHaveBeenCalledTimes(1);
+    expect(navigate).not.toHaveBeenCalled();
+    fixture.destroy();
+  });
+
+  it.each([
+    [{ sourcePage: 42 }, 'sourcePage'],
+    [{ sourceCfi: 'epubcfi(/6/2)' }, 'sourceCfi'],
+  ])('never infers Studio origin from %s', async (queryParams) => {
+    const fixture = await configureReaderShell(queryParams as Record<string, string | number>);
+    const router = TestBed.inject(Router);
+    const location = TestBed.inject(Location);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    const back = vi.spyOn(location, 'back');
+
+    fixture.detectChanges();
+    fixture.componentInstance.goBack();
+
+    expect(back).not.toHaveBeenCalled();
+    expect(navigate).toHaveBeenCalledWith(['/library', 'book-1'], { replaceUrl: true });
+    fixture.destroy();
+  });
+
+  it('ignores unrelated navigation state', async () => {
+    window.history.replaceState({ someOtherFeature: { kind: 'studio' } }, '', window.location.href);
+    const fixture = await configureReaderShell();
+    const router = TestBed.inject(Router);
+    const location = TestBed.inject(Location);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    const back = vi.spyOn(location, 'back');
+
+    fixture.detectChanges();
+    fixture.componentInstance.goBack();
+
+    expect(back).not.toHaveBeenCalled();
+    expect(navigate).toHaveBeenCalledWith(['/library', 'book-1'], { replaceUrl: true });
+    fixture.destroy();
+  });
+});
 
 describe('ReaderShell grounded book-text source navigation', () => {
   beforeEach(() => {
