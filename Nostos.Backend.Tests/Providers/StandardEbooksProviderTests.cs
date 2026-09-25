@@ -111,13 +111,17 @@ public sealed class StandardEbooksProviderTests
     [Fact]
     public async Task Search_UsesApprovedUserAgent_OfficialOpdsSearch_AndReturnsThinItems()
     {
-        HttpRequestMessage? captured = null;
+        string? capturedUserAgent = null;
+        string[] capturedAccept = [];
         var handler = new StubHttpMessageHandler()
             .Register(
                 "/feeds/opds/all?query=pride%20prejudice&per-page=10&page=3",
                 request =>
                 {
-                    captured = request;
+                    capturedUserAgent = request.Headers.UserAgent.ToString();
+                    capturedAccept = request.Headers.Accept
+                        .Select(value => value.MediaType ?? string.Empty)
+                        .ToArray();
                     return new HttpResponseMessage(HttpStatusCode.OK)
                     {
                         Content = new StringContent(
@@ -156,10 +160,8 @@ public sealed class StandardEbooksProviderTests
         item.Source.Should().NotBeNull();
         item.Source!.RightsStatement.Should().Be(Rights);
 
-        captured.Should().NotBeNull();
-        captured!.Headers.UserAgent.ToString().Should().Be(StandardEbooksProvider.ApprovedUserAgent);
-        captured.Headers.Accept.Select(value => value.MediaType)
-            .Should().Contain("application/atom+xml");
+        capturedUserAgent.Should().Be(StandardEbooksProvider.ApprovedUserAgent);
+        capturedAccept.Should().Contain("application/atom+xml");
     }
 
     [Fact]
