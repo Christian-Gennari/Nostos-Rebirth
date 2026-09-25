@@ -299,6 +299,26 @@ export class WritingStudio implements OnInit, AfterViewInit {
   selectedBookId = signal<string | null>(null);
   selectedBookNotes = signal<Note[]>([]);
 
+  /**
+   * Label for the surface an inspected source drills down from.
+   * Inspection is a temporary child state: closing it returns to the exact
+   * kept-source / concept / book context rather than to a generic Library root.
+   */
+  inspectionReturnLabel = computed(() => {
+    if (this.referenceMode() === 'writing') return 'For this writing';
+
+    if (this.activeSidebarTab() === 'brain') {
+      const conceptId = this.selectedConceptId();
+      return (
+        this.concepts().find((concept) => concept.id === conceptId)?.name ??
+        'Concept notes'
+      );
+    }
+
+    const bookId = this.selectedBookId();
+    return this.books().find((book) => book.id === bookId)?.title ?? 'Book notes';
+  });
+
   // Computed Map for highlighting concepts in notes
   conceptMap = computed(() => {
     const map = new Map<string, ConceptDto>();
