@@ -969,8 +969,9 @@ export class AddBookModal {
 
   assetFormatFamily(sourceFormat: string | null): 'EPUB' | 'PDF' | null {
     const format = sourceFormat?.toLowerCase();
-    if (format === 'application/epub+zip') return 'EPUB';
-    if (format === 'application/pdf') return 'PDF';
+    if (!format) return null;
+    if (format === 'application/epub+zip' || format.startsWith('epub')) return 'EPUB';
+    if (format === 'application/pdf' || format.startsWith('pdf')) return 'PDF';
     return null;
   }
 

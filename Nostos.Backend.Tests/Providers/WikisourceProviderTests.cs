@@ -74,11 +74,16 @@ public sealed class WikisourceProviderTests
         item.Source!.ItemUrl.Should().Be("https://en.wikisource.org/wiki/Pride_and_Prejudice");
         item.Source.RightsStatement.Should().Be("Public Domain");
 
-        item.Assets.Should().ContainSingle();
-        item.Assets[0].Id.Should().Be("epub");
-        item.Assets[0].Kind.Should().Be(ProviderMediaKind.Ebook);
-        item.Assets[0].SourceFormat.Should().Be("application/epub+zip");
-        item.Assets[0].IsPreferred.Should().BeTrue();
+        item.Assets.Should().ContainSingle(a => a.Id == "epub");
+        var epub = item.Assets.Single(a => a.Id == "epub");
+        epub.Kind.Should().Be(ProviderMediaKind.Ebook);
+        epub.SourceFormat.Should().Be("application/epub+zip");
+        epub.IsPreferred.Should().BeTrue();
+
+        item.Assets.Should().ContainSingle(a => a.Id == "pdf");
+        var pdf = item.Assets.Single(a => a.Id == "pdf");
+        pdf.Kind.Should().Be(ProviderMediaKind.Ebook);
+        pdf.SourceFormat.Should().Be("application/pdf");
 
         item.Cover.Should().NotBeNull();
         item.Cover!.Url.Should().Be(new Uri("https://thumb.wikimedia.org/example/pride.jpg"));
@@ -170,7 +175,7 @@ public sealed class WikisourceProviderTests
             LoadFixture("item-pride-and-prejudice.atom"));
 
         var act = async () => await provider.PlanAcquisitionAsync(
-            new ProviderAcquisitionRequest("Pride and Prejudice", AssetId: "pdf"),
+            new ProviderAcquisitionRequest("Pride and Prejudice", AssetId: "mobi"),
             CancellationToken.None);
 
         var error = await act.Should().ThrowAsync<ProviderException>();

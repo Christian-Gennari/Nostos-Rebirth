@@ -42,6 +42,7 @@ const wikisource: ProviderSummary = {
 const pride: ProviderItem = {
   providerId: 'gutenberg',
   externalId: '1342',
+  mediaKind: 'ebook',
   title: 'Pride and Prejudice',
   subtitle: null,
   author: 'Jane Austen',
@@ -111,6 +112,21 @@ describe('AddBookModal — From a Source', () => {
     providers = TestBed.inject(ProvidersService);
     books = TestBed.inject(BooksService);
     vi.spyOn(providers, 'list').mockReturnValue(of([gutenberg, librivox, wikisource]));
+    vi.spyOn(providers, 'searchAll').mockReturnValue(
+      of({
+        items: [pride],
+        hasMore: false,
+        sources: [
+          {
+            providerId: 'gutenberg',
+            displayName: 'Project Gutenberg',
+            succeeded: true,
+            notice: null,
+            errorCode: null,
+          },
+        ],
+      }),
+    );
     vi.spyOn(providers, 'search').mockReturnValue(
       of({ items: [pride], hasMore: false, notice: null }),
     );
@@ -212,42 +228,26 @@ describe('AddBookModal — From a Source', () => {
     expect(action.classList.contains('nostos-button--primary')).toBe(true);
   });
 
-  it('loads the sources when the tab is opened and selects the first', async () => {
+  it('loads the sources when the tab is opened and defaults to searching free sources', async () => {
     component.enterSourceMode();
     await fixture.whenStable();
     fixture.detectChanges();
 
     expect(providers.list).toHaveBeenCalled();
-    expect(component.selectedProviderId()).toBe('gutenberg');
-    expect(fixture.nativeElement.textContent).toContain('Search Project Gutenberg');
-  });
-
-  it('offers Wikisource alongside Gutenberg and LibriVox in the provider picker', async () => {
-    component.enterSourceMode();
-    await fixture.whenStable();
-    fixture.detectChanges();
-
-    const labels = Array.from(
-      fixture.nativeElement.querySelectorAll('.source-choice') as NodeListOf<HTMLButtonElement>,
-    ).map((button) => button.textContent?.trim());
-
-    expect(labels).toEqual(['Project Gutenberg', 'LibriVox', 'Wikisource']);
-
-    component.chooseProvider('wikisource');
-    fixture.detectChanges();
-
-    expect(component.selectedProviderId()).toBe('wikisource');
-    expect(fixture.nativeElement.textContent).toContain('Search Wikisource');
+    expect(fixture.nativeElement.textContent).toContain('Search free books and audiobooks');
   });
 
   it('surfaces a source-failure instead of an empty screen', async () => {
-    vi.spyOn(providers, 'list').mockReturnValue(throwError(() => new Error('down')));
+    vi.spyOn(providers, 'searchAll').mockReturnValue(throwError(() => new Error('down')));
 
     component.enterSourceMode();
     await fixture.whenStable();
+    component.sourceQuery.set('pride');
+    component.searchSource();
+    await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(component.providersError()).toBeTruthy();
+    expect(component.sourceSearchError()).toBeTruthy();
     expect(fixture.nativeElement.querySelector('.source-error')).toBeTruthy();
   });
 
@@ -257,13 +257,13 @@ describe('AddBookModal — From a Source', () => {
 
     component.sourceQuery.set('p');
     component.searchSource();
-    expect(providers.search).not.toHaveBeenCalled();
+    expect(providers.searchAll).not.toHaveBeenCalled();
 
     component.sourceQuery.set('pride');
     component.searchSource();
     await fixture.whenStable();
 
-    expect(providers.search).toHaveBeenCalledWith('gutenberg', 'pride');
+    expect(providers.searchAll).toHaveBeenCalledWith('pride', undefined);
   });
 
   it('renders results with their metadata and the proxied cover', async () => {
@@ -297,9 +297,6 @@ describe('AddBookModal — From a Source', () => {
 
     expect(component.selectedAssetId()).toBe('epub3-images');
 
-    // The formats sit behind a collapsed disclosure. `textContent` reports them
-    // whether or not it is open — the same way `[hidden]` reported `true` on a
-    // visible element — so this asserts the state, not the presence of a string.
     const formats = fixture.nativeElement.querySelector('.source-formats') as HTMLDetailsElement;
     expect(formats).toBeTruthy();
     expect(formats.open).toBe(false);

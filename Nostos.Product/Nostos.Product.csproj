@@ -75,6 +75,7 @@
     <Compile Include="..\Nostos.Backend\Providers\Acquisition\ProviderHostPolicy.cs" Link="Providers\Acquisition\ProviderHostPolicy.cs" />
     <Compile Include="..\Nostos.Backend\Providers\Acquisition\TranscodeLimiter.cs" Link="Providers\Acquisition\TranscodeLimiter.cs" />
     <Compile Include="..\Nostos.Backend\Providers\Acquisition\Media\**\*.cs" Link="Providers\Acquisition\Media\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\Nostos.Backend\Providers\Discovery\**\*.cs" Link="Providers\Discovery\%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="..\Nostos.Backend\Providers\Gutenberg\**\*.cs" Link="Providers\Gutenberg\%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="..\Nostos.Backend\Providers\LibriVox\**\*.cs" Link="Providers\LibriVox\%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="..\Nostos.Backend\Providers\Wikisource\**\*.cs" Link="Providers\Wikisource\%(RecursiveDir)%(Filename)%(Extension)" />
