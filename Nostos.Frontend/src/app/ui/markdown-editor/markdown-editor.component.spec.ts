@@ -13,6 +13,8 @@ interface EditorMock {
   on: (event: string, cb: (...args: unknown[]) => void) => void;
   getContent: () => string;
   setContent: (html: string) => void;
+  insertContent: (html: string) => void;
+  focus: () => void;
   getBody: () => { style: Record<string, string> };
   plugins: { wordcount: { body: { getWordCount: () => number } } };
 }
@@ -47,6 +49,8 @@ describe('MarkdownEditorComponent', () => {
   let wordCountEmissions: number[];
   let wordCountValue: number;
   let registeredEditorEvents: string[];
+  let insertContentCalls: string[];
+  let focusCalls: number;
 
   function installTinyMceMock() {
     initCalls = [];
@@ -54,6 +58,8 @@ describe('MarkdownEditorComponent', () => {
     editors = [];
     wordCountValue = 42;
     registeredEditorEvents = [];
+    insertContentCalls = [];
+    focusCalls = 0;
 
     (globalThis as Record<string, unknown>)['tinymce'] = {
       init: (config: InitConfig) => {
@@ -72,6 +78,15 @@ describe('MarkdownEditorComponent', () => {
           setContent: (html) => {
             content = html;
             fire('SetContent');
+          },
+          insertContent: (html) => {
+            insertContentCalls.push(html);
+            // TinyMCE owns the actual selection. Model a caret between two
+            // paragraphs so the component can only succeed by delegating here.
+            content = `<p>Before caret</p>${html}<p>After caret</p>`;
+          },
+          focus: () => {
+            focusCalls++;
           },
           getBody: () => ({ style: {} }),
           plugins: { wordcount: { body: { getWordCount: () => wordCountValue } } },
@@ -213,6 +228,33 @@ describe('MarkdownEditorComponent', () => {
     expect(wordCountEmissions[wordCountEmissions.length - 1]).toBe(7);
   });
 
+  it('inserts Markdown through TinyMCE at the current selection and emits the resulting document', async () => {
+    const before = emitted.length;
+    const inserted = await fixture.componentInstance.insertMarkdown(
+      '> Selected passage\n> — *The Republic*, p. 42',
+    );
+
+    expect(inserted).toBe(true);
+    expect(insertContentCalls).toHaveLength(1);
+    expect(insertContentCalls[0]).toContain('<blockquote>');
+    expect(insertContentCalls[0]).toContain('The Republic');
+    expect(focusCalls).toBe(1);
+
+    expect(emitted.length).toBe(before + 1);
+    const markdown = emitted[emitted.length - 1];
+    expect(markdown).toContain('Before caret');
+    expect(markdown).toContain('Selected passage');
+    expect(markdown).toContain('The Republic');
+    expect(markdown).toContain('After caret');
+  });
+
+  it('fails safely when the TinyMCE instance is not ready instead of inventing a position', async () => {
+    fixture.destroy();
+
+    await expect(fixture.componentInstance.insertMarkdown('Source text')).resolves.toBe(false);
+    expect(insertContentCalls).toHaveLength(0);
+  });
+
   it('tears the editor down exactly once on component destroy', () => {
     fixture.destroy();
     expect(removedEditors).toHaveLength(1);
@@ -265,6 +307,8 @@ describe('MarkdownEditorComponent typewriter follow', () => {
           on: () => {},
           getContent: () => '',
           setContent: () => {},
+          insertContent: () => {},
+          focus: () => {},
           getBody: () => ({ style: {} }),
           plugins: { wordcount: { body: { getWordCount: () => 0 } } },
         };
