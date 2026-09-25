@@ -959,7 +959,9 @@ export class WritingStudio implements OnInit, AfterViewInit {
       state?: Record<string, unknown>;
     },
   ): Promise<void> {
-    const navigated = await this.router?.navigate(commands as any[], extras as any);
+    const navigated = extras
+      ? await this.router?.navigate(commands as any[], extras as any)
+      : await this.router?.navigate(commands as any[]);
     if (navigated === false) {
       // Staying in Studio must not leave a return snapshot waiting to replay.
       this.consumeSourceReturnSnapshot();
