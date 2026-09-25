@@ -153,7 +153,7 @@ public sealed class ProviderDiscoveryServiceTests
         var result = await CreateService(failed)
             .SearchAsync("x", null, 20, CancellationToken.None);
 
-        var source = result.Sources.Should().ContainSingle().Subject;
+        var source = result.Sources.Should().ContainSingle().Which;
         source.Succeeded.Should().BeFalse();
         source.ErrorCode.Should().Be(ProviderDiscoveryErrorCodes.SearchFailed);
         source.Notice.Should().BeNull();
