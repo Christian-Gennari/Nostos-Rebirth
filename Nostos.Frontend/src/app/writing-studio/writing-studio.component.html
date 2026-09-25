@@ -158,7 +158,7 @@
           role="tab"
           [attr.aria-selected]="referenceMode() === 'writing'"
           [class.active]="referenceMode() === 'writing'"
-          (click)="referenceMode.set('writing')"
+          (click)="setReferenceMode('writing')"
         >
           <span>For this writing</span>
         </button>
@@ -167,7 +167,7 @@
           role="tab"
           [attr.aria-selected]="referenceMode() === 'library'"
           [class.active]="referenceMode() === 'library'"
-          (click)="referenceMode.set('library')"
+          (click)="setReferenceMode('library')"
         >
           <span>Library</span>
         </button>
@@ -180,7 +180,7 @@
             role="tab"
             [attr.aria-selected]="activeSidebarTab() === 'brain'"
             [class.active]="activeSidebarTab() === 'brain'"
-            (click)="activeSidebarTab.set('brain')"
+            (click)="setLibraryTab('brain')"
           >
             <nostos-icon name="sparkle" [size]="14" weight="light"></nostos-icon>
             <span>Concepts</span>
@@ -190,7 +190,7 @@
             role="tab"
             [attr.aria-selected]="activeSidebarTab() === 'notes'"
             [class.active]="activeSidebarTab() === 'notes'"
-            (click)="activeSidebarTab.set('notes')"
+            (click)="setLibraryTab('notes')"
           >
             <nostos-icon name="book" [size]="14" weight="light"></nostos-icon>
             <span>Books</span>
@@ -202,7 +202,12 @@
     @if (inspectedSource(); as source) {
       <section class="inspected-source-panel" aria-label="Inspected source">
         <div class="inspected-source-heading">
-          <span>Source</span>
+          <span>
+            Source
+            @if (sourceDisplayLocator(source); as locator) {
+              <span class="inspected-source-locator">· {{ locator }}</span>
+            }
+          </span>
           <button
             appIconButton
             size="xxs"
