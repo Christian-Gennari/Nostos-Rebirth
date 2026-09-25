@@ -207,6 +207,7 @@ public sealed class WikisourceProvider : IContentProvider,
     private ProviderItem ToProviderItem(WikisourceBook book) => new(
         ProviderId: Id,
         ExternalId: book.Page,
+        MediaKind: ProviderMediaKind.Ebook,
         Metadata: MetadataFor(book),
         Assets: book.Asset is null
             ? []
