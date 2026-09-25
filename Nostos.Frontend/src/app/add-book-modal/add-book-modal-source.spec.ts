@@ -25,6 +25,20 @@ const gutenberg: ProviderSummary = {
   rightsNotice: 'Public domain in the USA (Project Gutenberg)',
 };
 
+const librivox: ProviderSummary = {
+  id: 'librivox',
+  displayName: 'LibriVox',
+  capabilities: ['search', 'itemretrieval', 'audiobookacquisition'],
+  rightsNotice: 'Public domain recordings (LibriVox)',
+};
+
+const wikisource: ProviderSummary = {
+  id: 'wikisource',
+  displayName: 'Wikisource',
+  capabilities: ['search', 'itemretrieval', 'ebookacquisition', 'coverart', 'rightsinformation'],
+  rightsNotice: null,
+};
+
 const pride: ProviderItem = {
   providerId: 'gutenberg',
   externalId: '1342',
@@ -96,7 +110,7 @@ describe('AddBookModal — From a Source', () => {
 
     providers = TestBed.inject(ProvidersService);
     books = TestBed.inject(BooksService);
-    vi.spyOn(providers, 'list').mockReturnValue(of([gutenberg]));
+    vi.spyOn(providers, 'list').mockReturnValue(of([gutenberg, librivox, wikisource]));
     vi.spyOn(providers, 'search').mockReturnValue(
       of({ items: [pride], hasMore: false, notice: null }),
     );
@@ -206,6 +220,24 @@ describe('AddBookModal — From a Source', () => {
     expect(providers.list).toHaveBeenCalled();
     expect(component.selectedProviderId()).toBe('gutenberg');
     expect(fixture.nativeElement.textContent).toContain('Search Project Gutenberg');
+  });
+
+  it('offers Wikisource alongside Gutenberg and LibriVox in the provider picker', async () => {
+    component.enterSourceMode();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const labels = Array.from(
+      fixture.nativeElement.querySelectorAll('.source-choice') as NodeListOf<HTMLButtonElement>,
+    ).map((button) => button.textContent?.trim());
+
+    expect(labels).toEqual(['Project Gutenberg', 'LibriVox', 'Wikisource']);
+
+    component.chooseProvider('wikisource');
+    fixture.detectChanges();
+
+    expect(component.selectedProviderId()).toBe('wikisource');
+    expect(fixture.nativeElement.textContent).toContain('Search Wikisource');
   });
 
   it('surfaces a source-failure instead of an empty screen', async () => {

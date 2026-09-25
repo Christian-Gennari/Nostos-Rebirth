@@ -10,6 +10,7 @@ using Nostos.Backend.Providers.Acquisition.Media;
 using Nostos.Backend.Providers.Contracts;
 using Nostos.Backend.Providers.Gutenberg;
 using Nostos.Backend.Providers.LibriVox;
+using Nostos.Backend.Providers.Wikisource;
 using Nostos.Backend.Serialization;
 using Nostos.Backend.Services;
 using Nostos.Backend.Services.Ai;
@@ -171,6 +172,15 @@ public static class NostosProductComposition
                 "Nostos/1.0 (+https://github.com/Christian-Gennari/Nostos-Rebirth)");
         });
         services.AddSingleton<IContentProvider, GutenbergProvider>();
+
+        services.AddHttpClient(WikisourceProvider.HttpClientName, client =>
+        {
+            client.BaseAddress = new Uri(WikisourceCatalog.BaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(20);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(
+                "Nostos/1.0 (+https://github.com/Christian-Gennari/Nostos-Rebirth)");
+        });
+        services.AddSingleton<IContentProvider, WikisourceProvider>();
 
         services.Configure<MediaToolOptions>(
             configuration.GetSection(MediaToolOptions.SectionName));
