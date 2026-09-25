@@ -121,7 +121,7 @@ public sealed class ProviderDiscoveryEndpointTests : IClassFixture<LibraryEndpoi
     private static void ReplaceProviders(
         IWebHostBuilder builder,
         params IContentProvider[] providers) =>
-        ReplaceProvidersCore(builder, searchTimeout: null, providers);
+        ReplaceProvidersCore(builder, null, providers);
 
     private static void ReplaceProviders(
         IWebHostBuilder builder,
