@@ -84,9 +84,55 @@ public sealed class ProviderDiscoveryEndpointTests : IClassFixture<LibraryEndpoi
         failure.ErrorCode.Should().Be(ProviderException.Unavailable);
     }
 
+    [Fact]
+    public async Task AggregateSearch_TimesOutHungProvider_AndReturnsSiblingResult()
+    {
+        var never = new TaskCompletionSource<ProviderSearchPage>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var good = new EndpointProvider(
+            "alpha",
+            ProviderCapabilities.EbookAcquisition,
+            new ProviderSearchPage([Item("alpha", "1", ProviderMediaKind.Ebook, "Good")]));
+        var hung = new EndpointProvider(
+            "beta",
+            ProviderCapabilities.EbookAcquisition,
+            (_, _) => never.Task);
+
+        await using var app = _factory.WithWebHostBuilder(builder =>
+            ReplaceProviders(builder, TimeSpan.FromMilliseconds(60), good, hung));
+        using var client = app.CreateClient();
+
+        var response = await client
+            .GetFromJsonAsync<ProviderDiscoverySearchResultDto>(
+                "/api/providers/search?query=classic")
+            .WaitAsync(TimeSpan.FromSeconds(2));
+
+        response.Should().NotBeNull();
+        response!.Items.Should().ContainSingle();
+        response.Items[0].ProviderId.Should().Be("alpha");
+        response.Sources.Should().HaveCount(2);
+        response.Sources.Single(source => source.ProviderId == "alpha").Succeeded.Should().BeTrue();
+
+        var timedOut = response.Sources.Single(source => source.ProviderId == "beta");
+        timedOut.Succeeded.Should().BeFalse();
+        timedOut.ErrorCode.Should().Be(ProviderDiscoveryErrorCodes.Timeout);
+    }
+
     private static void ReplaceProviders(
         IWebHostBuilder builder,
-        params IContentProvider[] providers)
+        params IContentProvider[] providers) =>
+        ReplaceProvidersCore(builder, searchTimeout: null, providers);
+
+    private static void ReplaceProviders(
+        IWebHostBuilder builder,
+        TimeSpan searchTimeout,
+        params IContentProvider[] providers) =>
+        ReplaceProvidersCore(builder, searchTimeout, providers);
+
+    private static void ReplaceProvidersCore(
+        IWebHostBuilder builder,
+        TimeSpan? searchTimeout,
+        IReadOnlyList<IContentProvider> providers)
     {
         builder.ConfigureServices(services =>
         {
@@ -96,6 +142,12 @@ public sealed class ProviderDiscoveryEndpointTests : IClassFixture<LibraryEndpoi
 
             foreach (var provider in providers)
                 services.AddSingleton(typeof(IContentProvider), provider);
+
+            if (searchTimeout is { } timeout)
+            {
+                services.Configure<ProviderDiscoveryOptions>(options =>
+                    options.SearchTimeout = timeout);
+            }
 
             services.AddSingleton<IProviderRegistry, ProviderRegistry>();
             services.AddSingleton<ProviderDiscoveryService>();
@@ -120,27 +172,35 @@ public sealed class ProviderDiscoveryEndpointTests : IClassFixture<LibraryEndpoi
         IProviderAcquisitionPlanner,
         IProviderDownloadPolicy
     {
-        private readonly ProviderSearchPage? _page;
-        private readonly ProviderException? _failure;
+        private readonly Func<ProviderSearchQuery, CancellationToken, Task<ProviderSearchPage>> _search;
 
         public EndpointProvider(
             string id,
             ProviderCapabilities acquisition,
             ProviderSearchPage page)
+            : this(id, acquisition, (_, _) => Task.FromResult(page))
         {
-            Id = id;
-            Capabilities = ProviderCapabilities.Search | acquisition;
-            _page = page;
         }
 
         public EndpointProvider(
             string id,
             ProviderCapabilities acquisition,
             ProviderException failure)
+            : this(
+                id,
+                acquisition,
+                (_, _) => Task.FromException<ProviderSearchPage>(failure))
+        {
+        }
+
+        public EndpointProvider(
+            string id,
+            ProviderCapabilities acquisition,
+            Func<ProviderSearchQuery, CancellationToken, Task<ProviderSearchPage>> search)
         {
             Id = id;
             Capabilities = ProviderCapabilities.Search | acquisition;
-            _failure = failure;
+            _search = search;
         }
 
         public string Id { get; }
@@ -156,10 +216,7 @@ public sealed class ProviderDiscoveryEndpointTests : IClassFixture<LibraryEndpoi
         public Task<ProviderSearchPage> SearchAsync(ProviderSearchQuery query, CancellationToken ct)
         {
             SearchCount++;
-            if (_failure is not null)
-                throw _failure;
-
-            return Task.FromResult(_page!);
+            return _search(query, ct);
         }
 
         public Task<ProviderAcquisitionPlan?> PlanAcquisitionAsync(
