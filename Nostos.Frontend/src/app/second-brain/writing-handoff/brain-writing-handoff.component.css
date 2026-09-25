@@ -20,7 +20,7 @@
   border: 1px solid var(--border-color);
   border-radius: 14px;
   background: var(--bg-surface);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-sm);
   padding: 1.25rem;
   color: var(--color-text-main);
 }
