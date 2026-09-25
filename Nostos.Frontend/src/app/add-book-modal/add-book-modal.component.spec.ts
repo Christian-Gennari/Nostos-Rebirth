@@ -46,7 +46,7 @@ describe('AddBookModal', () => {
     const actions = fixture.nativeElement.querySelector('app-dialog-actions') as HTMLElement;
     const buttons = Array.from(actions.querySelectorAll('button')) as HTMLButtonElement[];
     const cancelButton = buttons.find((button) => button.textContent?.trim() === 'Cancel')!;
-    const submitButton = buttons.find((button) => button.textContent?.trim() === 'Create Book')!;
+    const submitButton = buttons.find((button) => button.textContent?.trim() === 'Add to Library')!;
 
     expect(actions.classList).toContain('nostos-dialog-actions--footer');
     expect(cancelButton.type).toBe('button');
@@ -119,16 +119,70 @@ describe('AddBookModal', () => {
     expect(document.activeElement).toBe(title);
   });
 
-  it('keeps physical books metadata-only in the create form', () => {
-    component.setTab('Files & Personal');
+  it('opens the physical path around ISBN identification, without a hidden book upload', () => {
+    component.startIntent('physical');
     fixture.detectChanges();
 
     const digitalFileInput = fixture.nativeElement.querySelector(
       'input[type="file"][accept*=".epub"]',
     );
     expect(digitalFileInput).toBeNull();
-    expect(fixture.nativeElement.textContent).toContain('Physical books are metadata-only');
-    expect(fixture.nativeElement.textContent).toContain('separate book');
+    expect(fixture.nativeElement.textContent).toContain('Identify by ISBN');
+    expect(fixture.nativeElement.querySelector('#book-title')).toBeTruthy();
+  });
+
+  it('makes local upload the first visible task, then derives a compact review from the file', async () => {
+    component.startIntent('upload');
+    fixture.detectChanges();
+
+    expect(component.awaitingLocalFile()).toBe(true);
+    expect(fixture.nativeElement.querySelector('#book-title')).toBeNull();
+
+    const input = fixture.nativeElement.querySelector(
+      '.file-drop-zone--primary input[type="file"]',
+    ) as HTMLInputElement;
+    const file = new File(['ebook'], 'the-magic-mountain.epub', {
+      type: 'application/epub+zip',
+    });
+    Object.defineProperty(input, 'files', { value: [file] });
+    input.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(component.awaitingLocalFile()).toBe(false);
+    expect(component.form.type).toBe('ebook');
+    expect(component.form.title).toBe('the magic mountain');
+    expect(fixture.nativeElement.querySelector('#book-title')).toBeTruthy();
+    expect(fixture.nativeElement.textContent).toContain('the-magic-mountain.epub');
+  });
+
+  it('infers audiobook format from an uploaded audio file', () => {
+    component.startIntent('upload');
+    component.onFileSelected({
+      target: { files: [new File(['audio'], 'ulysses.m4b', { type: 'audio/mp4' }) },
+    } as unknown as Event);
+
+    expect(component.form.type).toBe('audiobook');
+    expect(component.form.title).toBe('ulysses');
+  });
+
+  it('keeps optional metadata behind one shallow More details disclosure', () => {
+    fixture.detectChanges();
+
+    const disclosure = fixture.nativeElement.querySelector(
+      'details.metadata-disclosure',
+    ) as HTMLDetailsElement;
+    expect(disclosure).toBeTruthy();
+    expect(disclosure.open).toBe(false);
+    expect(disclosure.querySelectorAll('details')).toHaveLength(0);
+
+    const text = disclosure.textContent;
+    expect(text).toContain('Identity & contributors');
+    expect(text).toContain('Publication');
+    expect(text).toContain('Identifiers');
+    expect(text).toContain('Library details');
+    expect(disclosure.querySelector('#book-publisher')).toBeTruthy();
+    expect(disclosure.querySelector('#book-personal-review')).toBeTruthy();
   });
 
   it('clears a chosen digital file when format changes to physical', () => {
