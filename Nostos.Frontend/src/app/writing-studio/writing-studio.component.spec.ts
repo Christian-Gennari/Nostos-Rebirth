@@ -23,6 +23,7 @@ class MarkdownEditorStub {
   readonly typewriter = input<boolean>(false);
   readonly contentChange = output<string>();
   readonly wordCountChange = output<number>();
+  readonly insertMarkdown = vi.fn(async (_markdown: string) => true);
 }
 
 @Component({ selector: 'app-flat-tree', standalone: true, template: '' })
