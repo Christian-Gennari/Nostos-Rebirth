@@ -157,6 +157,9 @@ public static class NostosProductComposition
             ConnectTimeout = TimeSpan.FromSeconds(30),
         });
 
+        services.Configure<ProviderDiscoveryOptions>(
+            configuration.GetSection(ProviderDiscoveryOptions.SectionName));
+
         services.AddSingleton<IProviderRegistry, ProviderRegistry>();
         services.AddSingleton<ProviderDiscoveryService>();
         services.TryAddSingleton<
