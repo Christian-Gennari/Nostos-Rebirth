@@ -115,6 +115,7 @@
 
       <div class="editor-wrapper">
         <app-markdown-editor
+          #editor
           [initialContent]="editorText()"
           [typewriter]="typewriter()"
           (contentChange)="editorText.set($event)"
@@ -198,6 +199,70 @@
       }
     </div>
 
+    @if (inspectedSource(); as source) {
+      <section class="inspected-source-panel" aria-label="Inspected source">
+        <div class="inspected-source-heading">
+          <span>Source</span>
+          <button
+            appIconButton
+            size="xxs"
+            icon="x"
+            [glyphSize]="14"
+            (click)="closeInspectedSource()"
+            aria-label="Close inspected source"
+          ></button>
+        </div>
+
+        <app-note-card
+          class="inspected-source-card"
+          [note]="source"
+          [conceptMap]="conceptMap()"
+          [showActions]="false"
+          [showSource]="true"
+          [showDate]="false"
+        ></app-note-card>
+
+        <div class="source-insertion-actions">
+          @if (canInsertQuote(source)) {
+            <button
+              appButton
+              variant="secondary"
+              size="sm"
+              [disabled]="!activeItem()"
+              (click)="insertQuote(source)"
+            >
+              Insert quote
+            </button>
+          }
+          @if (canInsertNote(source)) {
+            <button
+              appButton
+              variant="secondary"
+              size="sm"
+              [disabled]="!activeItem()"
+              (click)="insertNote(source)"
+            >
+              Insert note
+            </button>
+          }
+          @if (canInsertReference(source)) {
+            <button
+              appButton
+              variant="secondary"
+              size="sm"
+              [disabled]="!activeItem()"
+              (click)="insertReference(source)"
+            >
+              Insert as reference
+            </button>
+          }
+          <button appButton variant="ghost" size="sm" (click)="openSource(source)">
+            Open source
+          </button>
+        </div>
+      </section>
+    }
+
     @if (referenceMode() === 'writing') {
       <div class="brain-content kept-sources-content">
         @if (!activeItem()) {
@@ -209,10 +274,16 @@
             @for (note of keptNotes(); track note.id) {
               <div class="kept-note-row">
                 <app-note-card
+                  class="inspectable-note"
+                  role="button"
+                  tabindex="0"
                   [note]="note"
                   [conceptMap]="conceptMap()"
                   [showActions]="false"
                   [showSource]="true"
+                  (click)="inspectSource(note)"
+                  (keydown.enter)="inspectSource(note)"
+                  (keydown.space)="inspectSource(note); $event.preventDefault()"
                 ></app-note-card>
                 <div class="kept-note-actions">
                   <button
@@ -275,8 +346,12 @@
                     [conceptMap]="conceptMap()"
                     [showActions]="false"
                     [showSource]="true"
-                    (click)="insertNoteIntoEditor(note.selectedText ?? '')"
-                    class="clickable-note"
+                    (click)="inspectSource(note)"
+                    (keydown.enter)="inspectSource(note)"
+                    (keydown.space)="inspectSource(note); $event.preventDefault()"
+                    class="inspectable-note"
+                    role="button"
+                    tabindex="0"
                   ></app-note-card>
                   <div class="library-note-actions">
                     <button
@@ -348,8 +423,12 @@
                     [showActions]="false"
                     [showSource]="true"
                     [showDate]="false"
-                    (click)="insertNoteIntoEditor(note.selectedText ?? '')"
-                    class="clickable-note"
+                    (click)="inspectSource(note)"
+                    (keydown.enter)="inspectSource(note)"
+                    (keydown.space)="inspectSource(note); $event.preventDefault()"
+                    class="inspectable-note"
+                    role="button"
+                    tabindex="0"
                   ></app-note-card>
                   <div class="library-note-actions">
                     <button
