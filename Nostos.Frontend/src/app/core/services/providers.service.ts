@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import {
   ProviderAcquisition,
   ProviderAcquireRequest,
+  ProviderDiscoverySearchResult,
   ProviderItem,
   ProviderSearchResult,
   ProviderSummary,
@@ -26,6 +27,18 @@ export class ProvidersService {
     return this.http.get<ProviderSummary[]>('/api/providers');
   }
 
+  searchAll(
+    query: string,
+    kind?: 'ebook' | 'audiobook',
+    limit = 20,
+  ): Observable<ProviderDiscoverySearchResult> {
+    let params = new HttpParams().set('query', query).set('limit', limit);
+    if (kind) params = params.set('kind', kind);
+
+    return this.http.get<ProviderDiscoverySearchResult>('/api/providers/search', { params });
+  }
+
+  /** Provider-specific search remains for compatibility and focused provider tests. */
   search(
     providerId: string,
     query: string,

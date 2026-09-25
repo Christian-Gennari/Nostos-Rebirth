@@ -136,7 +136,7 @@ public sealed class LibriVoxProvider : IContentProvider,
         {
             var more = byTitle.Count >= limit;
             return new ProviderSearchPage(
-                Items: byTitle.Select(ToProviderItem).ToList(),
+                Items: byTitle.Select(book => ToProviderItem(book, includeAssets: false)).ToList(),
                 HasMore: more,
                 Notice: "LibriVox matches titles that start with your text. Add more words to narrow it down.");
         }
@@ -150,7 +150,7 @@ public sealed class LibriVoxProvider : IContentProvider,
         if (byAuthor.Count > 0)
         {
             return new ProviderSearchPage(
-                Items: byAuthor.Select(ToProviderItem).ToList(),
+                Items: byAuthor.Select(book => ToProviderItem(book, includeAssets: false)).ToList(),
                 HasMore: byAuthor.Count >= limit,
                 Notice: $"No title matched “{text}”, so these are recordings by a reader or author matching it. LibriVox cannot search inside titles.");
         }
@@ -163,7 +163,7 @@ public sealed class LibriVoxProvider : IContentProvider,
     public async Task<ProviderItem?> GetItemAsync(string externalId, CancellationToken ct)
     {
         var book = await LoadBookAsync(externalId, ct);
-        return book is null ? null : ToProviderItem(book);
+        return book is null ? null : ToProviderItem(book, includeAssets: true);
     }
 
     // --- IProviderAcquisitionPlanner -------------------------------------
@@ -245,13 +245,14 @@ public sealed class LibriVoxProvider : IContentProvider,
         Narrator: book.Narrator,
         Duration: book.Duration);
 
-    private ProviderItem ToProviderItem(LibriVoxCatalog.Book book) => new(
+    private ProviderItem ToProviderItem(LibriVoxCatalog.Book book, bool includeAssets) => new(
         ProviderId: Id,
         ExternalId: book.Id,
+        MediaKind: ProviderMediaKind.Audiobook,
         Metadata: MetadataFor(book),
-        // A search result already knows the one asset and the section count,
-        // because the feed's search response carries them.
-        Assets: [AudioAsset],
+        // Discovery remains thin. Detail exposes the one normalized M4B asset;
+        // raw MP3 sections never become user-selectable formats.
+        Assets: includeAssets ? [AudioAsset] : [],
         Cover: book.Cover,
         Source: new ProviderSourceInfo(
             ItemUrl: book.Url,

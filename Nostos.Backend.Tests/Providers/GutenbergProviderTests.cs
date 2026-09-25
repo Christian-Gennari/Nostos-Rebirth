@@ -66,6 +66,7 @@ public sealed class GutenbergProviderTests
 
         var first = partialPage.Items[0];
         first.ExternalId.Should().Be("1342");
+        first.MediaKind.Should().Be(ProviderMediaKind.Ebook);
         first.Metadata.Title.Should().Be("Pride and Prejudice");
         first.Metadata.Author.Should().Be("Jane Austen");
         first.Cover.Should().NotBeNull();
@@ -203,6 +204,63 @@ public sealed class GutenbergProviderTests
                                             a.Id.Contains("mobi", StringComparison.OrdinalIgnoreCase) ||
                                             a.SourceFormat.Contains("kindle", StringComparison.OrdinalIgnoreCase) ||
                                             a.SourceFormat.Contains("mobi", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task Detail_WhenOpdsAdvertisesPdf_ExposesEpubAndPdf_AndKeepsEpubPreferred()
+    {
+        var detailXml = LoadFixture("book-1342-epub-pdf.opds");
+        var (provider, handler) = CreateProvider();
+        handler.RegisterXml("/ebooks/1342.opds", detailXml);
+
+        var item = await provider.GetItemAsync("1342", CancellationToken.None);
+
+        item.Should().NotBeNull();
+        item!.Assets.Select(asset => asset.Id).Should().Equal("epub3-images", "pdf");
+        item.Assets.Should().OnlyContain(asset => asset.Kind == ProviderMediaKind.Ebook);
+        item.Assets.Single(asset => asset.Id == "epub3-images").SourceFormat
+            .Should().Be("application/epub+zip");
+        item.Assets.Single(asset => asset.Id == "epub3-images").IsPreferred.Should().BeTrue();
+        item.Assets.Single(asset => asset.Id == "pdf").SourceFormat.Should().Be("application/pdf");
+        item.Assets.Single(asset => asset.Id == "pdf").IsPreferred.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task PlanAcquisition_ExplicitPdf_ProducesPdfOutput()
+    {
+        var detailXml = LoadFixture("book-1342-epub-pdf.opds");
+        var (provider, handler) = CreateProvider();
+        handler.RegisterXml("/ebooks/1342.opds", detailXml);
+
+        var plan = await provider.PlanAcquisitionAsync(
+            new ProviderAcquisitionRequest("1342", AssetId: "pdf"),
+            CancellationToken.None);
+
+        plan.Should().NotBeNull();
+        plan!.Asset.Id.Should().Be("pdf");
+        plan.Asset.Kind.Should().Be(ProviderMediaKind.Ebook);
+        plan.Asset.SourceFormat.Should().Be("application/pdf");
+        plan.Parts.Should().ContainSingle();
+        plan.Parts[0].Url.Should().Be(new Uri("https://www.gutenberg.org/ebooks/1342.pdf"));
+        plan.Parts[0].FileExtension.Should().Be(".pdf");
+        plan.Parts[0].ExpectedBytes.Should().Be(4123456);
+        plan.Output.Should().Be(new ProviderOutput(".pdf", "application/pdf", "PDF"));
+    }
+
+    [Fact]
+    public async Task PlanAcquisition_DefaultWithPdfAvailable_StillPicksPreferredEpub()
+    {
+        var detailXml = LoadFixture("book-1342-epub-pdf.opds");
+        var (provider, handler) = CreateProvider();
+        handler.RegisterXml("/ebooks/1342.opds", detailXml);
+
+        var plan = await provider.PlanAcquisitionAsync(
+            new ProviderAcquisitionRequest("1342", AssetId: null),
+            CancellationToken.None);
+
+        plan.Should().NotBeNull();
+        plan!.Asset.Id.Should().Be("epub3-images");
+        plan.Output.Should().Be(new ProviderOutput(".epub", "application/epub+zip", "EPUB"));
     }
 
     [Fact]

@@ -1,6 +1,7 @@
 using Nostos.Backend.Providers;
 using Nostos.Backend.Providers.Acquisition;
 using Nostos.Backend.Providers.Contracts;
+using Nostos.Backend.Providers.Discovery;
 using Nostos.Shared.Dtos;
 using Nostos.Product.Composition;
 
@@ -31,6 +32,56 @@ public static class ProviderEndpoints
             "/",
             (IProviderRegistry registry) =>
                 Results.Ok(registry.All.Select(ToSummaryDto).ToList()));
+
+        // Search every source that can both search and acquire the requested
+        // kind. Providers remain provenance; capability registration determines
+        // participation, so adding a provider does not add endpoint/UI rules.
+        group.MapGet(
+            "/search",
+            async (
+                string? query,
+                int? limit,
+                string? kind,
+                ProviderDiscoveryService discovery,
+                CancellationToken ct) =>
+            {
+                if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 2)
+                    return Results.Ok(new ProviderDiscoverySearchResultDto([], false, []));
+
+                if (query.Length > 200)
+                    return Results.BadRequest(new { error = "Search text is limited to 200 characters." });
+
+                ProviderMediaKind? mediaKind = null;
+                if (!string.IsNullOrWhiteSpace(kind))
+                {
+                    if (Enum.TryParse<ProviderMediaKind>(kind, ignoreCase: true, out var parsedKind))
+                    {
+                        mediaKind = parsedKind;
+                    }
+                    else
+                    {
+                        return Results.BadRequest(new { error = "Invalid material kind." });
+                    }
+                }
+
+                var result = await discovery.SearchAsync(
+                    query.Trim(),
+                    mediaKind,
+                    Math.Clamp(limit ?? 20, 1, 50),
+                    ct);
+
+                return Results.Ok(new ProviderDiscoverySearchResultDto(
+                    result.Items.Select(ToItemDto).ToList(),
+                    result.HasMore,
+                    result.Sources
+                        .Select(source => new ProviderDiscoverySourceStatusDto(
+                            source.ProviderId,
+                            source.DisplayName,
+                            source.Succeeded,
+                            source.Notice,
+                            source.ErrorCode))
+                        .ToList()));
+            });
 
         // Search one source. A thin result set is not an error: the provider
         // explains itself in Notice instead.
@@ -281,6 +332,7 @@ public static class ProviderEndpoints
         return new ProviderItemDto(
             ProviderId: item.ProviderId,
             ExternalId: item.ExternalId,
+            MediaKind: item.MediaKind == ProviderMediaKind.Audiobook ? "audiobook" : "ebook",
             Title: metadata.Title,
             Subtitle: metadata.Subtitle,
             Author: metadata.Author,

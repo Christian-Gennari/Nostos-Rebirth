@@ -10,7 +10,7 @@ namespace Nostos.Backend.Providers.Gutenberg;
 /// Project Gutenberg as a Nostos content source.
 ///
 /// Everything Gutenberg-shaped stops at this boundary. Downstream only ever sees
-/// the normalized contracts: an imported book is an ordinary local EPUB, and
+/// the normalized contracts: an imported book is an ordinary local ebook, and
 /// nothing in the library, the reader, notes, work grouping or backups knows
 /// this provider exists.
 ///
@@ -75,7 +75,7 @@ public sealed partial class GutenbergProvider : IContentProvider,
 
     public long MaxTotalBytes => MaxEbookBytes;
 
-    /// <summary>One EPUB per import: Gutenberg exposes no multi-file ebook.</summary>
+    /// <summary>One ebook asset per import: Gutenberg exposes no multi-file ebook.</summary>
     public int MaxParts => 1;
 
     // --- IProviderSearch -------------------------------------------------
@@ -96,7 +96,7 @@ public sealed partial class GutenbergProvider : IContentProvider,
         var books = GutenbergCatalog.ParseSearch(feed);
         var perPage = GutenbergCatalog.ItemsPerPage(feed);
 
-        var items = books.Select(ToProviderItem).ToList();
+        var items = books.Select(book => ToProviderItem(book, includeAssets: false)).ToList();
 
         return new ProviderSearchPage(
             Items: items,
@@ -111,7 +111,7 @@ public sealed partial class GutenbergProvider : IContentProvider,
     public async Task<ProviderItem?> GetItemAsync(string externalId, CancellationToken ct)
     {
         var book = await LoadBookAsync(externalId, ct);
-        return book is null ? null : ToProviderItem(book);
+        return book is null ? null : ToProviderItem(book, includeAssets: true);
     }
 
     // --- IProviderAcquisitionPlanner -------------------------------------
@@ -133,7 +133,7 @@ public sealed partial class GutenbergProvider : IContentProvider,
             : book.Assets.FirstOrDefault(a => string.Equals(a.Id, request.AssetId, StringComparison.OrdinalIgnoreCase));
 
         if (asset is null)
-            throw ProviderException.AssetUnavailableFor(Id, book.Id, request.AssetId ?? "epub");
+            throw ProviderException.AssetUnavailableFor(Id, book.Id, request.AssetId ?? "ebook");
 
         return new ProviderAcquisitionPlan(
             ProviderId: Id,
@@ -155,11 +155,11 @@ public sealed partial class GutenbergProvider : IContentProvider,
             [
                 new ProviderDownloadPart(
                     Url: asset.Url,
-                    FileExtension: ".epub",
+                    FileExtension: asset.FileExtension,
                     ExpectedBytes: asset.SizeBytes,
                     Label: asset.Label),
             ],
-            Output: new ProviderOutput(".epub", "application/epub+zip", "EPUB"),
+            Output: new ProviderOutput(asset.FileExtension, asset.SourceFormat, asset.OutputLabel),
             Cover: GutenbergCatalog.CoverFor(book.Id),
             Source: new ProviderSourceInfo(
                 ItemUrl: $"{GutenbergCatalog.BaseUrl}/ebooks/{book.Id}",
@@ -207,24 +207,27 @@ public sealed partial class GutenbergProvider : IContentProvider,
         }
     }
 
-    private ProviderItem ToProviderItem(GutenbergBook book) => new(
+    private ProviderItem ToProviderItem(GutenbergBook book, bool includeAssets) => new(
         ProviderId: Id,
         ExternalId: book.Id,
+        MediaKind: ProviderMediaKind.Ebook,
         Metadata: new ProviderMetadata(
             Title: book.Title,
             Author: book.Author,
             Description: book.Description,
             Language: book.Language,
             Categories: book.Categories),
-        Assets: book.Assets
-            .Select(asset => new ProviderAsset(
-                Id: asset.Id,
-                Kind: ProviderMediaKind.Ebook,
-                Label: asset.Label,
-                SourceFormat: asset.SourceFormat,
-                SizeBytes: asset.SizeBytes,
-                IsPreferred: asset.IsPreferred))
-            .ToList(),
+        Assets: includeAssets
+            ? book.Assets
+                .Select(asset => new ProviderAsset(
+                    Id: asset.Id,
+                    Kind: ProviderMediaKind.Ebook,
+                    Label: asset.Label,
+                    SourceFormat: asset.SourceFormat,
+                    SizeBytes: asset.SizeBytes,
+                    IsPreferred: asset.IsPreferred))
+                .ToList()
+            : [],
         Cover: GutenbergCatalog.CoverFor(book.Id),
         Source: new ProviderSourceInfo(
             ItemUrl: $"{GutenbergCatalog.BaseUrl}/ebooks/{book.Id}",

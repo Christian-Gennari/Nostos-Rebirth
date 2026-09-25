@@ -16,11 +16,17 @@ internal sealed record WikisourceBook(
     string? Categories,
     string? Rights,
     Uri? SourceUrl,
-    WikisourceAsset? Asset,
+    IReadOnlyList<WikisourceAsset> Assets,
     ProviderCover? Cover);
 
-/// <summary>The EPUB acquisition link published by the OPDS entry.</summary>
-internal sealed record WikisourceAsset(Uri Url);
+/// <summary>One WS Export representation Nostos can acquire.</summary>
+internal sealed record WikisourceAsset(
+    string Id,
+    string Label,
+    string SourceFormat,
+    Uri Url,
+    string FileExtension,
+    bool IsPreferred = false);
 
 /// <summary>
 /// Parses WS Export's OPDS/Atom representation for English Wikisource.
@@ -80,7 +86,13 @@ internal static class WikisourceCatalog
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            var acquisition = Link(entry, OpdsAcquisition, "application/epub+zip");
+            var epub = Link(entry, OpdsAcquisition, "application/epub+zip");
+            var pdf = Link(entry, OpdsAcquisition, "application/pdf")
+                // WS Export's documented export route supports format=pdf
+                // (an alias for its PDF generator). This is a machine export
+                // endpoint, not Wikisource HTML scraping, and resolves PDF
+                // independently from the EPUB acquisition URL.
+                ?? ExportUri(page, "pdf");
             var image = Link(entry, OpdsImage, requiredType: null);
             var source = TryAbsoluteUri(Text(entry.Element(Dc + "source")))
                 ?? Link(entry, "alternate", "text/html")
@@ -111,7 +123,7 @@ internal static class WikisourceCatalog
                 Categories: categories.Count == 0 ? null : string.Join(", ", categories),
                 Rights: rights,
                 SourceUrl: source,
-                Asset: acquisition is null ? null : new WikisourceAsset(acquisition),
+                Assets: BuildAssets(epub, pdf),
                 Cover: image is null ? null : CoverFor(entry, image)));
         }
 
@@ -125,6 +137,35 @@ internal static class WikisourceCatalog
                    string.Equals(book.Page, page, StringComparison.OrdinalIgnoreCase))
                ?? books.FirstOrDefault();
     }
+
+    private static IReadOnlyList<WikisourceAsset> BuildAssets(Uri? epub, Uri pdf)
+    {
+        var assets = new List<WikisourceAsset>();
+
+        if (epub is not null)
+        {
+            assets.Add(new WikisourceAsset(
+                Id: "epub",
+                Label: "EPUB",
+                SourceFormat: "application/epub+zip",
+                Url: epub,
+                FileExtension: ".epub",
+                IsPreferred: true));
+        }
+
+        assets.Add(new WikisourceAsset(
+            Id: "pdf",
+            Label: "PDF",
+            SourceFormat: "application/pdf",
+            Url: pdf,
+            FileExtension: ".pdf",
+            IsPreferred: epub is null));
+
+        return assets;
+    }
+
+    private static Uri ExportUri(string page, string format) =>
+        new($"{BaseUrl}/?lang={LanguageCode}&format={format}&page={Uri.EscapeDataString(page)}");
 
     private static IEnumerable<XElement> Entries(XDocument document)
     {

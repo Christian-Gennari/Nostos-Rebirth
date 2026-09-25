@@ -54,7 +54,11 @@ public sealed record ProviderAsset(
     ProviderMediaKind Kind,
     /// <summary>Short label shown to the user (e.g. "EPUB3 (E-readers incl. Send-to-Kindle)").</summary>
     string Label,
-    /// <summary>The source's own name for the format; informational only.</summary>
+    /// <summary>
+    /// Normalized content format when known (for example application/epub+zip
+    /// or application/pdf); provider-specific source formats remain allowed
+    /// for representations such as assembled audiobook inputs.
+    /// </summary>
     string SourceFormat,
     long? SizeBytes = null,
     /// <summary>The provider's default choice when the caller names no asset.</summary>
@@ -79,6 +83,12 @@ public sealed record ProviderSourceInfo(
 public sealed record ProviderItem(
     string ProviderId,
     string ExternalId,
+    /// <summary>
+    /// Normalized content kind carried even by thin search results. Assets are
+    /// intentionally absent from search results, so callers must not infer the
+    /// item's kind from a provider id or from detail-only assets.
+    /// </summary>
+    ProviderMediaKind MediaKind,
     ProviderMetadata Metadata,
     IReadOnlyList<ProviderAsset> Assets,
     ProviderCover? Cover = null,

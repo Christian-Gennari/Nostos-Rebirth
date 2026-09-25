@@ -225,6 +225,54 @@ public sealed class AcquisitionServiceTests
         Directory.GetDirectories(h.WorkingRootDir).Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task PdfDownloadFailure_LeavesNoLocalFileOrAcquisitionProvenance()
+    {
+        using var h = AcquisitionHarness.Create();
+
+        var provider = new FakeContentProvider("wikisource", "Wikisource");
+        var basePlan = CreateEbookPlan(
+            providerId: "wikisource",
+            externalId: "Pride and Prejudice",
+            assetId: "pdf",
+            title: "Pride and Prejudice",
+            partUrl: "https://example.com/pride.pdf",
+            partExtension: ".pdf");
+
+        provider.PlanResult = basePlan with
+        {
+            Asset = basePlan.Asset with
+            {
+                Id = "pdf",
+                Label = "PDF",
+                SourceFormat = "application/pdf",
+            },
+            Output = new ProviderOutput(".pdf", "application/pdf", "PDF"),
+        };
+
+        h.Downloader.ExceptionToThrowOnDownload = new ProviderDownloadException(
+            ProviderDownloadException.NotFound,
+            "PDF export returned 404.");
+
+        var service = h.CreateService(new ProviderRegistry(new[] { provider }));
+
+        var result = await service.AcquireAsync(
+            new AcquisitionRequest("wikisource", "Pride and Prejudice", AssetId: "pdf"),
+            null,
+            CancellationToken.None);
+
+        result.Outcome.Should().Be(AcquisitionOutcome.Failed);
+
+        await using var db = await h.ContextFactory.CreateDbContextAsync();
+        var book = await db.Books.SingleAsync(b => b.Title == "Pride and Prejudice");
+        book.Status.Should().Be(BookStatus.Failed);
+        db.BookAcquisitions.Should().BeEmpty(
+            "a failed PDF export is not an acquired local edition");
+
+        Directory.GetFiles(h.BooksRootDir, "*", SearchOption.AllDirectories).Should().BeEmpty();
+        Directory.GetDirectories(h.WorkingRootDir).Should().BeEmpty();
+    }
+
     private sealed class FailingStorageDecorator(IBookAssetStorage inner) : IBookAssetStorage
     {
         public Task<string> SaveBookFileAsync(

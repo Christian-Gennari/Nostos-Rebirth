@@ -1,7 +1,7 @@
 # Content Providers & Acquisition
 
 Nostos can import books from external public-domain/open-content catalogues
-(Project Gutenberg, LibriVox, and future sources) without any of them leaking
+(Project Gutenberg, Wikisource, LibriVox, and future sources) without any of them leaking
 into the library, storage, reader, notes, work-grouping or backup layers.
 
 This document describes the provider/acquisition architecture introduced by
@@ -195,7 +195,8 @@ archive and the storage service cannot disagree about where the library is.
 | Method | Route | Purpose |
 | --- | --- | --- |
 | GET | `/api/providers` | Registered sources and their capabilities. |
-| GET | `/api/providers/{providerId}/search?query=&limit=&offset=` | Normalized search results. |
+| GET | `/api/providers/search?query=&kind=&limit=` | Unified discovery across every eligible provider. `kind` is optional (`ebook` / `audiobook`). |
+| GET | `/api/providers/{providerId}/search?query=&limit=&offset=` | Provider-specific normalized search (kept for compatibility/testing). |
 | GET | `/api/providers/{providerId}/items/{externalId}` | Normalized item detail + assets. |
 | GET | `/api/providers/{providerId}/items/{externalId}/cover` | Proxied cover artwork. |
 | POST | `/api/providers/{providerId}/acquire` | Start an import; returns a job. |
@@ -206,6 +207,28 @@ archive and the storage service cannot disagree about where the library is.
 the provider resolves the actual location server-side. Combined with the
 download policy, that is what stops the acquisition endpoint from becoming an
 arbitrary-URL downloader.
+
+### Unified discovery
+
+The Add Book flow does not ask the reader to choose a provider first. The
+aggregate search endpoint selects providers by capability:
+
+- all material: `Search` plus either ebook or audiobook acquisition;
+- e-books: `Search + EbookAcquisition`;
+- audiobooks: `Search + AudiobookAcquisition`.
+
+Eligible searches run concurrently. One source failing does not hide sibling
+results: the response includes a status for every participating provider, with
+its own `Notice` or stable error code. Successful result sets are sorted by
+provider id and interleaved round-robin while preserving each provider's own
+result order. There is deliberately no invented cross-provider relevance score.
+
+Search items are thin and carry no assets. They *do* carry normalized
+`MediaKind`, so the client can show "E-book" or "Audiobook" without knowing
+that Gutenberg is an ebook source or LibriVox is an audiobook source. Result
+identity is always `ProviderId + ExternalId`; external ids are not globally
+unique.
+
 
 Imports run as **jobs** because a whole audiobook takes far longer than any
 sensible HTTP request: `POST .../acquire` returns as soon as the job is queued
@@ -277,10 +300,13 @@ and the library row is attached.
    differently-formatted author would never group with the same work.
 4. Implement `IProviderDownloadPolicy`: the allowed hosts (suffix-matched), and
    the caps. Only ever emit `https` URLs.
-5. Register it in `Program.cs` as a singleton `IContentProvider`. That is the
-   whole integration — nothing in the library, storage, reader or UI layers
-   changes. There is no dynamic assembly loading and no third-party plugin
-   marketplace: providers are built-in and compiled in.
+5. Register it as a singleton `IContentProvider` in product composition. If it
+   declares `Search` plus an acquisition capability and normalizes
+   `ProviderItem.MediaKind` + assets, it automatically participates in unified
+   discovery — no Angular provider allow-list or provider button is added.
+   Nothing in the library, storage or reader layers changes. There is no dynamic
+   assembly loading and no third-party plugin marketplace: providers are
+   built-in and compiled in.
 6. Add tests with a stubbed HTTP layer; never depend on the live source for
    automated tests.
 
@@ -326,10 +352,11 @@ Gutenberg's protocol is a change to one file.
 - `Categories` — LCSH subjects only; the `DCMIType`/`LCC` classification codes
   are not subjects and are dropped.
 - `Rights` — the feed's public-domain statement, quoted verbatim.
-- `Assets` — the three EPUB variants. `epub3-images` is marked preferred
-  (modern readers, images intact). MOBI/Kindle variants are deliberately *not*
-  exposed: Nostos has no reader for them, and offering an import the app cannot
-  open would be a false promise.
+- `Assets` — EPUB representations plus PDF **only when the OPDS detail entry
+  actually advertises a PDF acquisition link**. `epub3-images` remains the
+  preferred representation when available. EPUB and PDF are both ebook assets;
+  PDF is not a `ProviderMediaKind`. MOBI/Kindle variants are deliberately *not*
+  exposed because Nostos has no reader for them.
 - `Cover` — derived from the id, so search results carry a cover without a
   per-item request.
 
@@ -351,6 +378,31 @@ an error. A response that is not a feed (an HTML error page, say) surfaces as
 **Etiquette.** OPDS feeds are small and cache-friendly; Nostos makes one request
 per search, one per detail, and downloads each asset once. There is no crawl,
 no bulk harvesting and no scheduled polling of the catalogue.
+
+## Wikisource (built-in provider)
+
+Registered as `wikisource`, backed by Wikimedia's WS Export service rather
+than by scraping normal Wikisource pages.
+
+Search uses the English WS Export OPDS catalogue and detail uses its Atom export
+for the selected page. The detail response normalizes two ebook format families
+when resolvable:
+
+- EPUB — `application/epub+zip`, preferred by default;
+- PDF — `application/pdf`.
+
+WS Export's machine export endpoint accepts `page` and `format`; its current
+generator contract supports the `pdf` alias (mapped by WS Export to its PDF
+generator). Nostos therefore resolves PDF independently as
+`/?lang=en&format=pdf&page=<page>` rather than deriving a PDF URL from the EPUB
+link or scraping the human Wikisource site. A requested PDF never falls back to
+EPUB if its export fails.
+
+Both representations remain `ProviderMediaKind.Ebook`. The normalized asset
+MIME is what lets the Add Book UI present the human-level decision "EPUB or
+PDF" without a Wikisource-specific branch. Rights and source URLs remain the
+work's own Atom metadata, and downloads stay behind the WS Export/Wikimedia host
+allow-list.
 
 ## LibriVox (built-in provider)
 
