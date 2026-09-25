@@ -1327,6 +1327,48 @@ describe('WritingStudio kept sources (#491)', () => {
     );
   });
 
+  it('re-flushes text typed while the explicit source save itself is in flight', async () => {
+    const navigate = vi.fn(() => Promise.resolve(true));
+    (component as any).router = { navigate };
+    const firstSave = new Subject<WritingContentDto>();
+    const secondSave = new Subject<WritingContentDto>();
+    writingsService.update
+      .mockReturnValueOnce(firstSave.asObservable())
+      .mockReturnValueOnce(secondSave.asObservable());
+
+    component.activeItem.set(sampleDoc1);
+    component.editorTitle.set(sampleDoc1.name);
+    component.editorText.set('First unsaved version');
+    fixture.detectChanges();
+
+    const opening = component.openSource(sourceBeta as any);
+    await Promise.resolve();
+    expect(writingsService.update).toHaveBeenCalledTimes(1);
+
+    component.editorText.set('Typed while save was running');
+    fixture.detectChanges();
+
+    firstSave.next({ ...sampleDoc1, content: 'First unsaved version' });
+    firstSave.complete();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(writingsService.update).toHaveBeenCalledTimes(2);
+    expect(writingsService.update).toHaveBeenLastCalledWith('doc-1', {
+      name: sampleDoc1.name,
+      content: 'Typed while save was running',
+    });
+    expect(navigate).not.toHaveBeenCalled();
+
+    secondSave.next({ ...sampleDoc1, content: 'Typed while save was running' });
+    secondSave.complete();
+    await opening;
+
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(component.activeItem()?.content).toBe('Typed while save was running');
+  });
+
   it('serializes an older autosave ahead of the source flush so stale content cannot win last', async () => {
     vi.useFakeTimers();
     try {
