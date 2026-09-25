@@ -11,6 +11,8 @@ internal sealed record WikisourceBook(
     string? Author,
     string? Description,
     string? Language,
+    string? Publisher,
+    string? PublishedDate,
     string? Categories,
     string? Rights,
     Uri? SourceUrl,
@@ -33,22 +35,25 @@ internal static class WikisourceCatalog
     public const string LanguageCode = "en";
 
     private const string AtomNamespace = "http://www.w3.org/2005/Atom";
+    private const string DcNamespace = "http://purl.org/dc/elements/1.1/";
     private const string DcTermsNamespace = "http://purl.org/dc/terms/";
     private const string OpdsAcquisition = "http://opds-spec.org/acquisition";
     private const string OpdsImage = "http://opds-spec.org/image";
 
     private static readonly XNamespace Atom = AtomNamespace;
+    private static readonly XNamespace Dc = DcNamespace;
     private static readonly XNamespace DcTerms = DcTermsNamespace;
+    private static readonly XNamespace Xml = XNamespace.Xml;
 
-    public static bool IsAtomFeed(XDocument document) =>
-        document.Root?.Name == Atom + "feed";
+    public static bool IsAtomDocument(XDocument document) =>
+        document.Root?.Name is var root
+        && (root == Atom + "feed" || root == Atom + "entry");
 
-    public static IReadOnlyList<WikisourceBook> ParseFeed(XDocument feed)
+    public static IReadOnlyList<WikisourceBook> Parse(XDocument document)
     {
         var books = new List<WikisourceBook>();
-        var entries = feed.Root?.Elements(Atom + "entry") ?? [];
 
-        foreach (var entry in entries)
+        foreach (var entry in Entries(document))
         {
             var title = Text(entry.Element(Atom + "title"));
             if (title is null)
@@ -75,12 +80,19 @@ internal static class WikisourceCatalog
 
             var acquisition = Link(entry, OpdsAcquisition, "application/epub+zip");
             var image = Link(entry, OpdsImage, requiredType: null);
-            var source = Link(entry, "alternate", "text/html")
+            var source = TryAbsoluteUri(Text(entry.Element(Dc + "source")))
+                ?? Link(entry, "alternate", "text/html")
                 ?? Link(entry, "alternate", requiredType: null);
 
-            var language = NormalizeLanguage(Text(entry.Element(DcTerms + "language")))
+            var language = NormalizeLanguage(
+                    Text(entry.Element(Dc + "language"))
+                    ?? Text(entry.Element(DcTerms + "language"))
+                    ?? (string?)entry.Attribute(Xml + "lang"))
                 ?? "English";
 
+            // Preserve the source value as-is. Rights on Wikisource can be a
+            // licence URL, a licence label or a public-domain statement; Nostos
+            // must not turn any of those into a broader legal claim.
             var rightsElement = entry.Element(Atom + "rights");
             var rights = rightsElement is null || string.IsNullOrWhiteSpace(rightsElement.Value)
                 ? null
@@ -92,6 +104,8 @@ internal static class WikisourceCatalog
                 Author: authorNames.Count == 0 ? null : string.Join(", ", authorNames),
                 Description: Text(entry.Element(Atom + "summary")) ?? Text(entry.Element(Atom + "content")),
                 Language: language,
+                Publisher: Text(entry.Element(Dc + "publisher")),
+                PublishedDate: Text(entry.Element(DcTerms + "issued")),
                 Categories: categories.Count == 0 ? null : string.Join(", ", categories),
                 Rights: rights,
                 SourceUrl: source,
@@ -102,12 +116,20 @@ internal static class WikisourceCatalog
         return books;
     }
 
-    public static WikisourceBook? ParseItem(XDocument feed, string page)
+    public static WikisourceBook? ParseItem(XDocument document, string page)
     {
-        var books = ParseFeed(feed);
+        var books = Parse(document);
         return books.FirstOrDefault(book =>
                    string.Equals(book.Page, page, StringComparison.OrdinalIgnoreCase))
                ?? books.FirstOrDefault();
+    }
+
+    private static IEnumerable<XElement> Entries(XDocument document)
+    {
+        if (document.Root?.Name == Atom + "entry")
+            return [document.Root];
+
+        return document.Root?.Elements(Atom + "entry") ?? [];
     }
 
     private static string? PageFromEntry(XElement entry)
@@ -150,11 +172,10 @@ internal static class WikisourceCatalog
     {
         var imageLink = entry
             .Elements(Atom + "link")
-            .First(element =>
-                string.Equals((string?)element.Attribute("rel"), OpdsImage, StringComparison.OrdinalIgnoreCase)
-                && string.Equals((string?)element.Attribute("href"), image.ToString(), StringComparison.Ordinal));
+            .FirstOrDefault(element =>
+                string.Equals((string?)element.Attribute("rel"), OpdsImage, StringComparison.OrdinalIgnoreCase));
 
-        var contentType = ((string?)imageLink.Attribute("type"))?.Trim();
+        var contentType = ((string?)imageLink?.Attribute("type"))?.Trim();
         if (string.IsNullOrWhiteSpace(contentType))
             contentType = ImageContentType(image);
 
