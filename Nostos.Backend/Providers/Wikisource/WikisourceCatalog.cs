@@ -158,7 +158,8 @@ internal static class WikisourceCatalog
             Label: "PDF",
             SourceFormat: "application/pdf",
             Url: pdf,
-            FileExtension: ".pdf"));
+            FileExtension: ".pdf",
+            IsPreferred: epub is null));
 
         return assets;
     }
