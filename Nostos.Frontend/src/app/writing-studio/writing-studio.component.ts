@@ -817,14 +817,15 @@ export class WritingStudio implements OnInit, AfterViewInit {
       return;
     }
 
-    // Capture editor/UI context before any asynchronous save can move focus.
-    const snapshot = this.captureSourceReturnSnapshot(active.id);
-
     // The 2s autosave debounce must never turn "Open source" into a data-loss
     // path. The explicit flush joins the same serialized save lane and only
-    // navigation after the latest title/prose is safely persisted.
+    // navigates after the latest title/prose is safely persisted.
     if (!(await this.flushActiveWritingBeforeSource(active))) return;
 
+    // Capture the actual final caret/scroll/UI context immediately before
+    // leaving. If the writer typed while a save was in flight, the stable flush
+    // above has already persisted it and this snapshot follows that final caret.
+    const snapshot = this.captureSourceReturnSnapshot(active.id);
     this.attachSourceReturnSnapshot(snapshot);
 
     const kind = source.sourceAnchorKind?.trim().toLowerCase();
@@ -882,23 +883,46 @@ export class WritingStudio implements OnInit, AfterViewInit {
   }
 
   private async flushActiveWritingBeforeSource(item: WritingContentDto): Promise<boolean> {
-    const title = this.editorTitle();
-    const content = this.editorText();
-    const dirty = title !== item.name || content !== item.content;
+    // Usually one pass. Re-check after each awaited write because the editor
+    // remains live: text typed while the request is in flight must be included
+    // before teardown can cancel the ordinary debounce.
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const current = this.activeItem();
+      if (!current || current.id !== item.id) return false;
 
-    // If no delayed/in-flight autosave exists and the document is already
-    // persisted, opening a source should not generate a redundant write.
-    if (!dirty && this.pendingSaveCount === 0) return true;
+      const title = this.editorTitle();
+      const content = this.editorText();
+      const dirty = title !== current.name || content !== current.content;
 
-    const generation = ++this.saveGeneration;
-    try {
-      await this.queueWritingSave(item, title, content, generation);
-      return true;
-    } catch {
-      if (generation === this.saveGeneration) this.saveStatus.set('Unsaved');
-      this.toast.error('Could not save this writing. Your draft is still open.');
-      return false;
+      // If no delayed/in-flight autosave exists and the document is already
+      // persisted, opening a source should not generate a redundant write.
+      if (!dirty && this.pendingSaveCount === 0) return true;
+
+      const generation = ++this.saveGeneration;
+      try {
+        await this.queueWritingSave(current, title, content, generation);
+      } catch {
+        if (generation === this.saveGeneration) this.saveStatus.set('Unsaved');
+        this.toast.error('Could not save this writing. Your draft is still open.');
+        return false;
+      }
+
+      const saved = this.activeItem();
+      if (
+        saved?.id === item.id &&
+        this.editorTitle() === saved.name &&
+        this.editorText() === saved.content &&
+        this.pendingSaveCount === 0
+      ) {
+        return true;
+      }
     }
+
+    // Avoid ever choosing navigation over data safety if the document changes
+    // continuously during the flush window.
+    this.saveStatus.set('Unsaved');
+    this.toast.error('The writing changed while opening the source. Try again.');
+    return false;
   }
 
   private queueWritingSave(
