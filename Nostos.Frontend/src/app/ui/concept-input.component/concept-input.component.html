@@ -1,4 +1,17 @@
-<div class="concept-input-wrapper" style="position: relative;">
+<div class="concept-input-wrapper">
+  <div class="concept-link-toolbar">
+    <button
+      type="button"
+      class="concept-link-action"
+      [disabled]="isDisabled"
+      (pointerdown)="rememberSelection()"
+      (click)="openConceptPicker()"
+    >
+      Link a concept
+    </button>
+    <span class="concept-link-hint">Find related notes across your reading.</span>
+  </div>
+
   <textarea
     #textarea
     class="note-input"
@@ -11,9 +24,13 @@
     (blur)="onTouched()"
     noteAutocomplete
     (insertConcept)="insertConcept($event)"
+    (insertConceptName)="insertConceptName($event)"
     (keydown.control.enter)="submitTrigger.emit()"
   ></textarea>
 
-  <concept-autocomplete-panel (conceptSelected)="insertConcept($event)">
-  </concept-autocomplete-panel>
+  <concept-autocomplete-panel
+    (conceptSelected)="insertConcept($event)"
+    (conceptNameSelected)="insertConceptName($event)"
+    (cancelled)="cancelConceptPicker()"
+  ></concept-autocomplete-panel>
 </div>

@@ -4,60 +4,80 @@ import { ConceptDto } from '../../core/services/concepts.service';
 @Injectable({ providedIn: 'root' })
 export class ConceptAutocompleteService {
   suggestions = signal<ConceptDto[]>([]);
-  activeIndex = signal<number>(0);
+  activeIndex = signal(0);
+  pickerOpen = signal(false);
+  query = signal('');
 
   private concepts: ConceptDto[] = [];
 
-  setConcepts(list: ConceptDto[]) {
+  setConcepts(list: ConceptDto[]): void {
     this.concepts = list;
+    if (this.pickerOpen()) this.setQuery(this.query());
   }
 
-  update(text: string, cursorPos: number) {
-    // Find "[[" before cursor
-    const start = text.lastIndexOf('[[', cursorPos - 1);
-    if (start === -1) {
-      this.suggestions.set([]);
-      return;
-    }
+  openPicker(query = ''): void {
+    this.pickerOpen.set(true);
+    this.setQuery(query);
+  }
 
-    const end = cursorPos;
-    const fragment = text
-      .substring(start + 2, end)
-      .trim()
-      .toLowerCase();
+  setQuery(query: string): void {
+    this.query.set(query);
+    const normalized = query.trim().toLocaleLowerCase();
+    const matches = normalized
+      ? this.concepts.filter((concept) =>
+          concept.name.toLocaleLowerCase().includes(normalized)
+        )
+      : this.concepts;
 
-    if (!fragment) {
-      this.suggestions.set([]);
-      return;
-    }
-
-    const matches = this.concepts.filter((c) => c.name.toLowerCase().startsWith(fragment));
-
-    this.suggestions.set(matches);
+    this.suggestions.set(matches.slice(0, 50));
     this.activeIndex.set(0);
   }
 
-  moveUp() {
-    const list = this.suggestions();
-    const current = this.activeIndex();
-    if (list.length === 0) return;
-    this.activeIndex.set((current - 1 + list.length) % list.length);
+  update(text: string, cursorPos: number): void {
+    const start = text.lastIndexOf('[[', cursorPos);
+    if (start === -1) {
+      this.clear();
+      return;
+    }
+
+    // Only the most recent unmatched opening brackets own the picker. Once a
+    // closing pair occurs after them, the link is complete and the popup closes.
+    const lastClose = text.lastIndexOf(']]', Math.max(0, cursorPos - 1));
+    if (lastClose > start) {
+      this.clear();
+      return;
+    }
+
+    const fragment = text.substring(start + 2, cursorPos);
+    if (fragment.includes('[') || fragment.includes(']') || fragment.includes('\n')) {
+      this.clear();
+      return;
+    }
+
+    this.openPicker(fragment);
   }
 
-  moveDown() {
+  moveUp(): void {
     const list = this.suggestions();
-    const current = this.activeIndex();
     if (list.length === 0) return;
-    this.activeIndex.set((current + 1) % list.length);
+    this.activeIndex.update((current) => (current - 1 + list.length) % list.length);
+  }
+
+  moveDown(): void {
+    const list = this.suggestions();
+    if (list.length === 0) return;
+    this.activeIndex.update((current) => (current + 1) % list.length);
   }
 
   choose(): ConceptDto | null {
     const list = this.suggestions();
     if (list.length === 0) return null;
-    return list[this.activeIndex()];
+    return list[this.activeIndex()] ?? null;
   }
 
-  clear() {
+  clear(): void {
+    this.pickerOpen.set(false);
+    this.query.set('');
     this.suggestions.set([]);
     this.activeIndex.set(0);
   }

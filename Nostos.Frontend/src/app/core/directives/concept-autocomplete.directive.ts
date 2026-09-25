@@ -1,4 +1,4 @@
-import { Directive, HostListener, Output, EventEmitter, ElementRef } from '@angular/core';
+import { Directive, ElementRef, EventEmitter, HostListener, Output } from '@angular/core';
 import { ConceptAutocompleteService } from '../../ui/concept-autocomplete-panel/concept-autocomplete.service';
 import { ConceptDto } from '../services/concepts.service';
 
@@ -8,6 +8,7 @@ import { ConceptDto } from '../services/concepts.service';
 })
 export class ConceptAutocompleteDirective {
   @Output() insertConcept = new EventEmitter<ConceptDto>();
+  @Output() insertConceptName = new EventEmitter<string>();
 
   constructor(
     private el: ElementRef<HTMLTextAreaElement>,
@@ -15,34 +16,42 @@ export class ConceptAutocompleteDirective {
   ) {}
 
   @HostListener('input')
-  onInput() {
+  onInput(): void {
     const textarea = this.el.nativeElement;
     this.auto.update(textarea.value, textarea.selectionStart);
   }
 
   @HostListener('keydown', ['$event'])
-  onKeyDown(event: KeyboardEvent) {
-    const list = this.auto.suggestions();
-    if (list.length === 0) return;
+  onKeyDown(event: KeyboardEvent): void {
+    if (!this.auto.pickerOpen()) return;
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.auto.clear();
+      return;
+    }
 
     if (event.key === 'ArrowDown') {
       event.preventDefault();
       this.auto.moveDown();
+      return;
     }
 
     if (event.key === 'ArrowUp') {
       event.preventDefault();
       this.auto.moveUp();
+      return;
     }
 
-    if (event.key === 'Enter') {
-      const chosen = this.auto.choose();
-      if (chosen) {
-        event.preventDefault();
-        this.insertConcept.emit(chosen);
+    if (event.key !== 'Enter') return;
 
-        this.auto.clear();
-      }
-    }
+    const chosen = this.auto.choose();
+    const query = this.auto.query().trim();
+    if (!chosen && !query) return;
+
+    event.preventDefault();
+    if (chosen) this.insertConcept.emit(chosen);
+    else this.insertConceptName.emit(query);
+    this.auto.clear();
   }
 }

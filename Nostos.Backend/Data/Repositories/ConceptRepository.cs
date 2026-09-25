@@ -206,9 +206,6 @@ public class ConceptRepository : IConceptRepository
 
     public async Task<List<RelatedConceptDto>> GetRelatedAsync(Guid id)
     {
-        // Keep the two sides of the NoteConcept relationship in separate
-        // queries. Including NoteConcepts back through NoteConcepts creates an
-        // EF Core include cycle and fails for no-tracking queries.
         var noteIds = await _db
             .NoteConcepts.Where(nc => nc.ConceptId == id)
             .Select(nc => nc.NoteId)
@@ -217,35 +214,39 @@ public class ConceptRepository : IConceptRepository
         if (noteIds.Count == 0)
             return [];
 
-        var relatedQuery = _db
-            .NoteConcepts.Where(nc => noteIds.Contains(nc.NoteId) && nc.ConceptId != id)
-            .GroupBy(nc => nc.ConceptId)
-            .Select(group => new
+        // Keep the raw co-occurrence rows so the API can explain each structural
+        // relationship with the exact shared notes rather than only a score.
+        var relatedRows = await _db
+            .NoteConcepts.AsNoTracking()
+            .Where(nc => noteIds.Contains(nc.NoteId) && nc.ConceptId != id)
+            .Select(nc => new
             {
-                Id = group.Key,
-                SharedNotes = group.Count(),
+                nc.ConceptId,
+                Name = nc.Concept.Concept,
+                nc.NoteId,
             })
-            .Join(
-                _db.Concepts,
-                related => related.Id,
-                concept => concept.Id,
-                (related, concept) => new
-                {
-                    Id = concept.Id,
-                    Name = concept.Concept,
-                    related.SharedNotes,
-                }
-            );
+            .ToListAsync();
 
-        return await relatedQuery
+        return relatedRows
+            .GroupBy(row => new { row.ConceptId, row.Name })
+            .Select(group =>
+            {
+                var sharedNoteIds = group
+                    .Select(row => row.NoteId)
+                    .Distinct()
+                    .OrderBy(noteId => noteId)
+                    .ToList();
+
+                return new RelatedConceptDto(
+                    group.Key.ConceptId,
+                    group.Key.Name,
+                    sharedNoteIds.Count,
+                    sharedNoteIds
+                );
+            })
             .OrderByDescending(related => related.SharedNotes)
             .ThenBy(related => related.Name)
-            .Select(related => new RelatedConceptDto(
-                related.Id,
-                related.Name,
-                related.SharedNotes
-            ))
-            .ToListAsync();
+            .ToList();
     }
 
     public async Task<ConceptGraphDto> GetGraphAsync()

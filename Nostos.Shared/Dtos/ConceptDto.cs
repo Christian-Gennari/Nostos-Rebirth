@@ -14,7 +14,7 @@ public record ConceptStatsDto(
     int MostUsedCount
 );
 
-public record RelatedConceptDto(Guid Id, string Name, int SharedNotes);
+public record RelatedConceptDto(Guid Id, string Name, int SharedNotes, List<Guid> SharedNoteIds);
 
 // UPDATED: Added SelectedText and CfiRange
 public record NoteContextDto(

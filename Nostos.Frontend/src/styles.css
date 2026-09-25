@@ -1556,13 +1556,33 @@ input[type='file']::file-selector-button:hover {
   color: var(--color-accent);
   font-weight: var(--fw-regular);
   cursor: pointer;
+  text-decoration: none;
   transition: border-bottom-color 0.2s ease, color 0.2s ease;
-  border-bottom: 1px solid var(--color-accent-faint); /* Very subtle underline */
+  border-bottom: 1px solid var(--color-accent-faint);
 }
 
-.concept-tag:hover {
+a.concept-tag:hover {
   color: var(--color-accent-hover);
   border-bottom-color: var(--color-accent-hover);
+}
+
+a.concept-tag:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.concept-tag--unresolved {
+  color: var(--color-text-muted);
+  cursor: default;
+  border-bottom-style: dashed;
+  border-bottom-color: var(--border-color);
+}
+
+.concept-unresolved-label {
+  color: var(--color-text-light);
+  font-size: 0.82em;
+  font-weight: var(--fw-regular);
 }
 
 .badge {

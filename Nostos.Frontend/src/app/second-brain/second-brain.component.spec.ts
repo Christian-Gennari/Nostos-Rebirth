@@ -3,6 +3,7 @@ import { By } from '@angular/platform-browser';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
 
 // Sigma requires WebGL2 which is unavailable in the test environment.
 vi.mock('sigma', () => {
@@ -381,15 +382,42 @@ describe('SecondBrain', () => {
     expect(ids()).toEqual(['c-alpha-middle', 'c-alpha-newest', 'c-alpha-oldest']);
   });
 
-  it('renders related concepts and selects one in place', async () => {
+  it('explains related concepts through inspectable shared-note evidence before navigating', async () => {
+    const alphaDetail = detailWithNotes('c-alpha', 'Alpha');
     component.selectConcept('c-alpha');
-    flushDetail('c-alpha', detail('c-alpha', 'Alpha'), [
-      { id: 'c-beta', name: 'Beta', sharedNotes: 4 },
+    flushDetail('c-alpha', alphaDetail, [
+      {
+        id: 'c-beta',
+        name: 'Beta',
+        sharedNotes: 2,
+        sharedNoteIds: ['c-alpha-newest', 'c-alpha-oldest'],
+      },
     ]);
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.related-chip')?.textContent).toContain('Beta');
+    expect(fixture.nativeElement.querySelector('.related-explanation')?.textContent).toContain(
+      'same saved notes'
+    );
+    const inspect = fixture.nativeElement.querySelector(
+      '.related-evidence-toggle'
+    ) as HTMLButtonElement;
+    expect(inspect.textContent).toContain('2 shared notes');
+
+    inspect.click();
+    fixture.detectChanges();
+
+    expect(component.relatedEvidenceNotes().map((note) => note.noteId)).toEqual([
+      'c-alpha-newest',
+      'c-alpha-oldest',
+    ]);
+    expect(fixture.nativeElement.querySelector('[data-testid="related-evidence"]')?.textContent).toContain(
+      'co-occurrence is the reason'
+    );
+    expect(
+      fixture.nativeElement.querySelectorAll('.related-evidence-notes app-note-card')
+    ).toHaveLength(2);
+
     (fixture.nativeElement.querySelector('.related-chip') as HTMLButtonElement).click();
     expect(component.selectedId()).toBe('c-beta');
 
@@ -399,6 +427,23 @@ describe('SecondBrain', () => {
     flushChildConceptLists();
     await fixture.whenStable();
     expect(fixture.nativeElement.querySelector('.concept-title')?.textContent).toContain('Beta');
+  });
+
+  it('puts captured evidence before secondary concept management in the detail DOM', async () => {
+    component.selectConcept('c-alpha');
+    flushDetail('c-alpha', detail('c-alpha', 'Alpha'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const evidence = fixture.nativeElement.querySelector(
+      '[data-testid="concept-evidence"]'
+    ) as HTMLElement;
+    const management = fixture.nativeElement.querySelector('.concept-management') as HTMLElement;
+
+    expect(evidence).toBeTruthy();
+    expect(management).toBeTruthy();
+    expect(evidence.compareDocumentPosition(management) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(management.querySelector('summary')?.textContent?.trim()).toBe('Manage concept');
   });
 
   it('optimistically edits a note and keeps the updated detail cached', async () => {
@@ -647,7 +692,7 @@ describe('SecondBrain', () => {
     expect(component.searchQuery()).toBe('');
 
     component.setSearchQuery('alp');
-    const input = fixture.nativeElement.querySelector('input[aria-label="Search concepts"]');
+    const input = fixture.nativeElement.querySelector('input[aria-label="Search concepts and notes"]');
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     expect(component.searchQuery()).toBe('');
   });
@@ -656,7 +701,7 @@ describe('SecondBrain', () => {
     fixture.detectChanges();
 
     const search = fixture.nativeElement.querySelector(
-      'input[aria-label="Search concepts"]',
+      'input[aria-label="Search concepts and notes"]',
     ) as HTMLInputElement;
     const sortTrigger = fixture.nativeElement.querySelector('#brain-sort') as HTMLButtonElement;
     const sort = sortTrigger.closest('app-dropdown') as HTMLElement;
@@ -705,7 +750,7 @@ describe('SecondBrain', () => {
 
   it('moves from the search input into the first filtered row', () => {
     fixture.detectChanges();
-    const input = fixture.nativeElement.querySelector('input[aria-label="Search concepts"]');
+    const input = fixture.nativeElement.querySelector('input[aria-label="Search concepts and notes"]');
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
 
     const firstRow = fixture.nativeElement.querySelector('.index-item') as HTMLElement;
@@ -719,7 +764,7 @@ describe('SecondBrain', () => {
     component.loadingConcepts.set(false);
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.empty-index-state')?.textContent).toContain(
-      '[[Concept Name]]'
+      'Link a concept'
     );
     expect(fixture.nativeElement.querySelector('a[routerLink="/library"]')).toBeTruthy();
 
@@ -730,7 +775,7 @@ describe('SecondBrain', () => {
     // half-answer (issue #158).
     await settleNoteSearch([]);
     expect(fixture.nativeElement.querySelector('.empty-index-state')?.textContent).toContain(
-      'No concepts match “xyz”'
+      'No concept names match “xyz”'
     );
     expect(fixture.nativeElement.querySelector('.empty-clear')).toBeTruthy();
   });
@@ -1758,3 +1803,41 @@ describe('SecondBrain', () => {
     });
   });
 });
+
+describe('SecondBrain concept-link routing', () => {
+  it('opens the requested concept evidence from the conceptId query parameter', async () => {
+    await TestBed.configureTestingModule({
+      providers: [
+        provideRouter([{ path: 'second-brain', component: SecondBrain }]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
+    }).compileComponents();
+
+    const harness = await RouterTestingHarness.create();
+    const navigation = harness.navigateByUrl('/second-brain?conceptId=c-beta', SecondBrain);
+    const http = TestBed.inject(HttpTestingController);
+
+    // The routed component is created before navigation can settle because its
+    // initial HTTP reads are intentionally still outstanding.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    http.expectOne('/api/concepts').flush(concepts);
+    http.expectOne('/api/concepts/stats').flush(stats);
+    http.expectOne('/api/concepts/c-beta/related').flush([]);
+    http.expectOne('/api/concepts/c-beta').flush(detail('c-beta', 'Beta'));
+
+    const routed = await navigation;
+    harness.detectChanges();
+
+    expect(routed.selectedId()).toBe('c-beta');
+    expect(routed.selectedDetail()?.name).toBe('Beta');
+    expect(harness.routeNativeElement?.querySelector('.concept-title')?.textContent).toContain('Beta');
+    expect(
+      harness.routeNativeElement?.querySelector('[data-testid="concept-evidence"]')
+    ).toBeTruthy();
+
+    http.verify();
+  });
+});
+

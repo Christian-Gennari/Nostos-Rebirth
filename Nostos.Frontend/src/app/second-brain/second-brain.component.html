@@ -50,8 +50,8 @@
             controlSize="compact"
             #searchInput
             type="text"
-            placeholder="Search ideas..."
-            aria-label="Search concepts"
+            placeholder="Search concepts and notes..."
+            aria-label="Search concepts and notes"
             [ngModel]="searchQuery()"
             (ngModelChange)="setSearchQuery($event)"
             (keydown)="handleSearchKeydown($event)"
@@ -180,14 +180,14 @@
         } @else if (concepts().length === 0) {
         <div class="empty-index-state" role="status">
           <div class="empty-eyebrow">The index is quiet</div>
-          <p>Concepts appear when you write <code>[[Concept Name]]</code> in a note.</p>
-          <p class="empty-example">Try a note with <code>[[A thought worth returning to]]</code>.</p>
+          <p>Concepts appear when you link one from a note.</p>
+          <p class="empty-example">Use <strong>Link a concept</strong> while editing a note to connect material across your reading.</p>
           <a routerLink="/library" class="empty-link">Go to Library</a>
         </div>
         } @else if (filteredConcepts().length === 0) {
         <div class="empty-index-state" role="status">
           <div class="empty-eyebrow">No match</div>
-          <p>No concepts match “{{ searchQuery().trim() }}”.</p>
+          <p>No concept names match “{{ searchQuery().trim() }}”. Note-text matches appear below.</p>
           <button appButton variant="secondary" size="sm" type="button" class="empty-clear" (click)="clearSearch()">Clear search</button>
         </div>
         } @else {
@@ -539,39 +539,232 @@
             <h1 class="concept-title">{{ detail.name }}</h1>
             }
             <div class="concept-meta">
-              Referenced in {{ detail.notes.length }} {{ detail.notes.length === 1 ? 'note' : 'notes' }}
+              {{ detail.notes.length }} {{ detail.notes.length === 1 ? 'note' : 'notes' }} from your reading
             </div>
           </div>
+        </div>
+      </div>
 
-          <div class="concept-actions" aria-label="Manage concept">
-            <button
-              type="button"
-              class="concept-action"
-              [disabled]="renaming() || mergingConcept()"
-              (click)="startRename(detail.id, 'header')"
-            >
-              <nostos-icon name="pencil-simple" [size]="14"></nostos-icon>
-              <span>Rename</span>
-            </button>
-            <button
-              type="button"
-              class="concept-action"
-              [disabled]="renaming() || mergingConcept()"
-              (click)="openMergePicker()"
-            >
-              <nostos-icon name="git-merge" [size]="14"></nostos-icon>
-              <span>Merge into…</span>
-            </button>
-            <button
-              type="button"
-              class="concept-action danger"
-              [disabled]="renaming() || mergingConcept()"
-              (click)="openDeleteConcept(detail.id)"
-            >
-              <nostos-icon name="trash" [size]="14"></nostos-icon>
-              <span>Delete</span>
-            </button>
+      @if (detail.notes.length > 0) {
+      <div class="detail-tools" aria-label="Filter and sort notes">
+        <div class="note-search-box">
+          <nostos-icon name="magnifying-glass" [size]="15" class="search-icon"></nostos-icon>
+          <label class="visually-hidden" for="note-search">Search notes</label>
+          <input
+            appInput
+            controlSize="compact"
+            id="note-search"
+            type="search"
+            placeholder="Search notes..."
+            [ngModel]="noteSearchQuery()"
+            (ngModelChange)="setNoteSearchQuery($event)"
+          />
+          @if (noteSearchQuery()) {
+          <button
+            appIconButton
+            type="button"
+            class="clear-note-search"
+            icon="x"
+            size="xs"
+            [glyphSize]="14"
+            aria-label="Clear note search"
+            (click)="clearNoteSearch()"
+          ></button>
+          }
+        </div>
+
+        <div class="detail-select-wrap">
+          <label class="detail-tool-label" for="source-filter">Source</label>
+          <div class="select-shell detail-select-shell">
+            <app-dropdown
+              class="detail-select"
+              controlId="source-filter"
+              controlSize="compact"
+              ariaLabel="Source"
+              [options]="sourceDropdownOptions()"
+              [value]="sourceFilter()"
+              (valueChange)="setSourceFilter($event)"
+            />
           </div>
+        </div>
+
+        <div class="detail-select-wrap">
+          <label class="detail-tool-label" for="note-sort">Sort</label>
+          <div class="select-shell detail-select-shell">
+            <app-dropdown
+              class="detail-select"
+              controlId="note-sort"
+              controlSize="compact"
+              ariaLabel="Sort notes"
+              [options]="noteSortOptions"
+              [value]="noteSort()"
+              (valueChange)="setNoteSort($event)"
+            />
+          </div>
+        </div>
+
+        <span class="note-count" role="status" aria-live="polite" aria-atomic="true">
+          @if (noteFiltersActive()) {
+          Showing {{ filteredNotes().length }} of {{ detail.notes.length }} notes
+          } @else {
+          {{ detail.notes.length }} {{ detail.notes.length === 1 ? 'note' : 'notes' }}
+          }
+        </span>
+      </div>
+      }
+
+      @if (detail.notes.length === 0) {
+      <div class="empty-notes-state" role="status">
+        <div class="empty-eyebrow">A quiet concept</div>
+        <p>No notes mention this concept yet.</p>
+      </div>
+      } @else if (filteredNotes().length === 0) {
+      <div class="empty-notes-state" role="status">
+        <div class="empty-eyebrow">No notes found</div>
+        <p>Nothing matches the current note filters.</p>
+        <button appButton variant="secondary" size="sm" type="button" class="empty-clear" (click)="clearNoteSearch(); setSourceFilter('all')">
+          Clear filters
+        </button>
+      </div>
+      } @else {
+      <div class="cards-grid" data-testid="concept-evidence">
+        @for (note of filteredNotes(); track note.noteId) {
+        <div class="note-card">
+          <app-note-card
+            #noteCardHost
+            [note]="noteForCard(note)"
+            [conceptMap]="conceptMap()"
+            [showNavigation]="false"
+            [showActions]="true"
+            [showSource]="true"
+            [showDate]="true"
+            (update)="onUpdateNote($event)"
+            (delete)="onDeleteNote($event)"
+            (conceptClick)="selectConcept($event)"
+            (click)="handleContentClick($event)"
+          ></app-note-card>
+        </div>
+        }
+      </div>
+      }
+
+      <section class="related-section" aria-labelledby="related-concepts-heading">
+        <div class="related-section-head">
+          <div>
+            <h2 id="related-concepts-heading" class="related-heading">Related through shared notes</h2>
+            <p class="related-explanation">
+              These concepts appear together in the same saved notes. Inspect the shared notes to see why the connection is shown.
+            </p>
+          </div>
+        </div>
+
+        @if (relatedLoading()) {
+        <p class="related-empty">Finding shared notes…</p>
+        } @else if (relatedConcepts().length === 0) {
+        <p class="related-empty">No concepts share notes with this one yet.</p>
+        } @else {
+        <div class="related-list">
+          @for (related of visibleRelatedConcepts(); track related.id) {
+          <div class="related-item">
+            <button
+              type="button"
+              class="related-chip"
+              [attr.aria-label]="'Open ' + related.name + ' evidence'"
+              [title]="related.name"
+              (mouseenter)="prefetch(related.id)"
+              (focus)="prefetch(related.id)"
+              (click)="selectConcept(related.id)"
+            >
+              <span class="related-chip-name">{{ related.name }}</span>
+            </button>
+
+            @if ((related.sharedNoteIds?.length ?? 0) > 0) {
+            <button
+              appButton
+              variant="ghost"
+              size="sm"
+              type="button"
+              class="related-evidence-toggle"
+              [attr.aria-expanded]="relatedEvidenceId() === related.id"
+              [attr.aria-label]="'Inspect ' + related.sharedNotes + ' shared ' + (related.sharedNotes === 1 ? 'note' : 'notes') + ' with ' + related.name"
+              (click)="toggleRelatedEvidence(related.id)"
+            >
+              {{ related.sharedNotes }} shared {{ related.sharedNotes === 1 ? 'note' : 'notes' }}
+              <nostos-icon
+                [name]="relatedEvidenceId() === related.id ? 'caret-up' : 'caret-down'"
+                [size]="12"
+              ></nostos-icon>
+            </button>
+            }
+          </div>
+
+          @if (relatedEvidenceId() === related.id) {
+          <div class="related-evidence" data-testid="related-evidence">
+            <p class="related-evidence-reason">
+              These notes contain both concepts; that co-occurrence is the reason this relationship is shown.
+            </p>
+            <div class="related-evidence-notes">
+              @for (note of relatedEvidenceNotes(); track note.noteId) {
+              <app-note-card
+                [note]="noteForCard(note)"
+                [conceptMap]="conceptMap()"
+                [showNavigation]="false"
+                [showActions]="false"
+                [showSource]="true"
+                [showDate]="true"
+                (conceptClick)="selectConcept($event)"
+              ></app-note-card>
+              }
+            </div>
+          </div>
+          }
+          }
+
+          @if (hiddenRelatedCount() > 0) {
+          <button type="button" class="related-more" (click)="toggleRelated()">
+            @if (relatedExpanded()) {
+            <nostos-icon name="caret-up" [size]="13"></nostos-icon>
+            <span>Show fewer</span>
+            } @else {
+            <span>+{{ hiddenRelatedCount() }} more</span>
+            <nostos-icon name="caret-down" [size]="13"></nostos-icon>
+            }
+          </button>
+          }
+        </div>
+        }
+      </section>
+
+      <details class="concept-management">
+        <summary>Manage concept</summary>
+        <div class="concept-actions" aria-label="Manage concept">
+          <button
+            type="button"
+            class="concept-action"
+            [disabled]="renaming() || mergingConcept()"
+            (click)="startRename(detail.id, 'header')"
+          >
+            <nostos-icon name="pencil-simple" [size]="14"></nostos-icon>
+            <span>Rename</span>
+          </button>
+          <button
+            type="button"
+            class="concept-action"
+            [disabled]="renaming() || mergingConcept()"
+            (click)="openMergePicker()"
+          >
+            <nostos-icon name="git-merge" [size]="14"></nostos-icon>
+            <span>Merge into…</span>
+          </button>
+          <button
+            type="button"
+            class="concept-action danger"
+            [disabled]="renaming() || mergingConcept()"
+            (click)="openDeleteConcept(detail.id)"
+          >
+            <nostos-icon name="trash" [size]="14"></nostos-icon>
+            <span>Delete</span>
+          </button>
         </div>
 
         @if (mergePickerOpen()) {
@@ -628,154 +821,14 @@
           </div>
         </div>
         }
-
-        <div class="related-row" aria-label="Related concepts">
-          <span class="related-label">Connected concepts</span>
-          @if (relatedLoading()) {
-          <span class="related-empty">Finding connections…</span>
-          } @else if (relatedConcepts().length === 0) {
-          <span class="related-empty">No connected concepts yet</span>
-          } @else {
-          <div class="related-list">
-            @for (related of visibleRelatedConcepts(); track related.id) {
-            <button
-              type="button"
-              class="related-chip"
-              [attr.aria-label]="'Select ' + related.name"
-              [title]="related.name"
-              (mouseenter)="prefetch(related.id)"
-              (focus)="prefetch(related.id)"
-              (click)="selectConcept(related.id)"
-            >
-              <span class="related-chip-name">{{ related.name }}</span>
-              <span class="related-chip-count">· {{ related.sharedNotes }}</span>
-            </button>
-            }
-            @if (hiddenRelatedCount() > 0) {
-            <button type="button" class="related-more" (click)="toggleRelated()">
-              @if (relatedExpanded()) {
-              <nostos-icon name="caret-up" [size]="13"></nostos-icon>
-              <span>Show fewer</span>
-              } @else {
-              <span>+{{ hiddenRelatedCount() }} more</span>
-              <nostos-icon name="caret-down" [size]="13"></nostos-icon>
-              }
-            </button>
-            }
-          </div>
-          }
-        </div>
-      </div>
-
-      @if (detail.notes.length > 0) {
-      <div class="detail-tools" aria-label="Filter and sort notes">
-        <div class="note-search-box">
-          <nostos-icon name="magnifying-glass" [size]="15" class="search-icon"></nostos-icon>
-          <label class="visually-hidden" for="note-search">Search notes</label>
-          <input
-            appInput
-            controlSize="compact"
-            id="note-search"
-            type="search"
-            placeholder="Search notes..."
-            [ngModel]="noteSearchQuery()"
-            (ngModelChange)="setNoteSearchQuery($event)"
-          />
-          @if (noteSearchQuery()) {
-          <button
-            appIconButton
-            type="button"
-            class="clear-note-search"
-            icon="x"
-            size="xs"
-            [glyphSize]="14"
-            aria-label="Clear note search"
-            (click)="clearNoteSearch()"
-          ></button>
-          }
-        </div>
-
-        <div class="detail-select-wrap">
-          <label class="detail-tool-label" for="source-filter">Source</label>
-          <div class="select-shell detail-select-shell">
-            <app-dropdown
-              class="detail-select"
-              controlId="source-filter"
-              controlSize="compact"
-              ariaLabel="Source"
-              [options]="sourceDropdownOptions()"
-              [value]="sourceFilter()"
-              (valueChange)="setSourceFilter($event)"
-            />
-                      </div>
-        </div>
-
-        <div class="detail-select-wrap">
-          <label class="detail-tool-label" for="note-sort">Sort</label>
-          <div class="select-shell detail-select-shell">
-            <app-dropdown
-              class="detail-select"
-              controlId="note-sort"
-              controlSize="compact"
-              ariaLabel="Sort notes"
-              [options]="noteSortOptions"
-              [value]="noteSort()"
-              (valueChange)="setNoteSort($event)"
-            />
-                      </div>
-        </div>
-
-        <span class="note-count" role="status" aria-live="polite" aria-atomic="true">
-          @if (noteFiltersActive()) {
-          Showing {{ filteredNotes().length }} of {{ detail.notes.length }} notes
-          } @else {
-          {{ detail.notes.length }} {{ detail.notes.length === 1 ? 'note' : 'notes' }}
-          }
-        </span>
-      </div>
-      }
-
-      @if (detail.notes.length === 0) {
-      <div class="empty-notes-state" role="status">
-        <div class="empty-eyebrow">A quiet concept</div>
-        <p>No notes mention this concept yet.</p>
-      </div>
-      } @else if (filteredNotes().length === 0) {
-      <div class="empty-notes-state" role="status">
-        <div class="empty-eyebrow">No notes found</div>
-        <p>Nothing matches the current note filters.</p>
-        <button appButton variant="secondary" size="sm" type="button" class="empty-clear" (click)="clearNoteSearch(); setSourceFilter('all')">
-          Clear filters
-        </button>
-      </div>
-      } @else {
-      <div class="cards-grid">
-        @for (note of filteredNotes(); track note.noteId) {
-        <div class="note-card">
-          <app-note-card
-            #noteCardHost
-            [note]="noteForCard(note)"
-            [conceptMap]="conceptMap()"
-            [showNavigation]="false"
-            [showActions]="true"
-            [showSource]="true"
-            [showDate]="true"
-            (update)="onUpdateNote($event)"
-            (delete)="onDeleteNote($event)"
-            (conceptClick)="selectConcept($event)"
-            (click)="handleContentClick($event)"
-          ></app-note-card>
-        </div>
-        }
-      </div>
-      }
+      </details>
       } @else {
       <div class="landing-state">
         <div class="icon-circle">
           <nostos-icon name="brain" [size]="48" weight="thin"></nostos-icon>
         </div>
-        <h2>Explore your Brain</h2>
-        <p>Select a concept from the index to see how your ideas connect.</p>
+        <h2>Return to what you noticed</h2>
+        <p>Search concepts or note text above, or choose a concept to compare the material you captured across books.</p>
       </div>
       }
       }
@@ -799,7 +852,11 @@
         @if (note.selectedText) {
         <blockquote class="brain-note-panel-quote">{{ note.selectedText }}</blockquote>
         }
-        <p class="brain-note-panel-content">{{ note.content }}</p>
+        <p
+          class="brain-note-panel-content"
+          [innerHTML]="note.content | noteFormat : conceptMap()"
+          (click)="handleContentClick($event)"
+        ></p>
         <div class="brain-note-panel-concepts">
           @if (note.conceptNames.length > 0) {
             @for (name of note.conceptNames; track name) {

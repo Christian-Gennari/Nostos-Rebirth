@@ -52,10 +52,22 @@ public sealed class ConceptEndpointTests : IClassFixture<LibraryEndpointFactory>
         var sharedName = $"Related Shared {suffix}";
         var occasionalName = $"Related Occasional {suffix}";
 
-        await CreateBookWithNotesAsync(
+        var book = await CreateBookWithNotesAsync(
             $"[[{anchorName}]] [[{sharedName}]] [[{occasionalName}]]",
             $"[[{anchorName}]] [[{sharedName}]]",
             $"[[{anchorName}]]");
+
+        var notes = (await Client.GetFromJsonAsync<NoteDto[]>($"/api/books/{book.Id}/notes"))!;
+        var bothShared = notes
+            .Where(note => note.Content.Contains($"[[{sharedName}]]", StringComparison.Ordinal))
+            .Select(note => note.Id)
+            .OrderBy(id => id)
+            .ToList();
+        var occasionalShared = notes
+            .Where(note => note.Content.Contains($"[[{occasionalName}]]", StringComparison.Ordinal))
+            .Select(note => note.Id)
+            .OrderBy(id => id)
+            .ToList();
 
         var concepts = await GetConceptsAsync();
         var anchor = concepts.Single(c => c.Name == anchorName);
@@ -63,9 +75,16 @@ public sealed class ConceptEndpointTests : IClassFixture<LibraryEndpointFactory>
         var related = await Client.GetFromJsonAsync<RelatedConceptDto[]>(
             $"/api/concepts/{anchor.Id}/related");
 
-        related.Should().Equal(
-            new RelatedConceptDto(concepts.Single(c => c.Name == sharedName).Id, sharedName, 2),
-            new RelatedConceptDto(concepts.Single(c => c.Name == occasionalName).Id, occasionalName, 1));
+        related.Should().HaveCount(2);
+        related![0].Id.Should().Be(concepts.Single(c => c.Name == sharedName).Id);
+        related[0].Name.Should().Be(sharedName);
+        related[0].SharedNotes.Should().Be(2);
+        related[0].SharedNoteIds.Should().Equal(bothShared);
+
+        related[1].Id.Should().Be(concepts.Single(c => c.Name == occasionalName).Id);
+        related[1].Name.Should().Be(occasionalName);
+        related[1].SharedNotes.Should().Be(1);
+        related[1].SharedNoteIds.Should().Equal(occasionalShared);
 
         var unknown = await Client.GetAsync($"/api/concepts/{Guid.NewGuid()}/related");
         unknown.StatusCode.Should().Be(HttpStatusCode.OK);

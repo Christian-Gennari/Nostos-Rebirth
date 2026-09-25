@@ -14,13 +14,14 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { ToastService } from '../core/services/toast.service';
 import { NotesService } from '../core/services/notes.service';
 import { Note, NoteSearchHit } from '../core/dtos/note.dtos';
 import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
+import { NoteFormatPipe } from '../ui/pipes/note-format.pipe';
 import {
   ConceptsService,
   ConceptDto,
@@ -76,6 +77,7 @@ import {
     InputDirective,
     DropdownComponent,
     NoteCardComponent,
+    NoteFormatPipe,
     ConfirmModal,
     ConceptMapComponent,
     ConceptInputComponent,
@@ -101,6 +103,7 @@ export class SecondBrain implements AfterViewChecked {
   private toast = inject(ToastService);
   private readonly assistantContext = inject(AssistantContextService);
   private readonly assistant = inject(AssistantService);
+  private readonly route = inject(ActivatedRoute);
 
   /** The live review-note context provider, registered only while reviewing. */
   private assistantContextUnregister: (() => void) | null = null;
@@ -180,6 +183,7 @@ export class SecondBrain implements AfterViewChecked {
   relatedConcepts = signal<RelatedConceptDto[]>([]);
   relatedLoading = signal(false);
   relatedExpanded = signal(false);
+  relatedEvidenceId = signal<string | null>(null);
 
   deleteTarget = signal<NoteContextDto | null>(null);
   deletingNote = signal(false);
@@ -376,6 +380,16 @@ export class SecondBrain implements AfterViewChecked {
 
   hiddenRelatedCount = computed(() => Math.max(0, this.relatedConcepts().length - 8));
 
+  relatedEvidenceNotes = computed(() => {
+    const relatedId = this.relatedEvidenceId();
+    const detail = this.selectedDetail();
+    if (!relatedId || !detail) return [];
+
+    const related = this.relatedConcepts().find((candidate) => candidate.id === relatedId);
+    const sharedIds = new Set(related?.sharedNoteIds ?? []);
+    return detail.notes.filter((note) => sharedIds.has(note.noteId));
+  });
+
   deleteHeading = computed(() => {
     const target = this.deleteTarget();
     return target ? `Delete this note from “${target.bookTitle}”?` : 'Delete note?';
@@ -384,6 +398,16 @@ export class SecondBrain implements AfterViewChecked {
   private destroyRef = inject(DestroyRef);
 
   constructor() {
+    const routeSubscription = this.route.queryParamMap.subscribe((params) => {
+      const conceptId = params.get('conceptId');
+      if (!conceptId || conceptId === this.selectedId()) return;
+
+      // Links from notes and Book Detail land on the evidence, not merely on
+      // the Brain route. List view is the surface that owns concept evidence.
+      this.setViewMode('list');
+      this.selectConcept(conceptId);
+    });
+
     const assistantActionSubscription = this.assistant.actionExecuted.subscribe((event) => {
       if (event.capability !== 'notes_link_existing_concept') return;
       const noteId = event.context.brainReviewNoteId;
@@ -398,6 +422,7 @@ export class SecondBrain implements AfterViewChecked {
     this.destroyRef.onDestroy(() => {
       if (this.noteSearchTimer !== null) clearTimeout(this.noteSearchTimer);
       this.unregisterAssistantContext();
+      routeSubscription.unsubscribe();
       assistantActionSubscription.unsubscribe();
     });
 
@@ -1314,6 +1339,7 @@ export class SecondBrain implements AfterViewChecked {
 
   selectConcept(id: string): void {
     this.selectedId.set(id);
+    this.relatedEvidenceId.set(null);
     this.noteSearchQuery.set('');
     this.sourceFilter.set(ALL_SOURCES);
     this.noteSort.set('newest');
@@ -1361,6 +1387,7 @@ export class SecondBrain implements AfterViewChecked {
   // Clears selection to return to Index on mobile
   clearSelection(): void {
     this.selectedId.set(null);
+    this.relatedEvidenceId.set(null);
     this.loadingDetail.set(false);
     this.selectedDetail.set(null);
     this.relatedConcepts.set([]);
@@ -1429,6 +1456,7 @@ export class SecondBrain implements AfterViewChecked {
     this.pendingRelatedRequests.clear();
     this.relatedConcepts.set([]);
     this.relatedExpanded.set(false);
+    this.relatedEvidenceId.set(null);
     this.relatedLoading.set(false);
 
     const selectedId = this.selectedId();
@@ -1465,6 +1493,10 @@ export class SecondBrain implements AfterViewChecked {
 
   toggleRelated(): void {
     this.relatedExpanded.update((expanded) => !expanded);
+  }
+
+  toggleRelatedEvidence(id: string): void {
+    this.relatedEvidenceId.update((current) => (current === id ? null : id));
   }
 
   onUpdateNote(event: { id: string; content: string; selectedText?: string }): void {
