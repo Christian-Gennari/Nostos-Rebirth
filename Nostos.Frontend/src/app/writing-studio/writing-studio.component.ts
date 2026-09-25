@@ -139,7 +139,11 @@ export class WritingStudio implements OnInit, AfterViewInit {
   // Reader excursions are represented only by short-lived browser history
   // state. Nothing here is persisted to Writing content or the backend.
   private pendingSourceReturnSnapshot: StudioSourceReturnSnapshotV1 | null = null;
-  private pendingInspectedSourceId: string | null = null;
+  private pendingInspectedSourceRestore: {
+    id: string;
+    mode: 'writing' | 'library';
+    tab: 'brain' | 'notes';
+  } | null = null;
 
   isMobile = signal(window.innerWidth < 768);
   showFileSidebar = signal(true);
@@ -492,13 +496,11 @@ export class WritingStudio implements OnInit, AfterViewInit {
         // kept list of the document the writer has since switched to.
         if (this.activeItem()?.id !== writingId) return;
         this.keptSources.set(sources);
-        if (
-          this.pendingInspectedSourceId &&
-          this.pendingSourceReturnSnapshot?.references?.mode === 'writing'
-        ) {
-          const match = this.keptNotes().find((note) => note.id === this.pendingInspectedSourceId);
+        const pendingInspection = this.pendingInspectedSourceRestore;
+        if (pendingInspection?.mode === 'writing') {
+          const match = this.keptNotes().find((note) => note.id === pendingInspection.id);
           if (match) this.inspectedSource.set(match);
-          this.pendingInspectedSourceId = null;
+          this.pendingInspectedSourceRestore = null;
         }
       },
       error: () => this.toast.error('Failed to load kept sources'),
@@ -594,7 +596,6 @@ export class WritingStudio implements OnInit, AfterViewInit {
         this.editorTitle.set(contentDto.name);
         this.editorText.set(contentDto.content);
         this.inspectedSource.set(null);
-        this.loadKeptSources(contentDto.id);
 
         if (this.isMobile()) {
           this.showFileSidebar.set(false);
@@ -602,6 +603,7 @@ export class WritingStudio implements OnInit, AfterViewInit {
         }
 
         if (fromHandoff) this.restoreSourceReturnSurface(contentDto);
+        this.loadKeptSources(contentDto.id);
       },
       error: () => {
         if (
@@ -731,14 +733,11 @@ export class WritingStudio implements OnInit, AfterViewInit {
         bookTitle: n.bookTitle,
       }));
       this.selectedConceptNotes.set(mapped);
-      if (
-        this.pendingInspectedSourceId &&
-        this.pendingSourceReturnSnapshot?.references?.mode === 'library' &&
-        this.pendingSourceReturnSnapshot.references.activeLibraryTab === 'brain'
-      ) {
-        const match = mapped.find((note) => note.id === this.pendingInspectedSourceId);
+      const pendingInspection = this.pendingInspectedSourceRestore;
+      if (pendingInspection?.mode === 'library' && pendingInspection.tab === 'brain') {
+        const match = mapped.find((note) => note.id === pendingInspection.id);
         if (match) this.inspectedSource.set(match);
-        this.pendingInspectedSourceId = null;
+        this.pendingInspectedSourceRestore = null;
       }
     });
   }
@@ -748,14 +747,11 @@ export class WritingStudio implements OnInit, AfterViewInit {
     this.selectedBookId.set(id);
     this.notesService.list(id).subscribe((notes) => {
       this.selectedBookNotes.set(notes);
-      if (
-        this.pendingInspectedSourceId &&
-        this.pendingSourceReturnSnapshot?.references?.mode === 'library' &&
-        this.pendingSourceReturnSnapshot.references.activeLibraryTab === 'notes'
-      ) {
-        const match = notes.find((note) => note.id === this.pendingInspectedSourceId);
+      const pendingInspection = this.pendingInspectedSourceRestore;
+      if (pendingInspection?.mode === 'library' && pendingInspection.tab === 'notes') {
+        const match = notes.find((note) => note.id === pendingInspection.id);
         if (match) this.inspectedSource.set(match);
-        this.pendingInspectedSourceId = null;
+        this.pendingInspectedSourceRestore = null;
       }
     });
   }
@@ -939,9 +935,10 @@ export class WritingStudio implements OnInit, AfterViewInit {
 
     const queued = this.saveQueue.catch(() => undefined).then(run);
     this.saveQueue = queued.catch(() => undefined);
-    void queued.finally(() => {
+    const settlePending = () => {
       this.pendingSaveCount = Math.max(0, this.pendingSaveCount - 1);
-    });
+    };
+    void queued.then(settlePending, settlePending);
     return queued;
   }
 
@@ -995,7 +992,13 @@ export class WritingStudio implements OnInit, AfterViewInit {
       this.activeSidebarTab.set(references.activeLibraryTab);
       this.selectedConceptId.set(references.selectedConceptId ?? null);
       this.selectedBookId.set(references.selectedBookId ?? null);
-      this.pendingInspectedSourceId = references.inspectedSourceId ?? null;
+      this.pendingInspectedSourceRestore = references.inspectedSourceId
+        ? {
+            id: references.inspectedSourceId,
+            mode: references.mode,
+            tab: references.activeLibraryTab,
+          }
+        : null;
 
       if (this.isMobile()) {
         // Mobile remains one-pane: Documents never reopens over the returned
@@ -1013,7 +1016,7 @@ export class WritingStudio implements OnInit, AfterViewInit {
         } else if (references.activeLibraryTab === 'notes' && references.selectedBookId) {
           this.selectBook(references.selectedBookId);
         } else {
-          this.pendingInspectedSourceId = null;
+          this.pendingInspectedSourceRestore = null;
         }
       }
     }
@@ -1047,7 +1050,6 @@ export class WritingStudio implements OnInit, AfterViewInit {
 
   private consumeSourceReturnSnapshot(): void {
     this.pendingSourceReturnSnapshot = null;
-    this.pendingInspectedSourceId = null;
 
     if (!hasStudioSourceReturnState(window.history.state)) return;
     window.history.replaceState(
