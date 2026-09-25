@@ -346,6 +346,17 @@ const NOSTOS_EDITOR_CONTENT_CSS = `
   }
 `;
 
+export interface MarkdownEditorTransientState {
+  bookmark?: unknown;
+  scrollY?: number;
+}
+
+interface PendingTransientRestore {
+  state: MarkdownEditorTransientState;
+  expectedMarkdown: string;
+  resolve: (restored: boolean) => void;
+}
+
 @Component({
   selector: 'app-markdown-editor',
   standalone: true,
@@ -589,6 +600,8 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   private tinyMce: TinyMceApi | null = null;
   private editorInit: Promise<void> | null = null;
   private destroyed = false;
+  private lastExternalMarkdownApplied: string | null = null;
+  private pendingTransientRestore: PendingTransientRestore | null = null;
   private themeService = inject(ThemeService);
   private tinyMceLoader = inject(TinyMceLoader);
 
@@ -666,6 +679,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
           editor.setContent(this.htmlContent);
         }
         updateWordCount();
+        this.tryApplyTransientRestore();
       });
       editor.on('SetContent Change Input Undo Redo', updateWordCount);
     },
@@ -692,6 +706,9 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
           this.editor.setContent(html);
         }
       }
+
+      this.lastExternalMarkdownApplied = markdown;
+      this.tryApplyTransientRestore();
     });
 
     // 2. Reactively synchronize iframe document with the active theme
@@ -707,6 +724,8 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.destroyed = true;
+    this.pendingTransientRestore?.resolve(false);
+    this.pendingTransientRestore = null;
     this.destroyEditor();
   }
 
@@ -783,6 +802,118 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
     return true;
   }
 
+  /**
+   * Capture only short-lived editor mechanics. TinyMCE owns selection details;
+   * callers never receive DOM nodes or Range objects.
+   */
+  captureTransientState(): MarkdownEditorTransientState | null {
+    const editor = this.editor;
+    if (!editor || !this.editorReady) return null;
+
+    const state: MarkdownEditorTransientState = {};
+
+    try {
+      const bookmark = editor.selection?.getBookmark?.(2, true);
+      const safeBookmark = historySafeClone(bookmark);
+      if (safeBookmark !== undefined) state.bookmark = safeBookmark;
+    } catch {
+      // Exact caret restoration is best-effort.
+    }
+
+    try {
+      const scrollY = editor.getWin?.()?.scrollY;
+      if (typeof scrollY === 'number' && Number.isFinite(scrollY) && scrollY >= 0) {
+        state.scrollY = scrollY;
+      }
+    } catch {
+      // Iframe scroll is best-effort.
+    }
+
+    return Object.keys(state).length > 0 ? state : null;
+  }
+
+  /**
+   * Queue a one-shot restore until TinyMCE is ready and the expected Writing
+   * content has actually been applied. This avoids restoring a bookmark into a
+   * previous/empty document during the Studio handoff.
+   */
+  restoreTransientState(
+    state: MarkdownEditorTransientState,
+    expectedMarkdown: string,
+  ): Promise<boolean> {
+    const bookmark = historySafeClone(state?.bookmark);
+    const scrollY =
+      typeof state?.scrollY === 'number' && Number.isFinite(state.scrollY) && state.scrollY >= 0
+        ? state.scrollY
+        : undefined;
+
+    if (bookmark === undefined && scrollY === undefined) return Promise.resolve(false);
+
+    this.pendingTransientRestore?.resolve(false);
+
+    return new Promise<boolean>((resolve) => {
+      this.pendingTransientRestore = {
+        state: {
+          ...(bookmark !== undefined ? { bookmark } : {}),
+          ...(scrollY !== undefined ? { scrollY } : {}),
+        },
+        expectedMarkdown,
+        resolve,
+      };
+      this.tryApplyTransientRestore();
+    });
+  }
+
+  private tryApplyTransientRestore(): void {
+    const pending = this.pendingTransientRestore;
+    const editor = this.editor;
+    if (
+      !pending ||
+      !editor ||
+      !this.editorReady ||
+      this.lastExternalMarkdownApplied !== pending.expectedMarkdown
+    ) {
+      return;
+    }
+
+    this.pendingTransientRestore = null;
+    let restored = false;
+
+    if (pending.state.bookmark !== undefined) {
+      try {
+        if (typeof editor.selection?.moveToBookmark === 'function') {
+          editor.selection.moveToBookmark(pending.state.bookmark);
+          restored = true;
+        }
+      } catch {
+        // A stale/unsupported TinyMCE bookmark should never block Studio.
+      }
+    }
+
+    if (pending.state.scrollY !== undefined) {
+      try {
+        const win = editor.getWin?.();
+        if (win && typeof win.scrollTo === 'function') {
+          const y = pending.state.scrollY;
+          // Selection restoration can move the iframe viewport. Restore scroll
+          // one microtask later so the final visible position wins.
+          queueMicrotask(() => {
+            try {
+              win.scrollTo(0, y);
+            } catch {
+              // Best-effort after the editor may have been torn down.
+            }
+          });
+          restored = true;
+        }
+      } catch {
+        // Missing iframe/window is safe in headless and teardown states.
+      }
+    }
+
+    pending.resolve(restored);
+  }
+
   onHtmlChange(html: string) {
     const markdown = this.turndownService.turndown(html);
     this.contentChange.emit(markdown);
@@ -818,4 +949,22 @@ export function caretScrollDelta(rectTop: number, viewportHeight: number): numbe
   if (!isFinite(rectTop) || !isFinite(viewportHeight) || viewportHeight <= 0) return null;
   const delta = rectTop - viewportHeight * 0.45;
   return Math.abs(delta) < 60 ? null : Math.round(delta);
+}
+
+
+function historySafeClone(value: unknown): unknown | undefined {
+  if (value === undefined) return undefined;
+
+  try {
+    const clone = globalThis.structuredClone;
+    if (typeof clone === 'function') return clone(value);
+  } catch {
+    return undefined;
+  }
+
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return undefined;
+  }
 }
