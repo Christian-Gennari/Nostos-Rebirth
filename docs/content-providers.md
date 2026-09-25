@@ -223,6 +223,14 @@ its own `Notice` or stable error code. Successful result sets are sorted by
 provider id and interleaved round-robin while preserving each provider's own
 result order. There is deliberately no invented cross-provider relevance score.
 
+Aggregate discovery also applies a hard per-provider deadline through
+`ProviderDiscovery:SearchTimeout` (default `00:00:12`). This boundary is
+separate from each provider's own `HttpClient` timeout: a provider task that
+never completes, even if it ignores cancellation, stops blocking the aggregate
+once the discovery deadline expires. Provider-local timeout/cancellation is
+reported as `provider_timeout`; genuine HTTP request cancellation still
+propagates instead of being converted into a normal search response.
+
 Search items are thin and carry no assets. They *do* carry normalized
 `MediaKind`, so the client can show "E-book" or "Audiobook" without knowing
 that Gutenberg is an ebook source or LibriVox is an audiobook source. Result
@@ -269,6 +277,10 @@ and the library row is attached.
   "Storage": {
     // Optional. Absolute, or relative to the content root. Default: Storage/books
     "BooksRoot": "/srv/nostos/books"
+  },
+  "ProviderDiscovery": {
+    // Hard deadline for one provider in unified search.
+    "SearchTimeout": "00:00:12"
   },
   "Acquisition": {
     // Optional. Defaults to a sibling of Storage/books, NOT /tmp.
