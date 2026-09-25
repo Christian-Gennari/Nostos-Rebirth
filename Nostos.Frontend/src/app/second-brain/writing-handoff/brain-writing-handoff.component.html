@@ -1,0 +1,105 @@
+<div class="handoff-backdrop">
+  <section
+    class="handoff-dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="brain-writing-handoff-title"
+  >
+    <header class="handoff-head">
+      <div>
+        <div class="handoff-eyebrow">Keep source material</div>
+        <h2 id="brain-writing-handoff-title">Keep with writing…</h2>
+        <p>
+          Choose where to keep {{ sourceCount() }}
+          {{ sourceCount() === 1 ? 'source' : 'sources' }}. The writing keeps links to the
+          original notes.
+        </p>
+      </div>
+      <button
+        type="button"
+        class="handoff-close"
+        aria-label="Close writing picker"
+        [disabled]="saving()"
+        (click)="cancel()"
+      >
+        ×
+      </button>
+    </header>
+
+    @if (loadingDestinations()) {
+    <p class="handoff-status" role="status">Loading writings…</p>
+    } @else if (destinationError()) {
+    <div class="handoff-error" role="alert">
+      <span>Writings could not be loaded.</span>
+      <button type="button" (click)="loadDestinations()">Try again</button>
+    </div>
+    } @else {
+    <div class="handoff-options" aria-label="Writing destination">
+      <button
+        type="button"
+        class="handoff-option"
+        [class.selected]="newWritingMode()"
+        [attr.aria-pressed]="newWritingMode()"
+        (click)="chooseNew()"
+      >
+        <span class="option-mark" aria-hidden="true"></span>
+        <span>
+          <strong>New writing</strong>
+          <small>Create a normal writing document</small>
+        </span>
+      </button>
+
+      @if (newWritingMode()) {
+      <label class="new-writing-title">
+        <span>Title <small>optional</small></span>
+        <input
+          type="text"
+          autocomplete="off"
+          placeholder="Untitled writing"
+          [value]="newWritingTitle()"
+          (input)="newWritingTitle.set($any($event.target).value)"
+        />
+      </label>
+      }
+
+      <div class="existing-heading">Existing writing</div>
+      @if (documentDestinations().length === 0) {
+      <p class="empty-destinations">No writing documents yet.</p>
+      } @else {
+      <div class="destination-list">
+        @for (writing of documentDestinations(); track writing.id) {
+        <button
+          type="button"
+          class="handoff-option existing"
+          [class.selected]="selectedWritingId() === writing.id"
+          [attr.aria-pressed]="selectedWritingId() === writing.id"
+          (click)="chooseExisting(writing.id)"
+        >
+          <span class="option-mark" aria-hidden="true"></span>
+          <span>
+            <strong>{{ writing.name }}</strong>
+          </span>
+        </button>
+        }
+      </div>
+      }
+    </div>
+
+    <label class="open-after">
+      <input
+        type="checkbox"
+        [checked]="openWritingAfterAdd()"
+        (change)="openWritingAfterAdd.set($any($event.target).checked)"
+      />
+      <span>Open writing after adding</span>
+    </label>
+
+    <footer class="handoff-actions">
+      <button type="button" class="secondary" [disabled]="saving()" (click)="cancel()">Cancel</button>
+      <button type="button" class="primary" [disabled]="!canConfirm()" (click)="confirm()">
+        {{ saving() ? 'Keeping…' : 'Keep sources' }}
+      </button>
+    </footer>
+    }
+  </section>
+</div>
