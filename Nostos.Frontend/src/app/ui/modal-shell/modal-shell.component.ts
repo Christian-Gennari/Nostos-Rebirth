@@ -88,6 +88,9 @@ export class ModalShell {
 
   closed = output<void>();
 
+  /** Pointer id when the current gesture began directly on the backdrop. */
+  private backdropPointerId: number | null = null;
+
   @HostListener('document:keydown.escape')
   onEscape(): void {
     if (this.isOpen() && !this.busy()) {
@@ -95,9 +98,29 @@ export class ModalShell {
     }
   }
 
-  onBackdropClick(): void {
-    if (this.dismissOnBackdrop() && !this.busy()) {
+  onBackdropPointerDown(event: PointerEvent): void {
+    // A drag that begins inside the card can finish over the backdrop. Remember
+    // where the gesture began so that release is not mistaken for an outside click.
+    this.backdropPointerId = event.target === event.currentTarget ? event.pointerId : null;
+  }
+
+  onBackdropPointerUp(event: PointerEvent): void {
+    const beganOnBackdrop = this.backdropPointerId === event.pointerId;
+    this.backdropPointerId = null;
+
+    if (
+      beganOnBackdrop &&
+      event.target === event.currentTarget &&
+      this.dismissOnBackdrop() &&
+      !this.busy()
+    ) {
       this.closed.emit();
+    }
+  }
+
+  onBackdropPointerCancel(event: PointerEvent): void {
+    if (this.backdropPointerId === event.pointerId) {
+      this.backdropPointerId = null;
     }
   }
 }
