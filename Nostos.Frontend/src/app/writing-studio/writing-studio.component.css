@@ -307,14 +307,39 @@
 }
 
 .inspected-source-panel {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-width: 0;
-  max-height: min(52vh, 460px);
+  min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 0.7rem 0.65rem 0.85rem;
-  border-bottom: 1px solid var(--border-color);
+  padding: 0.35rem 0.65rem 1rem;
   white-space: normal;
+}
+
+/* Source inspection is a child view of the active Reference surface, not a
+   second document stacked above its parent list. The breadcrumb is therefore
+   the strong hierarchy cue and the panel owns the remaining scroll area. */
+.inspected-source-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.7rem;
+  padding: 0 0.25rem 0.65rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.inspected-source-back {
+  min-width: 0;
+  max-width: 75%;
+  justify-content: flex-start;
+}
+
+.inspected-source-context {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .inspected-source-heading {
@@ -322,7 +347,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0 0.5rem 0.45rem;
+  padding: 0 0.5rem 0.5rem;
   color: var(--color-text-light);
   font-size: 0.68rem;
   font-weight: var(--fw-semibold);
@@ -331,6 +356,7 @@
 }
 
 .inspected-source-locator {
+  margin-left: auto;
   font-weight: var(--fw-regular);
   letter-spacing: 0;
   text-transform: none;
@@ -339,6 +365,10 @@
 .inspected-source-card {
   display: block;
   min-width: 0;
+  overflow: hidden;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
 }
 
 .source-insertion-actions {
@@ -698,10 +728,6 @@
   .header-doc-title {
     font-size: 0.95rem;
     max-width: 160px;
-  }
-
-  .inspected-source-panel {
-    max-height: 58dvh;
   }
 
   .source-insertion-actions .nostos-button {
