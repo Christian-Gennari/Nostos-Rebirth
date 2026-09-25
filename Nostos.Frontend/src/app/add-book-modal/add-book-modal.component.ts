@@ -10,6 +10,7 @@ import { ToastService } from '../core/services/toast.service';
 import {
   ACQUISITION_FINISHED_STATES,
   ProviderAcquisition,
+  ProviderDiscoverySourceStatus,
   ProviderItem,
   ProviderMetadataOverrides,
   ProviderSummary,
@@ -508,11 +509,11 @@ export class AddBookModal {
   providerList = signal<ProviderSummary[]>([]);
   providersLoading = signal(false);
   providersError = signal<string | null>(null);
-  selectedProviderId = signal<string | null>(null);
 
   sourceQuery = signal('');
+  sourceKind = signal<'all' | 'ebook' | 'audiobook'>('all');
   sourceResults = signal<ProviderItem[]>([]);
-  sourceNotice = signal<string | null>(null);
+  sourceStatuses = signal<ProviderDiscoverySourceStatus[]>([]);
   sourceHasMore = signal(false);
   sourceSearching = signal(false);
   sourceSearched = signal(false);
@@ -565,8 +566,15 @@ export class AddBookModal {
   sourceImportError = signal<string | null>(null);
 
 
-  selectedProvider = computed(
-    () => this.providerList().find((p) => p.id === this.selectedProviderId()) ?? null,
+  sourceFailures = computed(() => this.sourceStatuses().filter((source) => !source.succeeded));
+  sourceNotices = computed(() =>
+    this.sourceStatuses().filter((source) => source.succeeded && !!source.notice),
+  );
+  allSourcesFailed = computed(
+    () =>
+      this.sourceSearched() &&
+      this.sourceStatuses().length > 0 &&
+      this.sourceStatuses().every((source) => !source.succeeded),
   );
 
   /**
@@ -575,8 +583,40 @@ export class AddBookModal {
    */
   seededFromSource = computed(() => !this.isEditMode() && this.selectedItem() !== null);
 
-  /** The name of the source the form was seeded from, for the banner. */
-  seededSourceName = computed(() => this.selectedProvider()?.displayName ?? 'the source');
+  /** The selected result owns its provider identity even after source mode closes. */
+  seededSourceName = computed(() => {
+    const item = this.selectedItem();
+    return item ? this.providerName(item.providerId) : 'the source';
+  });
+
+  selectedAsset = computed(() => {
+    const item = this.selectedSourceItem();
+    if (!item) return null;
+
+    const selectedId = this.selectedAssetId();
+    return (
+      item.assets.find((asset) => asset.id === selectedId) ??
+      item.assets.find((asset) => asset.isPreferred) ??
+      item.assets[0] ??
+      null
+    );
+  });
+
+  ebookFormatFamilies = computed(() => {
+    const item = this.selectedSourceItem();
+    if (!item || item.mediaKind !== 'ebook') return [] as Array<'EPUB' | 'PDF'>;
+
+    const families = item.assets
+      .map((asset) => this.assetFormatFamily(asset.sourceFormat))
+      .filter((family): family is 'EPUB' | 'PDF' => family !== null);
+
+    return [...new Set(families)];
+  });
+
+  selectedFormatFamily = computed(() => {
+    const asset = this.selectedAsset();
+    return asset ? this.assetFormatFamily(asset.sourceFormat) : null;
+  });
 
   /** Non-null only while an import is actually in flight. */
   runningAcquisition = computed(() => {
@@ -635,9 +675,6 @@ export class AddBookModal {
       .subscribe({
         next: (list) => {
           this.providerList.set(list);
-          if (!this.selectedProviderId() && list.length > 0) {
-            this.selectedProviderId.set(list[0].id);
-          }
           if (list.length === 0) {
             this.providersError.set('No content sources are configured on this server.');
           }
@@ -646,40 +683,46 @@ export class AddBookModal {
       });
   }
 
-  chooseProvider(id: string): void {
-    if (id === this.selectedProviderId()) return;
+  setSourceKind(kind: 'all' | 'ebook' | 'audiobook'): void {
+    if (kind === this.sourceKind()) return;
 
-    // Results belong to the source that produced them.
-    this.selectedProviderId.set(id);
-    this.clearSourceResults();
+    this.sourceKind.set(kind);
+    this.clearSourceSelection();
+
+    if (this.sourceQuery().trim().length >= 2) this.searchSource();
   }
 
   searchSource(): void {
-    const providerId = this.selectedProviderId();
     const query = this.sourceQuery().trim();
-    if (!providerId || query.length < 2 || this.sourceSearching()) return;
+    if (query.length < 2 || this.sourceSearching()) return;
 
+    const kind = this.sourceKind();
     this.sourceSearching.set(true);
     this.sourceSearchError.set(null);
-    this.selectedItem.set(null);
-    this.selectedAssetId.set(null);
+    this.clearSourceSelection();
 
     this.providers
-      .search(providerId, query)
+      .searchAll(query, kind === 'all' ? undefined : kind)
       .pipe(finalize(() => this.sourceSearching.set(false)))
       .subscribe({
         next: (result) => {
+          // A response for a filter/query the user has already moved away from
+          // must not replace the current discovery state.
+          if (this.sourceQuery().trim() !== query || this.sourceKind() !== kind) return;
+
           this.sourceResults.set(result.items);
-          this.sourceNotice.set(result.notice);
+          this.sourceStatuses.set(result.sources);
           this.sourceHasMore.set(result.hasMore);
           this.sourceSearched.set(true);
         },
         error: (error) => {
+          if (this.sourceQuery().trim() !== query || this.sourceKind() !== kind) return;
+
           this.sourceResults.set([]);
-          this.sourceNotice.set(null);
+          this.sourceStatuses.set([]);
           this.sourceSearched.set(true);
           this.sourceSearchError.set(
-            this.describeError(error, 'That source could not be searched right now.'),
+            this.describeError(error, 'Free sources could not be searched right now.'),
           );
         },
       });
@@ -688,33 +731,32 @@ export class AddBookModal {
   selectSourceItem(item: ProviderItem): void {
     this.selectedItem.set(item);
     this.selectedDetail.set(null);
+    this.selectedAssetId.set(null);
     this.sourceImportError.set(null);
 
-    // Default to the source's own preferred asset, which is also what the
-    // server would choose if no asset were named.
-    const preferred = item.assets.find((asset) => asset.isPreferred) ?? item.assets[0];
-    this.selectedAssetId.set(preferred?.id ?? null);
+    // Detail and acquisition are routed by the result's own provider. Capturing
+    // both halves of the identity prevents identical external ids from two
+    // sources from colliding when responses arrive out of order.
+    const selectedKey = this.sourceItemKey(item);
 
-    // A search result carries no assets, which is why the import action is
-    // disabled until the full item has been fetched. Without this it stays
-    // disabled for every result a search returns.
-    const providerId = this.selectedProviderId();
-    if (!providerId) return;
-
-    this.providers.item(providerId, item.externalId).subscribe({
+    this.providers.item(item.providerId, item.externalId).subscribe({
       next: (detail) => {
-        // A late response for a result the user has moved on from must not
-        // overwrite what they are looking at now.
-        if (this.selectedItem()?.externalId !== detail.externalId) return;
+        const current = this.selectedItem();
+        if (!current || this.sourceItemKey(current) !== selectedKey) return;
+        if (this.sourceItemKey(detail) !== selectedKey) return;
 
         this.selectedDetail.set(detail);
         const preferredDetail = detail.assets.find((a) => a.isPreferred) ?? detail.assets[0];
         this.selectedAssetId.set(preferredDetail?.id ?? null);
       },
-      error: () =>
+      error: () => {
+        const current = this.selectedItem();
+        if (!current || this.sourceItemKey(current) !== selectedKey) return;
+
         this.sourceImportError.set(
           "That book's details could not be loaded, so it cannot be imported right now.",
-        ),
+        );
+      },
     });
   }
 
@@ -735,7 +777,10 @@ export class AddBookModal {
 
     // Collections are deliberately not offered here: the form that follows has
     // its own picker, and the same question twice is one too many.
-    const asset = item.assets.find((a) => a.isPreferred) ?? item.assets[0];
+    const asset =
+      item.assets.find((a) => a.id === this.selectedAssetId()) ??
+      item.assets.find((a) => a.isPreferred) ??
+      item.assets[0];
 
     this.form.title = item.title ?? '';
     this.form.subtitle = item.subtitle ?? '';
@@ -798,14 +843,13 @@ export class AddBookModal {
 
   importSelected(): void {
     const item = this.selectedItem();
-    const providerId = this.selectedProviderId();
-    if (!item || !providerId || this.runningAcquisition()) return;
+    if (!item || this.runningAcquisition()) return;
 
     this.sourceImportError.set(null);
     this.acquisition.set(null);
 
     this.providers
-      .acquire(providerId, {
+      .acquire(item.providerId, {
         externalId: item.externalId,
         assetId: this.selectedAssetId(),
         collectionIds: this.form.collectionIds,
@@ -842,19 +886,26 @@ export class AddBookModal {
     });
   }
 
+  private clearSourceSelection(): void {
+    this.selectedItem.set(null);
+    this.selectedDetail.set(null);
+    this.selectedAssetId.set(null);
+    this.sourceImportError.set(null);
+  }
+
   private clearSourceResults(): void {
     this.sourceResults.set([]);
-    this.sourceNotice.set(null);
+    this.sourceStatuses.set([]);
     this.sourceHasMore.set(false);
     this.sourceSearched.set(false);
     this.sourceSearchError.set(null);
-    this.selectedItem.set(null);
-    this.selectedAssetId.set(null);
+    this.clearSourceSelection();
   }
 
   private resetSourceTab(): void {
     this.clearSourceResults();
     this.sourceQuery.set('');
+    this.sourceKind.set('all');
     this.acquisition.set(null);
     this.sourceImportError.set(null);
   }
@@ -877,6 +928,53 @@ export class AddBookModal {
     ]
       .filter((part): part is string => !!part)
       .join(' · ');
+  }
+
+  sourceItemKey(item: Pick<ProviderItem, 'providerId' | 'externalId'>): string {
+    return `${encodeURIComponent(item.providerId)}::${encodeURIComponent(item.externalId)}`;
+  }
+
+  isSelectedSourceItem(item: ProviderItem): boolean {
+    const selected = this.selectedItem();
+    return !!selected && this.sourceItemKey(selected) === this.sourceItemKey(item);
+  }
+
+  providerName(providerId: string): string {
+    return (
+      this.providerList().find((provider) => provider.id === providerId)?.displayName ??
+      this.sourceStatuses().find((source) => source.providerId === providerId)?.displayName ??
+      providerId
+    );
+  }
+
+  mediaKindLabel(item: ProviderItem): string {
+    return item.mediaKind === 'audiobook' ? 'Audiobook' : 'E-book';
+  }
+
+  assetFormatFamily(sourceFormat: string | null): 'EPUB' | 'PDF' | null {
+    const format = sourceFormat?.toLowerCase();
+    if (format === 'application/epub+zip') return 'EPUB';
+    if (format === 'application/pdf') return 'PDF';
+    return null;
+  }
+
+  selectFormatFamily(family: 'EPUB' | 'PDF'): void {
+    const item = this.selectedSourceItem();
+    if (!item) return;
+
+    const candidates = item.assets.filter(
+      (asset) => this.assetFormatFamily(asset.sourceFormat) === family,
+    );
+    const selected = candidates.find((asset) => asset.isPreferred) ?? candidates[0];
+    if (selected) this.selectedAssetId.set(selected.id);
+  }
+
+  assetsForSelectedFamily(): ProviderItem['assets'] {
+    const item = this.selectedSourceItem();
+    const family = this.selectedFormatFamily();
+    if (!item || !family) return [];
+
+    return item.assets.filter((asset) => this.assetFormatFamily(asset.sourceFormat) === family);
   }
 
   private getFullLanguageName(input: string | null): string | null {
