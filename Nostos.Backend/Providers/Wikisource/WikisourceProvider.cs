@@ -76,7 +76,9 @@ public sealed class WikisourceProvider : IContentProvider,
 
         var offset = Math.Max(0, query.Offset);
         var limit = Math.Clamp(query.Limit, 1, 100);
-        var page = filtered.Skip(offset).Take(limit).Select(ToProviderItem).ToList();
+        var page = filtered.Skip(offset).Take(limit)
+            .Select(book => ToProviderItem(book, includeAssets: false))
+            .ToList();
 
         return new ProviderSearchPage(
             Items: page,
@@ -87,7 +89,7 @@ public sealed class WikisourceProvider : IContentProvider,
     public async Task<ProviderItem?> GetItemAsync(string externalId, CancellationToken ct)
     {
         var book = await LoadBookAsync(externalId, ct);
-        return book is null ? null : ToProviderItem(book);
+        return book is null ? null : ToProviderItem(book, includeAssets: true);
     }
 
     public async Task<ProviderAcquisitionPlan?> PlanAcquisitionAsync(
@@ -98,22 +100,15 @@ public sealed class WikisourceProvider : IContentProvider,
         if (book is null)
             return null;
 
-        if (request.AssetId is not null
-            && !string.Equals(request.AssetId, "epub", StringComparison.OrdinalIgnoreCase))
-        {
-            throw ProviderException.AssetUnavailableFor(Id, book.Page, request.AssetId);
-        }
+        var selected = request.AssetId is null
+            ? book.Assets.FirstOrDefault(asset => asset.IsPreferred) ?? book.Assets.FirstOrDefault()
+            : book.Assets.FirstOrDefault(asset =>
+                string.Equals(asset.Id, request.AssetId, StringComparison.OrdinalIgnoreCase));
 
-        if (book.Asset is null)
-            throw ProviderException.AssetUnavailableFor(Id, book.Page, request.AssetId ?? "epub");
+        if (selected is null)
+            throw ProviderException.AssetUnavailableFor(Id, book.Page, request.AssetId ?? "ebook");
 
-        var asset = new ProviderAsset(
-            Id: "epub",
-            Kind: ProviderMediaKind.Ebook,
-            Label: "EPUB",
-            SourceFormat: "application/epub+zip",
-            SizeBytes: null,
-            IsPreferred: true);
+        var asset = ToProviderAsset(selected);
 
         return new ProviderAcquisitionPlan(
             ProviderId: Id,
@@ -123,12 +118,12 @@ public sealed class WikisourceProvider : IContentProvider,
             Parts:
             [
                 new ProviderDownloadPart(
-                    Url: book.Asset.Url,
-                    FileExtension: ".epub",
+                    Url: selected.Url,
+                    FileExtension: selected.FileExtension,
                     ExpectedBytes: null,
-                    Label: "EPUB"),
+                    Label: selected.Label),
             ],
-            Output: new ProviderOutput(".epub", "application/epub+zip", "EPUB"),
+            Output: new ProviderOutput(selected.FileExtension, selected.SourceFormat, selected.Label),
             Cover: book.Cover,
             Source: new ProviderSourceInfo(
                 ItemUrl: book.SourceUrl?.ToString(),
@@ -204,29 +199,28 @@ public sealed class WikisourceProvider : IContentProvider,
         return page;
     }
 
-    private ProviderItem ToProviderItem(WikisourceBook book) => new(
+    private ProviderItem ToProviderItem(WikisourceBook book, bool includeAssets) => new(
         ProviderId: Id,
         ExternalId: book.Page,
         MediaKind: ProviderMediaKind.Ebook,
         Metadata: MetadataFor(book),
-        Assets: book.Asset is null
-            ? []
-            :
-            [
-                new ProviderAsset(
-                    Id: "epub",
-                    Kind: ProviderMediaKind.Ebook,
-                    Label: "EPUB",
-                    SourceFormat: "application/epub+zip",
-                    SizeBytes: null,
-                    IsPreferred: true),
-            ],
+        Assets: includeAssets
+            ? book.Assets.Select(ToProviderAsset).ToList()
+            : [],
         Cover: book.Cover,
         Source: new ProviderSourceInfo(
             ItemUrl: book.SourceUrl?.ToString(),
             RightsStatement: book.Rights,
             RightsUrl: null),
         PartCount: null);
+
+    private static ProviderAsset ToProviderAsset(WikisourceAsset asset) => new(
+        Id: asset.Id,
+        Kind: ProviderMediaKind.Ebook,
+        Label: asset.Label,
+        SourceFormat: asset.SourceFormat,
+        SizeBytes: null,
+        IsPreferred: asset.IsPreferred);
 
     private static ProviderMetadata MetadataFor(WikisourceBook book) => new(
         Title: book.Title,
