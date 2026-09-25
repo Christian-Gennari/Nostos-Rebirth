@@ -330,6 +330,12 @@
   text-transform: uppercase;
 }
 
+.inspected-source-locator {
+  font-weight: var(--fw-regular);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .inspected-source-card {
   display: block;
   min-width: 0;
