@@ -343,4 +343,164 @@ describe('CloudEntryService', () => {
     expect(onboarding.getState).not.toHaveBeenCalled();
     expect(onboarding.provision).not.toHaveBeenCalled();
   });
+
+  it('treats deletion-requested accounts as unavailable without provisioning', async () => {
+    capabilities.get.mockReturnValue(of(cloudCapabilities));
+    auth.getSession.mockReturnValue(of({
+      ...session,
+      accountState: 'DeletionRequested',
+    }));
+
+    await service.initialize();
+
+    expect(service.view().kind).toBe('account_unavailable');
+    expect(onboarding.getState).not.toHaveBeenCalled();
+    expect(onboarding.provision).not.toHaveBeenCalled();
+  });
+
+  it('maps a pending checkout to the safe-to-resume state', async () => {
+    capabilities.get.mockReturnValue(of(cloudCapabilities));
+    auth.getSession.mockReturnValue(of(session));
+    onboarding.getState.mockReturnValue(of({
+      state: 'checkout_pending',
+      subscriptionStatus: 'Pending',
+      ready: false,
+      canCheckout: true,
+      canCheckSubscription: true,
+      canManageSubscription: false,
+      canRetry: false,
+      selectedOffer: {
+        offerId: 'pro-annual',
+        planName: 'Pro',
+        billingCadence: 'Annual',
+      },
+    }));
+
+    await service.initialize();
+
+    expect(service.view().kind).toBe('checkout_pending');
+    expect(service.selectedOffer()?.planName).toBe('Pro');
+    expect(service.productReady()).toBe(false);
+  });
+
+  it('keeps the legacy pending state on the safe-to-resume path', async () => {
+    capabilities.get.mockReturnValue(of(cloudCapabilities));
+    auth.getSession.mockReturnValue(of(session));
+    onboarding.getState.mockReturnValue(of({
+      state: 'subscription_pending',
+      subscriptionStatus: 'Pending',
+      ready: false,
+      canCheckout: true,
+      canCheckSubscription: true,
+      canManageSubscription: false,
+      canRetry: false,
+      selectedOffer: null,
+    }));
+
+    await service.initialize();
+
+    expect(service.view().kind).toBe('checkout_pending');
+    expect(service.productReady()).toBe(false);
+  });
+
+  it('routes past-due billing to payment recovery instead of fully inactive', async () => {
+    capabilities.get.mockReturnValue(of(cloudCapabilities));
+    auth.getSession.mockReturnValue(of(session));
+    onboarding.getState.mockReturnValue(of({
+      state: 'past_due',
+      subscriptionStatus: 'PastDue',
+      ready: false,
+      canCheckout: false,
+      canCheckSubscription: true,
+      canManageSubscription: true,
+      canRetry: false,
+      selectedOffer: {
+        offerId: 'pro-annual',
+        planName: 'Pro',
+        billingCadence: 'Annual',
+      },
+    }));
+
+    await service.initialize();
+
+    expect(service.view().kind).toBe('payment_recovery');
+    expect(service.productReady()).toBe(false);
+  });
+
+  it('classifies legacy inactive snapshots by subscription status', async () => {
+    capabilities.get.mockReturnValue(of(cloudCapabilities));
+    auth.getSession.mockReturnValue(of(session));
+
+    onboarding.getState.mockReturnValue(of({
+      state: 'subscription_inactive',
+      subscriptionStatus: 'PastDue',
+      ready: false,
+      canCheckout: false,
+      canCheckSubscription: true,
+      canManageSubscription: true,
+      canRetry: false,
+      selectedOffer: null,
+    }));
+    await service.initialize();
+    expect(service.view().kind).toBe('payment_recovery');
+
+    onboarding.getState.mockReturnValue(of({
+      state: 'subscription_inactive',
+      subscriptionStatus: 'Canceled',
+      ready: false,
+      canCheckout: true,
+      canCheckSubscription: true,
+      canManageSubscription: false,
+      canRetry: false,
+      selectedOffer: null,
+    }));
+    await service.initialize();
+    expect(service.view().kind).toBe('canceled');
+
+    onboarding.getState.mockReturnValue(of({
+      state: 'subscription_inactive',
+      subscriptionStatus: 'Inactive',
+      ready: false,
+      canCheckout: false,
+      canCheckSubscription: true,
+      canManageSubscription: true,
+      canRetry: false,
+      selectedOffer: null,
+    }));
+    await service.initialize();
+    expect(service.view().kind).toBe('inactive');
+    expect(service.productReady()).toBe(false);
+  });
+
+  it('retries failed provisioning through the idempotent provision call', async () => {
+    capabilities.get.mockReturnValue(of(cloudCapabilities));
+    auth.getSession.mockReturnValue(of(session));
+    onboarding.getState.mockReturnValue(of({
+      state: 'provisioning_failed',
+      subscriptionStatus: 'Active',
+      ready: false,
+      canCheckout: false,
+      canCheckSubscription: false,
+      canManageSubscription: false,
+      canRetry: true,
+      selectedOffer: null,
+    }));
+    onboarding.provision.mockReturnValue(of({
+      state: 'provisioning',
+      subscriptionStatus: 'Active',
+      ready: false,
+      canCheckout: false,
+      canCheckSubscription: false,
+      canManageSubscription: false,
+      canRetry: true,
+      selectedOffer: null,
+    }));
+
+    await service.initialize();
+    expect(service.view().kind).toBe('provisioning_failed');
+
+    await service.retry();
+    expect(onboarding.provision).toHaveBeenCalledTimes(1);
+    expect(service.view().kind).toBe('provisioning');
+  });
 });

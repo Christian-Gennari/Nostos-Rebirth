@@ -1,7 +1,12 @@
 export type CloudOnboardingState =
   | 'subscription_required'
   | 'subscription_pending'
+  | 'checkout_pending'
+  | 'grace'
+  | 'past_due'
+  | 'canceled'
   | 'subscription_inactive'
+  | 'inactive'
   | 'ready_to_provision'
   | 'provisioning'
   | 'provisioning_failed'
