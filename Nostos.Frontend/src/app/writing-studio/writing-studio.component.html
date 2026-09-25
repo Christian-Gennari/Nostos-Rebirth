@@ -173,7 +173,7 @@
         </button>
       </div>
 
-      @if (referenceMode() === 'library') {
+      @if (!inspectedSource() && referenceMode() === 'library') {
         <div class="sidebar-tabs library-tabs" role="tablist" aria-label="Library browsing">
           <button
             class="tab-btn toggle-opt"
@@ -271,21 +271,87 @@
           </button>
         </div>
       </section>
-    } @else {
-      @if (referenceMode() === 'writing') {
-        <div class="brain-content kept-sources-content">
-          @if (!activeItem()) {
-            <p class="empty-index calm-notice">No document open — choose or create one to keep sources.</p>
-          } @else if (keptNotes().length === 0) {
-            <p class="empty-index calm-notice">No sources kept with this writing yet.</p>
+    }
+
+    @if (!inspectedSource() && referenceMode() === 'writing') {
+      <div class="brain-content kept-sources-content">
+        @if (!activeItem()) {
+          <p class="empty-index calm-notice">No document open — choose or create one to keep sources.</p>
+        } @else if (keptNotes().length === 0) {
+          <p class="empty-index calm-notice">No sources kept with this writing yet.</p>
+        } @else {
+          <div class="notes-list kept-notes-list">
+            @for (note of keptNotes(); track note.id) {
+              <div class="kept-note-row">
+                <app-note-card
+                  class="inspectable-note"
+                  role="button"
+                  tabindex="0"
+                  [note]="note"
+                  [conceptMap]="conceptMap()"
+                  [showActions]="false"
+                  [showSource]="true"
+                  (click)="inspectSource(note)"
+                  (keydown.enter)="inspectSource(note)"
+                  (keydown.space)="inspectSource(note); $event.preventDefault()"
+                ></app-note-card>
+                <div class="kept-note-actions">
+                  <button
+                    appIconButton
+                    size="xxs"
+                    icon="x"
+                    [glyphSize]="14"
+                    (click)="removeKeptSource(note.id, $event)"
+                    title="Remove from writing"
+                    aria-label="Remove from writing"
+                  ></button>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+
+    @if (referenceMode() === 'library') {
+      @if (activeSidebarTab() === 'brain') {
+        <div class="search-box">
+          <nostos-icon name="magnifying-glass" [size]="16"></nostos-icon>
+          <input
+            appInput
+            controlSize="compact"
+            type="text"
+            placeholder="Search concepts..."
+            [ngModel]="brainQuery()"
+            (ngModelChange)="brainQuery.set($event)"
+          />
+        </div>
+
+        <div class="brain-content">
+          @if (!selectedConceptId()) {
+            <div class="index-list">
+              @for (c of filteredConcepts(); track c.id) {
+                <button class="list-item" (click)="selectConcept(c.id)">
+                  <div class="list-item-content">
+                    <span class="name">{{ c.name }}</span>
+                  </div>
+                  <span appBadge class="badge-count">{{ c.usageCount }}</span>
+                </button>
+              }
+            </div>
           } @else {
-            <div class="notes-list kept-notes-list">
-              @for (note of keptNotes(); track note.id) {
-                <div class="kept-note-row">
+            <div class="brain-detail-header">
+              <button appButton variant="ghost" size="sm" class="goto-btn" (click)="selectedConceptId.set(null)">
+                <nostos-icon name="arrow-left" [size]="16"></nostos-icon>
+                Back
+              </button>
+              <span class="detail-title">Concept Notes</span>
+            </div>
+
+            <div class="notes-list">
+              @for (note of selectedConceptNotes(); track note.id) {
+                <div class="library-note-row">
                   <app-note-card
-                    class="inspectable-note"
-                    role="button"
-                    tabindex="0"
                     [note]="note"
                     [conceptMap]="conceptMap()"
                     [showActions]="false"
@@ -293,174 +359,108 @@
                     (click)="inspectSource(note)"
                     (keydown.enter)="inspectSource(note)"
                     (keydown.space)="inspectSource(note); $event.preventDefault()"
+                    class="inspectable-note"
+                    role="button"
+                    tabindex="0"
                   ></app-note-card>
-                  <div class="kept-note-actions">
+                  <div class="library-note-actions">
                     <button
                       appIconButton
                       size="xxs"
-                      icon="x"
+                      icon="bookmark-simple"
                       [glyphSize]="14"
-                      (click)="removeKeptSource(note.id, $event)"
-                      title="Remove from writing"
-                      aria-label="Remove from writing"
+                      [class.active]="keptNoteIds().has(note.id)"
+                      [disabled]="!activeItem() || keepingNoteIds().has(note.id)"
+                      (click)="keepNote(note.id); $event.stopPropagation()"
+                      [title]="!activeItem() ? 'Open a document to keep sources' : (keptNoteIds().has(note.id) ? 'Kept' : 'Keep for this writing')"
+                      [attr.aria-label]="!activeItem() ? 'Open a document to keep sources' : (keptNoteIds().has(note.id) ? 'Kept' : 'Keep for this writing')"
                     ></button>
                   </div>
                 </div>
+              }
+              @if (selectedConceptNotes().length === 0) {
+                <p class="empty-index">No notes linked to this concept.</p>
               }
             </div>
           }
         </div>
       }
+      @if (activeSidebarTab() === 'notes') {
+        <div class="search-box">
+          <nostos-icon name="magnifying-glass" [size]="16"></nostos-icon>
+          <input
+            appInput
+            controlSize="compact"
+            type="text"
+            placeholder="Search books..."
+            [ngModel]="bookQuery()"
+            (ngModelChange)="bookQuery.set($event)"
+          />
+        </div>
 
-      @if (referenceMode() === 'library') {
-        @if (activeSidebarTab() === 'brain') {
-          <div class="search-box">
-            <nostos-icon name="magnifying-glass" [size]="16"></nostos-icon>
-            <input
-              appInput
-              controlSize="compact"
-              type="text"
-              placeholder="Search concepts..."
-              [ngModel]="brainQuery()"
-              (ngModelChange)="brainQuery.set($event)"
-            />
-          </div>
-
-          <div class="brain-content">
-            @if (!selectedConceptId()) {
-              <div class="index-list">
-                @for (c of filteredConcepts(); track c.id) {
-                  <button class="list-item" (click)="selectConcept(c.id)">
-                    <div class="list-item-content">
-                      <span class="name">{{ c.name }}</span>
-                    </div>
-                    <span appBadge class="badge-count">{{ c.usageCount }}</span>
-                  </button>
-                }
-              </div>
-            } @else {
-              <div class="brain-detail-header">
-                <button appButton variant="ghost" size="sm" class="goto-btn" (click)="selectedConceptId.set(null)">
-                  <nostos-icon name="arrow-left" [size]="16"></nostos-icon>
-                  Back
-                </button>
-                <span class="detail-title">Concept Notes</span>
-              </div>
-
-              <div class="notes-list">
-                @for (note of selectedConceptNotes(); track note.id) {
-                  <div class="library-note-row">
-                    <app-note-card
-                      [note]="note"
-                      [conceptMap]="conceptMap()"
-                      [showActions]="false"
-                      [showSource]="true"
-                      (click)="inspectSource(note)"
-                      (keydown.enter)="inspectSource(note)"
-                      (keydown.space)="inspectSource(note); $event.preventDefault()"
-                      class="inspectable-note"
-                      role="button"
-                      tabindex="0"
-                    ></app-note-card>
-                    <div class="library-note-actions">
-                      <button
-                        appIconButton
-                        size="xxs"
-                        icon="bookmark-simple"
-                        [glyphSize]="14"
-                        [class.active]="keptNoteIds().has(note.id)"
-                        [disabled]="!activeItem() || keepingNoteIds().has(note.id)"
-                        (click)="keepNote(note.id); $event.stopPropagation()"
-                        [title]="!activeItem() ? 'Open a document to keep sources' : (keptNoteIds().has(note.id) ? 'Kept' : 'Keep for this writing')"
-                        [attr.aria-label]="!activeItem() ? 'Open a document to keep sources' : (keptNoteIds().has(note.id) ? 'Kept' : 'Keep for this writing')"
-                      ></button>
-                    </div>
+        <div class="brain-content">
+          @if (!selectedBookId()) {
+            <div class="index-list">
+              @for (book of filteredBooks(); track book.id) {
+                <button class="list-item" (click)="selectBook(book.id)">
+                  <div class="list-item-icon">
+                    <nostos-icon name="book" [size]="16"></nostos-icon>
                   </div>
-                }
-                @if (selectedConceptNotes().length === 0) {
-                  <p class="empty-index">No notes linked to this concept.</p>
-                }
-              </div>
-            }
-          </div>
-        }
-        @if (activeSidebarTab() === 'notes') {
-          <div class="search-box">
-            <nostos-icon name="magnifying-glass" [size]="16"></nostos-icon>
-            <input
-              appInput
-              controlSize="compact"
-              type="text"
-              placeholder="Search books..."
-              [ngModel]="bookQuery()"
-              (ngModelChange)="bookQuery.set($event)"
-            />
-          </div>
-
-          <div class="brain-content">
-            @if (!selectedBookId()) {
-              <div class="index-list">
-                @for (book of filteredBooks(); track book.id) {
-                  <button class="list-item" (click)="selectBook(book.id)">
-                    <div class="list-item-icon">
-                      <nostos-icon name="book" [size]="16"></nostos-icon>
-                    </div>
-                    <div class="list-item-content">
-                      <span class="name">{{ book.title }}</span>
-                      @if (book.author) {
-                        <span class="subtext">{{ book.author }}</span>
-                      }
-                    </div>
-                  </button>
-                }
-              </div>
-            } @else {
-              <div class="brain-detail-header">
-                <button appButton variant="ghost" size="sm" class="goto-btn" (click)="selectedBookId.set(null)">
-                  <nostos-icon name="arrow-left" [size]="16"></nostos-icon>
-                  Back
-                </button>
-                <span class="detail-title">Book Notes</span>
-              </div>
-
-              <div class="notes-list">
-                @for (note of selectedBookNotes(); track note.id) {
-                  <div class="library-note-row">
-                    <app-note-card
-                      [note]="note"
-                      [conceptMap]="conceptMap()"
-                      [showActions]="false"
-                      [showSource]="true"
-                      [showDate]="false"
-                      (click)="inspectSource(note)"
-                      (keydown.enter)="inspectSource(note)"
-                      (keydown.space)="inspectSource(note); $event.preventDefault()"
-                      class="inspectable-note"
-                      role="button"
-                      tabindex="0"
-                    ></app-note-card>
-                    <div class="library-note-actions">
-                      <button
-                        appIconButton
-                        size="xxs"
-                        icon="bookmark-simple"
-                        [glyphSize]="14"
-                        [class.active]="keptNoteIds().has(note.id)"
-                        [disabled]="!activeItem() || keepingNoteIds().has(note.id)"
-                        (click)="keepNote(note.id); $event.stopPropagation()"
-                        [title]="!activeItem() ? 'Open a document to keep sources' : (keptNoteIds().has(note.id) ? 'Kept' : 'Keep for this writing')"
-                        [attr.aria-label]="!activeItem() ? 'Open a document to keep sources' : (keptNoteIds().has(note.id) ? 'Kept' : 'Keep for this writing')"
-                      ></button>
-                    </div>
+                  <div class="list-item-content">
+                    <span class="name">{{ book.title }}</span>
+                    @if (book.author) {
+                      <span class="subtext">{{ book.author }}</span>
+                    }
                   </div>
-                }
-                @if (selectedBookNotes().length === 0) {
-                  <p class="empty-index">No notes found in this book.</p>
-                }
-              </div>
-            }
-          </div>
-        }
+                </button>
+              }
+            </div>
+          } @else {
+            <div class="brain-detail-header">
+              <button appButton variant="ghost" size="sm" class="goto-btn" (click)="selectedBookId.set(null)">
+                <nostos-icon name="arrow-left" [size]="16"></nostos-icon>
+                Back
+              </button>
+              <span class="detail-title">Book Notes</span>
+            </div>
+
+            <div class="notes-list">
+              @for (note of selectedBookNotes(); track note.id) {
+                <div class="library-note-row">
+                  <app-note-card
+                    [note]="note"
+                    [conceptMap]="conceptMap()"
+                    [showActions]="false"
+                    [showSource]="true"
+                    [showDate]="false"
+                    (click)="inspectSource(note)"
+                    (keydown.enter)="inspectSource(note)"
+                    (keydown.space)="inspectSource(note); $event.preventDefault()"
+                    class="inspectable-note"
+                    role="button"
+                    tabindex="0"
+                  ></app-note-card>
+                  <div class="library-note-actions">
+                    <button
+                      appIconButton
+                      size="xxs"
+                      icon="bookmark-simple"
+                      [glyphSize]="14"
+                      [class.active]="keptNoteIds().has(note.id)"
+                      [disabled]="!activeItem() || keepingNoteIds().has(note.id)"
+                      (click)="keepNote(note.id); $event.stopPropagation()"
+                      [title]="!activeItem() ? 'Open a document to keep sources' : (keptNoteIds().has(note.id) ? 'Kept' : 'Keep for this writing')"
+                      [attr.aria-label]="!activeItem() ? 'Open a document to keep sources' : (keptNoteIds().has(note.id) ? 'Kept' : 'Keep for this writing')"
+                    ></button>
+                  </div>
+                </div>
+              }
+              @if (selectedBookNotes().length === 0) {
+                <p class="empty-index">No notes found in this book.</p>
+              }
+            </div>
+          }
+        </div>
       }
     }
   </aside>
