@@ -8,6 +8,12 @@ export type CloudOnboardingState =
   | 'ready'
   | 'account_unavailable';
 
+export interface CloudOnboardingOffer {
+  offerId: string;
+  planName: string;
+  billingCadence: string;
+}
+
 export interface CloudOnboardingSnapshot {
   state: CloudOnboardingState;
   subscriptionStatus: string | null;
@@ -16,6 +22,11 @@ export interface CloudOnboardingSnapshot {
   canCheckSubscription: boolean;
   canManageSubscription: boolean;
   canRetry: boolean;
+  selectedOffer: CloudOnboardingOffer | null;
+}
+
+export interface CloudOnboardingCheckoutRequest {
+  offerId: string;
 }
 
 export interface CloudOnboardingRedirect {

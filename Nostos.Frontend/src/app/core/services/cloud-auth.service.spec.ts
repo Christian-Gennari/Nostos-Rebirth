@@ -74,4 +74,22 @@ describe('CloudAuthService', () => {
     expect(service.loginUrl('https://evil.example')).toBe('/api/auth/login?returnUrl=%2F');
     expect(service.loginUrl('//evil.example')).toBe('/api/auth/login?returnUrl=%2F');
   });
+
+  it('preserves the selected Cloud offer inside a local auth return URL', () => {
+    expect(service.loginUrl('/start', 'pro-annual')).toBe(
+      '/api/auth/login?returnUrl=%2Fstart%3Foffer%3Dpro-annual',
+    );
+    expect(service.loginUrl('/start?source=pricing', 'standard-monthly')).toBe(
+      '/api/auth/login?returnUrl=%2Fstart%3Fsource%3Dpricing%26offer%3Dstandard-monthly',
+    );
+    expect(service.loginUrl('/start?offer=standard-annual', 'pro-monthly')).toBe(
+      '/api/auth/login?returnUrl=%2Fstart%3Foffer%3Dpro-monthly',
+    );
+  });
+
+  it('never turns an offer into an external return target', () => {
+    expect(service.loginUrl('https://evil.example', 'pro-annual')).toBe(
+      '/api/auth/login?returnUrl=%2F',
+    );
+  });
 });

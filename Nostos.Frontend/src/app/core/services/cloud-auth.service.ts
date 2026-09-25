@@ -27,11 +27,20 @@ export class CloudAuthService {
     return this.session$;
   }
 
-  loginUrl(returnUrl: string): string {
-    const safeReturnUrl = returnUrl.startsWith('/') && !returnUrl.startsWith('//')
-      ? returnUrl
-      : '/';
+  loginUrl(returnUrl: string, offerId: string | null = null): string {
+    const isLocalReturnUrl = returnUrl.startsWith('/') && !returnUrl.startsWith('//');
+    const safeReturnUrl = isLocalReturnUrl ? returnUrl : '/';
+    const target =
+      isLocalReturnUrl && offerId !== null
+        ? this.withOffer(safeReturnUrl, offerId)
+        : safeReturnUrl;
 
-    return `/api/auth/login?returnUrl=${encodeURIComponent(safeReturnUrl)}`;
+    return `/api/auth/login?returnUrl=${encodeURIComponent(target)}`;
+  }
+
+  private withOffer(returnUrl: string, offerId: string): string {
+    const target = new URL(returnUrl, 'https://nostos.local');
+    target.searchParams.set('offer', offerId);
+    return `${target.pathname}${target.search}${target.hash}`;
   }
 }
