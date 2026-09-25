@@ -1129,6 +1129,103 @@ describe('WritingStudio kept sources (#491)', () => {
     expect(editor.insertMarkdown).not.toHaveBeenCalled();
   });
 
+  it('replaces the kept-source list with one inspected-source drill-down and returns to it', () => {
+    component.activeItem.set(sampleDoc1);
+    component.keptSources.set([sourceAlpha]);
+    fixture.detectChanges();
+
+    const card = fixture.nativeElement.querySelector(
+      '.kept-note-row app-note-card.inspectable-note',
+    ) as HTMLElement;
+    card.click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.inspected-source-panel')).toBeTruthy();
+    expect(fixture.nativeElement.querySelectorAll('.kept-note-row')).toHaveLength(0);
+
+    const back = fixture.nativeElement.querySelector(
+      '.inspected-source-back',
+    ) as HTMLButtonElement;
+    expect(back.textContent).toContain('For this writing');
+    expect(back.getAttribute('aria-label')).toBe('Back to For this writing');
+
+    back.click();
+    fixture.detectChanges();
+
+    expect(component.inspectedSource()).toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('.kept-note-row')).toHaveLength(1);
+  });
+
+  it('treats Library concept inspection as a child view without duplicating the selected note', () => {
+    component.activeItem.set(sampleDoc1);
+    component.referenceMode.set('library');
+    component.selectConcept('c-1');
+    fixture.detectChanges();
+
+    const card = fixture.nativeElement.querySelector(
+      '.library-note-row app-note-card.inspectable-note',
+    ) as HTMLElement;
+    card.click();
+    fixture.detectChanges();
+
+    expect(component.inspectedSource()?.id).toBe('note-alpha');
+    expect(component.selectedConceptId()).toBe('c-1');
+    expect(fixture.nativeElement.querySelector('.inspected-source-panel')).toBeTruthy();
+    expect(fixture.nativeElement.querySelectorAll('.library-note-row')).toHaveLength(0);
+    expect(
+      fixture.nativeElement.querySelector('input[placeholder="Search concepts..."]'),
+    ).toBeNull();
+
+    const back = fixture.nativeElement.querySelector(
+      '.inspected-source-back',
+    ) as HTMLButtonElement;
+    expect(back.textContent).toContain('Philosophy');
+    expect(back.getAttribute('aria-label')).toBe('Back to Philosophy');
+
+    back.click();
+    fixture.detectChanges();
+
+    expect(component.inspectedSource()).toBeNull();
+    expect(component.selectedConceptId()).toBe('c-1');
+    expect(fixture.nativeElement.querySelectorAll('.library-note-row')).toHaveLength(1);
+    expect(
+      fixture.nativeElement.querySelector('input[placeholder="Search concepts..."]'),
+    ).toBeTruthy();
+  });
+
+  it('preserves book context in the inspected-source return path', () => {
+    component.referenceMode.set('library');
+    component.activeSidebarTab.set('notes');
+    component.books.set([{ id: 'book-1', title: 'Book Alpha', author: 'Author' } as any]);
+    component.selectedBookId.set('book-1');
+    component.selectedBookNotes.set([
+      {
+        id: sourceAlpha.id,
+        bookId: sourceAlpha.bookId,
+        bookTitle: sourceAlpha.bookTitle ?? undefined,
+        content: sourceAlpha.content,
+        selectedText: sourceAlpha.selectedText ?? undefined,
+        cfiRange: sourceAlpha.cfiRange ?? undefined,
+        createdAt: sourceAlpha.createdAt,
+      },
+    ]);
+    component.inspectSource(component.selectedBookNotes()[0]);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.library-note-row')).toHaveLength(0);
+    const back = fixture.nativeElement.querySelector(
+      '.inspected-source-back',
+    ) as HTMLButtonElement;
+    expect(back.textContent).toContain('Book Alpha');
+    expect(back.getAttribute('aria-label')).toBe('Back to Book Alpha');
+
+    back.click();
+    fixture.detectChanges();
+
+    expect(component.selectedBookId()).toBe('book-1');
+    expect(fixture.nativeElement.querySelectorAll('.library-note-row')).toHaveLength(1);
+  });
+
   it('shows only source insertion actions supported by the inspected data', () => {
     component.activeItem.set(sampleDoc1);
 
