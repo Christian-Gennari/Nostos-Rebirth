@@ -248,6 +248,7 @@ public sealed class LibriVoxProvider : IContentProvider,
     private ProviderItem ToProviderItem(LibriVoxCatalog.Book book) => new(
         ProviderId: Id,
         ExternalId: book.Id,
+        MediaKind: ProviderMediaKind.Audiobook,
         Metadata: MetadataFor(book),
         // A search result already knows the one asset and the section count,
         // because the feed's search response carries them.
