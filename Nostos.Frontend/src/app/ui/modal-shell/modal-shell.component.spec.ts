@@ -10,6 +10,20 @@ describe('ModalShell', () => {
   const card = () => fixture.nativeElement.querySelector('.modal-card') as HTMLElement;
   const backdrop = () => fixture.nativeElement.querySelector('.modal-backdrop') as HTMLElement;
   const head = () => fixture.nativeElement.querySelector('.modal-head') as HTMLElement;
+  const dispatchPointer = (
+    element: HTMLElement,
+    type: 'pointerdown' | 'pointerup' | 'pointercancel',
+    pointerId = 1,
+  ) => {
+    const event = new Event(type, { bubbles: true }) as PointerEvent;
+    Object.defineProperty(event, 'pointerId', { value: pointerId });
+    element.dispatchEvent(event);
+  };
+
+  const pressBackdrop = (pointerId = 1) => {
+    dispatchPointer(backdrop(), 'pointerdown', pointerId);
+    dispatchPointer(backdrop(), 'pointerup', pointerId);
+  };
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({ imports: [ModalShell] }).compileComponents();
@@ -93,11 +107,11 @@ describe('ModalShell', () => {
     expect(head().classList).not.toContain('is-divided');
   });
 
-  it('emits closed on a backdrop click', () => {
+  it('emits closed when a pointer press starts and ends on the backdrop', () => {
     const closed = vi.fn();
     shell.closed.subscribe(closed);
 
-    backdrop().click();
+    pressBackdrop();
 
     expect(closed).toHaveBeenCalledTimes(1);
   });
@@ -110,16 +124,27 @@ describe('ModalShell', () => {
     fixture.componentRef.setInput('dismissOnBackdrop', false);
     fixture.detectChanges();
 
-    backdrop().click();
+    pressBackdrop();
 
     expect(closed).not.toHaveBeenCalled();
   });
 
-  it('does not close when the click lands on the card itself', () => {
+  it('does not close when the pointer press starts and ends on the card itself', () => {
     const closed = vi.fn();
     shell.closed.subscribe(closed);
 
-    card().click();
+    dispatchPointer(card(), 'pointerdown');
+    dispatchPointer(card(), 'pointerup');
+
+    expect(closed).not.toHaveBeenCalled();
+  });
+
+  it('does not close when a pointer drag starts inside the card and releases on the backdrop', () => {
+    const closed = vi.fn();
+    shell.closed.subscribe(closed);
+
+    dispatchPointer(card(), 'pointerdown');
+    dispatchPointer(backdrop(), 'pointerup');
 
     expect(closed).not.toHaveBeenCalled();
   });
@@ -144,7 +169,7 @@ describe('ModalShell', () => {
     fixture.componentRef.setInput('busy', true);
     fixture.detectChanges();
 
-    backdrop().click();
+    pressBackdrop();
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
 
     expect(closed).not.toHaveBeenCalled();
@@ -156,12 +181,12 @@ describe('ModalShell', () => {
 
     fixture.componentRef.setInput('busy', true);
     fixture.detectChanges();
-    backdrop().click();
+    pressBackdrop();
     expect(closed).not.toHaveBeenCalled();
 
     fixture.componentRef.setInput('busy', false);
     fixture.detectChanges();
-    backdrop().click();
+    pressBackdrop();
 
     expect(closed).toHaveBeenCalledTimes(1);
   });

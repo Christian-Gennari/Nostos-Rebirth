@@ -5,6 +5,15 @@ describe('ConfirmModal', () => {
   let component: ConfirmModal;
   let fixture: ComponentFixture<ConfirmModal>;
 
+  const pressBackdrop = () => {
+    const backdrop = fixture.nativeElement.querySelector('.modal-backdrop') as HTMLElement;
+    for (const type of ['pointerdown', 'pointerup'] as const) {
+      const event = new Event(type, { bubbles: true }) as PointerEvent;
+      Object.defineProperty(event, 'pointerId', { value: 1 });
+      backdrop.dispatchEvent(event);
+    }
+  };
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [ConfirmModal],
@@ -145,7 +154,7 @@ describe('ConfirmModal', () => {
     expect(confirmBtn.textContent).toContain('Deleting…');
   });
 
-  it('cannot be dismissed by backdrop click or Escape while busy', () => {
+  it('cannot be dismissed by backdrop press or Escape while busy', () => {
     const cancelSpy = vi.fn();
     component.cancel.subscribe(cancelSpy);
 
@@ -153,20 +162,20 @@ describe('ConfirmModal', () => {
     fixture.componentRef.setInput('busy', true);
     fixture.detectChanges();
 
-    (fixture.nativeElement.querySelector('.modal-backdrop') as HTMLElement).click();
+    pressBackdrop();
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
 
     expect(cancelSpy).not.toHaveBeenCalled();
   });
 
-  it('dismisses on backdrop click when idle', () => {
+  it('dismisses on backdrop press when idle', () => {
     const cancelSpy = vi.fn();
     component.cancel.subscribe(cancelSpy);
 
     fixture.componentRef.setInput('isOpen', true);
     fixture.detectChanges();
 
-    (fixture.nativeElement.querySelector('.modal-backdrop') as HTMLElement).click();
+    pressBackdrop();
     expect(cancelSpy).toHaveBeenCalledTimes(1);
   });
 });
