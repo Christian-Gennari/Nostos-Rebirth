@@ -13,6 +13,15 @@ describe('AddBookIntent', () => {
   const choices = () =>
     fixture.nativeElement.querySelectorAll('.add-intent-choice') as NodeListOf<HTMLElement>;
 
+  const pressBackdrop = () => {
+    const backdrop = fixture.nativeElement.querySelector('.modal-backdrop') as HTMLElement;
+    for (const type of ['pointerdown', 'pointerup'] as const) {
+      const event = new Event(type, { bubbles: true }) as PointerEvent;
+      Object.defineProperty(event, 'pointerId', { value: 1 });
+      backdrop.dispatchEvent(event);
+    }
+  };
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({ imports: [AddBookIntent] }).compileComponents();
 
@@ -94,12 +103,12 @@ describe('AddBookIntent', () => {
     expect(cancel.classList.contains('nostos-button--secondary')).toBe(true);
   });
 
-  it('emits cancel on the Cancel button and on a backdrop click', () => {
+  it('emits cancel on the Cancel button and on a backdrop press', () => {
     let cancelled = 0;
     component.cancel.subscribe(() => cancelled++);
 
     (fixture.nativeElement.querySelector('.add-intent-actions button') as HTMLElement).click();
-    (fixture.nativeElement.querySelector('.modal-backdrop') as HTMLElement).click();
+    pressBackdrop();
 
     expect(cancelled).toBe(2);
   });
