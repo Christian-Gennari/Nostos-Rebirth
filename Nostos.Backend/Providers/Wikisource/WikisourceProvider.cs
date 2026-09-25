@@ -66,7 +66,7 @@ public sealed class WikisourceProvider : IContentProvider,
         if (feed is null)
             return new ProviderSearchPage([], HasMore: false);
 
-        var books = WikisourceCatalog.ParseFeed(feed);
+        var books = WikisourceCatalog.Parse(feed);
         var terms = (query.Query ?? string.Empty)
             .Split(' ', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
@@ -163,7 +163,7 @@ public sealed class WikisourceProvider : IContentProvider,
             {
                 await using var stream = await response.Content.ReadAsStreamAsync(ct);
                 var document = await XDocument.LoadAsync(stream, LoadOptions.None, ct);
-                if (!WikisourceCatalog.IsAtomFeed(document))
+                if (!WikisourceCatalog.IsAtomDocument(document))
                     throw ProviderException.InvalidResponse(Id, "the response was not an Atom feed");
 
                 return document;
@@ -232,5 +232,7 @@ public sealed class WikisourceProvider : IContentProvider,
         Author: book.Author,
         Description: book.Description,
         Language: book.Language,
+        Publisher: book.Publisher,
+        PublishedDate: book.PublishedDate,
         Categories: book.Categories);
 }
