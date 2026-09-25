@@ -28,9 +28,8 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 }
 
-function optionalString(value: unknown): string | null | undefined {
-  if (value === null || value === undefined) return value;
-  return typeof value === 'string' ? value : undefined;
+function isOptionalString(value: unknown): value is string | null | undefined {
+  return value === null || value === undefined || typeof value === 'string';
 }
 
 export function readStudioSourceReturnSnapshot(
@@ -63,25 +62,25 @@ export function readStudioSourceReturnSnapshot(
     const mode = rawReferences['mode'];
     const activeLibraryTab = rawReferences['activeLibraryTab'];
     const wasOpen = rawReferences['wasOpen'];
-    const inspectedSourceId = optionalString(rawReferences['inspectedSourceId']);
-    const selectedConceptId = optionalString(rawReferences['selectedConceptId']);
-    const selectedBookId = optionalString(rawReferences['selectedBookId']);
+    const inspectedSourceId = rawReferences['inspectedSourceId'];
+    const selectedConceptId = rawReferences['selectedConceptId'];
+    const selectedBookId = rawReferences['selectedBookId'];
 
     if (
       (mode === 'writing' || mode === 'library') &&
       (activeLibraryTab === 'brain' || activeLibraryTab === 'notes') &&
       typeof wasOpen === 'boolean' &&
-      inspectedSourceId !== undefined &&
-      selectedConceptId !== undefined &&
-      selectedBookId !== undefined
+      isOptionalString(inspectedSourceId) &&
+      isOptionalString(selectedConceptId) &&
+      isOptionalString(selectedBookId)
     ) {
       result.references = {
         mode,
         activeLibraryTab,
         wasOpen,
-        inspectedSourceId,
-        selectedConceptId,
-        selectedBookId,
+        ...(inspectedSourceId !== undefined ? { inspectedSourceId } : {}),
+        ...(selectedConceptId !== undefined ? { selectedConceptId } : {}),
+        ...(selectedBookId !== undefined ? { selectedBookId } : {}),
       };
     }
   }
