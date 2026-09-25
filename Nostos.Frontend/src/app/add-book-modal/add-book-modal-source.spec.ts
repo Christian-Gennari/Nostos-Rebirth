@@ -307,6 +307,69 @@ describe('AddBookModal — From a Source', () => {
     expect(providers.searchAll).toHaveBeenLastCalledWith('pride', 'audiobook');
   });
 
+  it('keeps a successful provider notice attributed to that provider', async () => {
+    vi.spyOn(providers, 'searchAll').mockReturnValue(
+      of({
+        items: [{ ...pride, assets: [] }],
+        hasMore: false,
+        sources: [
+          {
+            providerId: 'librivox',
+            displayName: 'LibriVox',
+            succeeded: true,
+            notice: 'Prefix search only.',
+            errorCode: null,
+          },
+        ],
+      }),
+    );
+
+    component.enterSourceMode();
+    await fixture.whenStable();
+    component.sourceQuery.set('pride');
+    component.searchSource();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('LibriVox: Prefix search only.');
+  });
+
+  it('shows unavailable rather than no matches when every provider fails', async () => {
+    vi.spyOn(providers, 'searchAll').mockReturnValue(
+      of({
+        items: [],
+        hasMore: false,
+        sources: [
+          {
+            providerId: 'gutenberg',
+            displayName: 'Project Gutenberg',
+            succeeded: false,
+            notice: null,
+            errorCode: 'provider_unavailable',
+          },
+          {
+            providerId: 'wikisource',
+            displayName: 'Wikisource',
+            succeeded: false,
+            notice: null,
+            errorCode: 'provider_unavailable',
+          },
+        ],
+      }),
+    );
+
+    component.enterSourceMode();
+    await fixture.whenStable();
+    component.sourceQuery.set('pride');
+    component.searchSource();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent;
+    expect(text).toContain('The free book sources are unavailable right now.');
+    expect(text).not.toContain('No matching books were found');
+  });
+
   it('keeps successful results visible and attributes a failed source', async () => {
     vi.spyOn(providers, 'searchAll').mockReturnValue(
       of({
