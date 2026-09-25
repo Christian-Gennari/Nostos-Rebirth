@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using Nostos.Backend.Providers.Contracts;
 
 namespace Nostos.Backend.Providers.Discovery;
@@ -24,13 +25,16 @@ public sealed class ProviderDiscoveryService
 {
     private readonly IProviderRegistry _registry;
     private readonly ILogger<ProviderDiscoveryService> _logger;
+    private readonly TimeSpan _searchTimeout;
 
     public ProviderDiscoveryService(
         IProviderRegistry registry,
+        IOptions<ProviderDiscoveryOptions> options,
         ILogger<ProviderDiscoveryService> logger)
     {
         _registry = registry;
         _logger = logger;
+        _searchTimeout = options.Value.EffectiveSearchTimeout;
     }
 
     public async Task<ProviderDiscoveryResult> SearchAsync(
@@ -69,13 +73,18 @@ public sealed class ProviderDiscoveryService
         string query,
         ProviderMediaKind? kind,
         int limit,
-        CancellationToken ct)
+        CancellationToken requestCt)
     {
+        using var providerCts = CancellationTokenSource.CreateLinkedTokenSource(requestCt);
+        Task<ProviderSearchPage>? providerTask = null;
+
         try
         {
-            var page = await registration.Search!.SearchAsync(
+            providerTask = registration.Search!.SearchAsync(
                 new ProviderSearchQuery(query, limit, Offset: 0, Kind: kind),
-                ct);
+                providerCts.Token);
+
+            var page = await providerTask.WaitAsync(_searchTimeout, requestCt);
 
             return new SearchOutcome(
                 page,
@@ -85,11 +94,39 @@ public sealed class ProviderDiscoveryService
                     Succeeded: true,
                     Notice: page.Notice));
         }
+        catch (TimeoutException)
+        {
+            // If request cancellation raced the provider deadline, the outer
+            // request remains authoritative.
+            requestCt.ThrowIfCancellationRequested();
+
+            CancelProvider(providerCts, registration.Id);
+            ObserveLateFault(providerTask);
+            requestCt.ThrowIfCancellationRequested();
+
+            _logger.LogWarning(
+                "Provider discovery timed out for {ProviderId} after {Timeout}",
+                registration.Id,
+                _searchTimeout);
+
+            return TimeoutOutcome(registration);
+        }
         catch (OperationCanceledException)
         {
-            // Cancellation is a request-level control signal, never a provider
-            // failure to hide inside an otherwise successful response.
-            throw;
+            // HttpClient.Timeout and provider-local cancellation surface as
+            // cancellation exceptions too. They are local failures unless the
+            // aggregate request token itself was cancelled.
+            requestCt.ThrowIfCancellationRequested();
+
+            CancelProvider(providerCts, registration.Id);
+            ObserveLateFault(providerTask);
+            requestCt.ThrowIfCancellationRequested();
+
+            _logger.LogWarning(
+                "Provider discovery was locally cancelled for {ProviderId}; treating it as a timeout",
+                registration.Id);
+
+            return TimeoutOutcome(registration);
         }
         catch (ProviderException ex)
         {
@@ -114,8 +151,47 @@ public sealed class ProviderDiscoveryService
                     registration.Id,
                     registration.Provider.DisplayName,
                     Succeeded: false,
-                    ErrorCode: "provider_search_failed"));
+                    ErrorCode: ProviderDiscoveryErrorCodes.SearchFailed));
         }
+    }
+
+    private SearchOutcome TimeoutOutcome(ProviderRegistration registration) =>
+        new(
+            null,
+            new ProviderDiscoverySourceStatus(
+                registration.Id,
+                registration.Provider.DisplayName,
+                Succeeded: false,
+                ErrorCode: ProviderDiscoveryErrorCodes.Timeout));
+
+    private void CancelProvider(CancellationTokenSource providerCts, string providerId)
+    {
+        try
+        {
+            providerCts.Cancel();
+        }
+        catch (Exception ex)
+        {
+            // Cancellation is best-effort after the hard WaitAsync boundary.
+            // A misbehaving provider callback must not replace the timeout
+            // outcome with an aggregate failure.
+            _logger.LogDebug(
+                ex,
+                "Provider discovery cancellation callback failed for {ProviderId}",
+                providerId);
+        }
+    }
+
+    private static void ObserveLateFault(Task<ProviderSearchPage>? providerTask)
+    {
+        if (providerTask is null || providerTask.IsCompletedSuccessfully || providerTask.IsCanceled)
+            return;
+
+        _ = providerTask.ContinueWith(
+            static task => _ = task.Exception,
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
     }
 
     private static bool IsEligible(
