@@ -6,6 +6,11 @@
  *
  * Usage: node scripts/readme-shots.mjs <baseUrl> <outDir>
  *
+ * Source instance: the README is public, so the set is captured from the public
+ * *showcase* instance (the curated public-domain library the landing page also
+ * uses), never from a private library. Subjects are named, not guessed, and
+ * overridable per instance: README_BOOK, README_STUDIO_FOLDER, README_STUDIO_DOC.
+ *
  * Deliberate choices:
  *  - One viewport (1440x900 @2x) for every shot: the README declares each image
  *    width=2880 height=1800, and a mixed set reads as inconsistent.
@@ -48,6 +53,18 @@ const VIEWPORT = { width: 1440, height: 900 };
  * for the ink crop. Readable at 1:1, small in the README column.
  */
 const GRAPH_VIEWPORT = { width: 1900, height: 910 };
+
+/**
+ * Subjects, per instance.
+ *
+ * The README is captured from the showcase library by default. On an instance
+ * whose library differs, override these three names instead of editing the
+ * script: the shot must be reproducible, so the subject is named, never
+ * "whichever record sorted first".
+ */
+const SUBJECT_BOOK = process.env.README_BOOK ?? 'The Odyssey';
+const STUDIO_FOLDER = process.env.README_STUDIO_FOLDER ?? 'Essays';
+const STUDIO_DOC = process.env.README_STUDIO_DOC ?? 'Unhistoric Acts';
 const manifest = [];
 
 const browser = await chromium.launch({
@@ -175,9 +192,10 @@ async function shot(page, name, note, opts = {}) {
 // -------------------------------------------------------- Book Details
 {
   // Pick a volume that demonstrates the richest detail page WITHOUT exposing
-  // anything personal: real rating, real progress, real synopsis — but zero
-  // personal notes and no personal review. A book with 13 of the owner's
-  // annotations (or one carrying a personal review) must never be the frame.
+  // anything personal: real rating, real progress, real synopsis — a cover, a
+  // page count, and never a personal review. The subject is named (SUBJECT_BOOK)
+  // so the frame is reproducible rather than "whichever book happened to sort
+  // first".
   const { ctx, page } = await newPage();
   await page.goto(`${BASE}/library`, { waitUntil: 'networkidle' });
   await clearSw(page);
@@ -187,12 +205,12 @@ async function shot(page, name, note, opts = {}) {
   });
   const pick = books.items.find(
     (b) =>
-      b.title === 'More Days at the Morisaki Bookshop' &&
+      b.title === SUBJECT_BOOK &&
       b.pageCount &&
       b.coverUrl &&
       !b.personalReview,
   );
-  if (!pick) throw new Error('no suitable book-detail candidate');
+  if (!pick) throw new Error(`no suitable book-detail candidate named "${SUBJECT_BOOK}"`);
   await page.goto(`${BASE}/library/${pick.id}`, { waitUntil: 'networkidle' });
   await settle(page, 3000);
   const h1 = await page.evaluate(() => document.querySelector('h1')?.innerText ?? '');
@@ -231,9 +249,12 @@ async function shot(page, name, note, opts = {}) {
   await page.goto(`${BASE}/second-brain`, { waitUntil: 'networkidle' });
   await clearSw(page);
   await page.goto(`${BASE}/second-brain`, { waitUntil: 'networkidle' });
-  await page.waitForSelector('.view-mode-control .toggle-opt', { timeout: 20000 });
+  await page.waitForSelector('.view-mode-control .vt-opt, .view-mode-control .toggle-opt', { timeout: 20000 });
   await settle(page, 2000);
-  await page.locator('.view-mode-control .toggle-opt').last().click();
+  // The Brain view toggle is a shared view-toggle component now (.vt-opt);
+  // older builds rendered the same control with .toggle-opt buttons. The last
+  // option is the map.
+  await page.locator('.view-mode-control .vt-opt, .view-mode-control .toggle-opt').last().click();
   await page.waitForSelector('.map-stage canvas', { timeout: 20000 });
   await settle(page, 4500);
 
@@ -247,6 +268,20 @@ async function shot(page, name, note, opts = {}) {
     }
   }
   await settle(page, 2500);
+
+  // The map's own Fit leaves the layout fitted to its own extent only: on the
+  // current build the fitted graph measures 29% of the stage width, which would
+  // render the labels at ~5px in the README's column. Two steps of the map's
+  // zoom bring the ink to ~77% width / 93% height with no node clipped
+  // (measured with the ink-box probe below).
+  const zoomIn = page.locator('button[aria-label="Zoom in"]').first();
+  for (let i = 0; i < 2; i++) {
+    if (await zoomIn.count()) {
+      await zoomIn.click();
+      await settle(page, 1600);
+    }
+  }
+  await settle(page, 1500);
 
   // Read the graph through the app's own diagnostics handles. `__nostosGraph` is
   // a graphology instance, so order/size are direct properties.
@@ -331,31 +366,42 @@ async function shot(page, name, note, opts = {}) {
   await settle(page, 2500);
 
   // The file tree starts collapsed, so documents are not in the DOM yet. Expand
-  // ONLY the "War and Peace" folder to reach the target document, then collapse
-  // it again before capturing: the other folder holds private journal titles
-  // ("_My philosophical aims") that must not appear in a public README, and the
-  // open editor survives the collapse.
-  const folders = page.locator('.tree-row:has(.toggle-btn)');
-  const wp = page.locator('.tree-row', { hasText: 'War and Peace' }).first();
-  if (!(await wp.count())) throw new Error('War and Peace folder not in tree');
+  // ONLY the folder holding the target document (STUDIO_FOLDER), then collapse
+  // it again before capturing: the open editor survives the collapse, and no
+  // folder contents beyond the one document the shot needs stay in frame.
+  const wp = page.locator('.tree-row', { hasText: STUDIO_FOLDER }).first();
+  if (!(await wp.count())) throw new Error(`${STUDIO_FOLDER} folder not in tree`);
   await wp.locator('.toggle-btn').click();
   await settle(page, 1200);
 
-  const target = page.locator('.tree-row', { hasText: 'General Cheatsheet' }).first();
-  if (!(await target.count())) throw new Error('cheatsheet document not in tree');
+  const target = page.locator('.tree-row', { hasText: STUDIO_DOC }).first();
+  if (!(await target.count())) throw new Error(`${STUDIO_DOC} document not in tree`);
   await target.click();
   await settle(page, 4500);
 
-  // Collapse the folder again so the private titles are out of frame; the open
+  // Collapse the folder again so its contents are out of frame; the open
   // document stays in the editor.
   await wp.locator('.toggle-btn').click();
   await settle(page, 2000);
+
+  // The rail has two surfaces: "For this writing" (sources kept with this
+  // document — empty for the README's document) and "Library" (browse
+  // concepts and books while writing, which is what the README copy
+  // describes). Switch to Library for the shot.
+  const railLibrary = page.locator('.reference-mode-switch button', { hasText: 'Library' }).first();
+  if (await railLibrary.count()) {
+    await railLibrary.click();
+    await settle(page, 2200);
+  }
+  const railText = await page.evaluate(() => (document.querySelector('.reference-mode-switch')?.parentElement?.innerText ?? '').slice(0, 400));
+  if (/No sources kept/.test(railText)) throw new Error('reference rail still on the kept-sources empty state');
 
   const body = await page.evaluate(() => document.body.innerText);
   if (body.includes('Select a file to begin writing')) {
     throw new Error('studio still on empty state');
   }
-  // Guard the privacy requirement: the journal title must not be on screen.
+  // Guard the privacy requirement: known private titles must never be on
+  // screen, whichever instance the capture is pointed at.
   if (body.includes('philosophical aims')) {
     throw new Error('private journal title visible in frame');
   }
