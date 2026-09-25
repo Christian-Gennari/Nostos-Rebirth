@@ -1272,7 +1272,8 @@ describe('WritingStudio kept sources (#491)', () => {
         nostosReaderReturnOrigin: { version: 1, kind: 'studio', writingId: 'doc-1' },
       },
     });
-    expect(navigate.mock.calls[0][1].queryParams).toEqual({ sourceCfi: 'epubcfi(/8/4)' });
+    const readerExtras = (navigate.mock.calls[0] as unknown as [unknown, any])[1];
+    expect(readerExtras.queryParams).toEqual({ sourceCfi: 'epubcfi(/8/4)' });
   });
 
   it('does not leave Studio when there is no active Writing return context', async () => {
@@ -1422,7 +1423,12 @@ describe('WritingStudio writingId handoff (#492/#493 seam)', () => {
     anchorVerified: true,
   };
 
-  async function createWithParams(params: Record<string, string> = {}) {
+  async function createWithParams(
+    params: Record<string, string> = {},
+    historyState: Record<string, unknown> = {},
+  ) {
+    const query = new URLSearchParams(params).toString();
+    window.history.replaceState(historyState, '', `/studio${query ? `?${query}` : ''}`);
     queryParams = new BehaviorSubject(convertToParamMap(params));
     writingsService = {
       list: vi.fn(() => of([doc, folder])),
@@ -1534,5 +1540,99 @@ describe('WritingStudio writingId handoff (#492/#493 seam)', () => {
     expect(component.activeItem()?.id).toBe(doc.id);
     expect(component.showFileSidebar()).toBe(false);
     expect(component.showBrainSidebar()).toBe(false);
+  });
+
+  it('restores and consumes a matching Studio source-return snapshot only after opening that Writing', async () => {
+    await createWithParams(
+      { writingId: doc.id },
+      {
+        navigationId: 31,
+        unrelated: 'keep',
+        nostosStudioSourceReturn: {
+          version: 1,
+          writingId: doc.id,
+          editor: { bookmark: { start: [4, 0] }, scrollY: 515 },
+          references: {
+            mode: 'writing',
+            activeLibraryTab: 'brain',
+            wasOpen: true,
+            inspectedSourceId: kept.id,
+            selectedConceptId: null,
+            selectedBookId: null,
+          },
+        },
+      },
+    );
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const editor = (component as any).markdownEditor as MarkdownEditorStub;
+    expect(component.activeItem()?.id).toBe(doc.id);
+    expect(component.referenceMode()).toBe('writing');
+    expect(component.showBrainSidebar()).toBe(true);
+    expect(component.inspectedSource()?.id).toBe(kept.id);
+    expect(editor.restoreTransientState).toHaveBeenCalledWith(
+      { bookmark: { start: [4, 0] }, scrollY: 515 },
+      content.content,
+    );
+    expect(window.history.state.nostosStudioSourceReturn).toBeUndefined();
+    expect(window.history.state.unrelated).toBe('keep');
+    expect(writingsService.update).not.toHaveBeenCalled();
+  });
+
+  it('never applies a return snapshot for Writing B to requested Writing A', async () => {
+    await createWithParams(
+      { writingId: doc.id },
+      {
+        nostosStudioSourceReturn: {
+          version: 1,
+          writingId: 'different-writing',
+          editor: { bookmark: { start: [9, 0] }, scrollY: 999 },
+        },
+      },
+    );
+
+    await Promise.resolve();
+
+    const editor = (component as any).markdownEditor as MarkdownEditorStub;
+    expect(component.activeItem()?.id).toBe(doc.id);
+    expect(editor.restoreTransientState).not.toHaveBeenCalled();
+    expect(window.history.state.nostosStudioSourceReturn).toBeUndefined();
+  });
+
+  it('restores mobile reference state as one pane without reopening Documents', async () => {
+    await createWithParams();
+
+    component.isMobile.set(true);
+    component.showFileSidebar.set(true);
+    component.showBrainSidebar.set(false);
+
+    window.history.replaceState(
+      {
+        nostosStudioSourceReturn: {
+          version: 1,
+          writingId: doc.id,
+          references: {
+            mode: 'writing',
+            activeLibraryTab: 'brain',
+            wasOpen: true,
+            inspectedSourceId: null,
+            selectedConceptId: null,
+            selectedBookId: null,
+          },
+        },
+      },
+      '',
+      `/studio?writingId=${doc.id}`,
+    );
+    (component as any).prepareSourceReturnRestore();
+    queryParams.next(convertToParamMap({ writingId: doc.id }));
+    fixture.detectChanges();
+    await Promise.resolve();
+
+    expect(component.activeItem()?.id).toBe(doc.id);
+    expect(component.showFileSidebar()).toBe(false);
+    expect(component.showBrainSidebar()).toBe(true);
   });
 });
