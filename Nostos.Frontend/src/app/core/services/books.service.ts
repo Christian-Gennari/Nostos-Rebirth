@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
+import { catchError, Observable, throwError } from 'rxjs';
 import {
   Book,
   CreateBookDto,
@@ -25,6 +25,22 @@ export interface BookListOptions {
 
 export interface BookLocationsDto {
   locations: string;
+}
+
+export type BookLookupErrorReason =
+  | 'invalid-isbn'
+  | 'not-found'
+  | 'unavailable'
+  | 'unexpected';
+
+export class BookLookupError extends Error {
+  constructor(
+    public readonly reason: BookLookupErrorReason,
+    public readonly status: number,
+  ) {
+    super(`Book lookup failed: ${reason}`);
+    this.name = 'BookLookupError';
+  }
 }
 
 @Injectable({ providedIn: 'root' })
@@ -126,7 +142,24 @@ export class BooksService {
   }
 
   lookup(isbn: string): Observable<CreateBookDto> {
-    return this.http.get<CreateBookDto>(`/api/books/lookup/${isbn}`);
+    return this.http.get<CreateBookDto>(`/api/books/lookup/${encodeURIComponent(isbn)}`).pipe(
+      catchError((error: unknown) => {
+        if (!(error instanceof HttpErrorResponse)) {
+          return throwError(() => error);
+        }
+
+        const reason: BookLookupErrorReason =
+          error.status === 400
+            ? 'invalid-isbn'
+            : error.status === 404
+              ? 'not-found'
+              : error.status === 0 || error.status >= 500
+                ? 'unavailable'
+                : 'unexpected';
+
+        return throwError(() => new BookLookupError(reason, error.status));
+      }),
+    );
   }
 }
 
