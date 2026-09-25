@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, OnDestroy, signal, computed, effect, ViewChild, HostListener, ElementRef } from '@angular/core';
 import { ActivatedRoute, ParamMap, Router } from '@angular/router';
-import { CommonModule } from '@angular/common';
+import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 // Services
@@ -32,6 +32,7 @@ import { ConceptInputComponent } from '../ui/concept-input.component/concept-inp
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
 import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
 import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
+import { readReaderReturnOrigin } from '../core/navigation/studio-reader-navigation';
 
 @Component({
   selector: 'app-reader-shell',
@@ -72,6 +73,7 @@ export class ReaderShell implements OnInit, OnDestroy {
   private host = inject<ElementRef<HTMLElement>>(ElementRef);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private location = inject(Location);
   private booksService = inject(BooksService);
   private notesService = inject(NotesService);
   private conceptsService = inject(ConceptsService);
@@ -654,9 +656,18 @@ export class ReaderShell implements OnInit, OnDestroy {
   }
 
   goBack() {
+    // Studio is the one explicit origin that owns a previous-entry return
+    // contract. The Reader intentionally knows nothing about editor/caret state:
+    // it only goes back to the history entry Studio prepared before leaving.
+    if (readReaderReturnOrigin(window.history.state)?.kind === 'studio') {
+      this.location.back();
+      return;
+    }
+
     const id = this.book()?.id ?? this.currentRouteBookId;
-    // This is an explicit destination, not browser history. replaceUrl avoids
-    // detail -> reader -> detail -> Back -> reader loops.
+    // Existing behavior for Book Detail, direct Reader entry, and every other
+    // origin stays explicit. replaceUrl avoids detail -> reader -> detail ->
+    // Back -> reader loops.
     if (id) void this.router.navigate(['/library', id], { replaceUrl: true });
     else void this.router.navigate(['/library'], { replaceUrl: true });
   }
