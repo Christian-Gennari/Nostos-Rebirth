@@ -1,4 +1,4 @@
-export type CloudAccountState = 'Unknown' | 'Active' | 'Disabled' | 'Deleted';
+export type CloudAccountState = 'Unknown' | 'Active' | 'Disabled' | 'Deleted' | 'DeletionRequested';
 
 export interface CloudSessionAccount {
   id: string;

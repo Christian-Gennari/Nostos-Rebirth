@@ -1,11 +1,12 @@
 import { Component, ElementRef, ViewChild, inject } from '@angular/core';
 import { ButtonComponent } from '../ui/button/button.component';
+import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 import { CloudEntryService } from '../core/services/cloud-entry.service';
 
 @Component({
   selector: 'app-cloud-entry',
   standalone: true,
-  imports: [ButtonComponent],
+  imports: [ButtonComponent, NostosIconComponent],
   templateUrl: './cloud-entry.component.html',
   styleUrl: './cloud-entry.component.css',
 })

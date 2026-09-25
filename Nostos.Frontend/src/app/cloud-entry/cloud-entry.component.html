@@ -40,10 +40,18 @@
         </button>
       }
 
-      @case ('subscription_pending') {
+      @case ('checkout_pending') {
         <p class="cloud-entry__eyebrow">Access</p>
-        <h1>Confirming your subscription.</h1>
-        <p>Nostos will only continue after your subscription is confirmed by the server.</p>
+        <h1>Your checkout is still open.</h1>
+        <p class="cloud-entry__status">
+          <nostos-icon name="clock" [size]="16" />
+          <span>Your checkout is safe to resume. Nothing is charged twice.</span>
+        </p>
+        @if (entry.selectedOffer(); as offer) {
+          <p>
+            Continue with <strong>{{ offer.planName }}</strong> on {{ offer.billingCadence }} billing.
+          </p>
+        }
         <div class="cloud-entry__actions">
           @if (entry.view().onboarding?.canCheckout) {
             <button
@@ -57,19 +65,110 @@
               Continue checkout
             </button>
           }
-          <button
-            appButton
-            variant="secondary"
-            type="button"
-            [disabled]="entry.actionPending()"
-            (click)="checkSubscription()"
-          >
-            Check subscription
-          </button>
+          @if (entry.view().onboarding?.canCheckSubscription) {
+            <button
+              appButton
+              variant="secondary"
+              type="button"
+              [disabled]="entry.actionPending()"
+              (click)="checkSubscription()"
+            >
+              Check subscription
+            </button>
+          }
         </div>
       }
 
-      @case ('subscription_inactive') {
+      @case ('payment_recovery') {
+        <p class="cloud-entry__eyebrow">Payment</p>
+        <h1>Update your payment to keep your library.</h1>
+        <p class="cloud-entry__status">
+          <nostos-icon name="warning-circle" [size]="16" />
+          <span>Your library stays available while you recover payment in Paddle.</span>
+        </p>
+        @if (entry.selectedOffer(); as offer) {
+          <p>
+            Current plan: <strong>{{ offer.planName }}</strong> on {{ offer.billingCadence }} billing.
+          </p>
+        }
+        <div class="cloud-entry__actions">
+          @if (entry.view().onboarding?.canManageSubscription) {
+            <button
+              appButton
+              variant="primary"
+              type="button"
+              [disabled]="entry.actionPending()"
+              [busy]="entry.actionPending()"
+              (click)="manageSubscription()"
+            >
+              Update payment
+            </button>
+          }
+          @if (entry.view().onboarding?.canCheckSubscription) {
+            <button
+              appButton
+              variant="secondary"
+              type="button"
+              [disabled]="entry.actionPending()"
+              (click)="checkSubscription()"
+            >
+              Check again
+            </button>
+          }
+        </div>
+      }
+
+      @case ('canceled') {
+        <p class="cloud-entry__eyebrow">Access</p>
+        <h1>Your subscription has ended.</h1>
+        <p class="cloud-entry__status">
+          <nostos-icon name="info" [size]="16" />
+          <span>Your library is retained and read-only. Re-subscribe to write and sync again.</span>
+        </p>
+        @if (entry.selectedOffer(); as offer) {
+          <p>
+            Last plan: <strong>{{ offer.planName }}</strong> on {{ offer.billingCadence }} billing.
+          </p>
+        }
+        <div class="cloud-entry__actions">
+          @if (entry.view().onboarding?.canCheckout) {
+            <button
+              appButton
+              variant="primary"
+              type="button"
+              [disabled]="entry.actionPending() || !entry.selectedOffer()"
+              [busy]="entry.actionPending()"
+              (click)="checkout()"
+            >
+              Re-subscribe
+            </button>
+          } @else if (entry.view().onboarding?.canManageSubscription) {
+            <button
+              appButton
+              variant="primary"
+              type="button"
+              [disabled]="entry.actionPending()"
+              [busy]="entry.actionPending()"
+              (click)="manageSubscription()"
+            >
+              Re-subscribe
+            </button>
+          }
+          @if (entry.view().onboarding?.canCheckSubscription) {
+            <button
+              appButton
+              variant="secondary"
+              type="button"
+              [disabled]="entry.actionPending()"
+              (click)="checkSubscription()"
+            >
+              Check again
+            </button>
+          }
+        </div>
+      }
+
+      @case ('inactive') {
         <p class="cloud-entry__eyebrow">Access</p>
         <h1>Your subscription isn’t active.</h1>
         <p>Your library is retained. Update your subscription, then ask Nostos to check again.</p>
@@ -104,6 +203,14 @@
         <div class="cloud-entry__spinner" aria-hidden="true"></div>
         <p class="cloud-entry__eyebrow">Almost there</p>
         <h1>Preparing your Nostos library…</h1>
+        <div
+          class="cloud-entry__progress"
+          role="progressbar"
+          aria-label="Preparing your library"
+          aria-valuetext="In progress"
+        >
+          <span class="cloud-entry__progress-fill" aria-hidden="true"></span>
+        </div>
         <p>You can refresh or come back later. Nostos reads progress from the server.</p>
         <button
           appButton
@@ -119,7 +226,11 @@
       @case ('provisioning_failed') {
         <p class="cloud-entry__eyebrow">Setup</p>
         <h1>We couldn’t finish preparing your library.</h1>
-        <p>Your account is safe. Retry uses the same Cloud resources rather than creating another library.</p>
+        <p class="cloud-entry__status">
+          <nostos-icon name="warning-circle" [size]="16" />
+          <span>Your account is safe. Retrying reuses the same Cloud resources.</span>
+        </p>
+        <p>If retrying keeps failing, contact Nostos support.</p>
         <button
           appButton
           variant="primary"

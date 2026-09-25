@@ -14,8 +14,10 @@ export type CloudEntryKind =
   | 'product'
   | 'signed_out'
   | 'subscription_required'
-  | 'subscription_pending'
-  | 'subscription_inactive'
+  | 'checkout_pending'
+  | 'payment_recovery'
+  | 'canceled'
+  | 'inactive'
   | 'provisioning'
   | 'provisioning_failed'
   | 'first_run'
@@ -78,7 +80,11 @@ export class CloudEntryService {
         return;
       }
 
-      if (session.accountState === 'Disabled' || session.accountState === 'Deleted') {
+      if (
+        session.accountState === 'Disabled' ||
+        session.accountState === 'Deleted' ||
+        session.accountState === 'DeletionRequested'
+      ) {
         this.view.set({ kind: 'account_unavailable' });
         return;
       }
@@ -244,13 +250,26 @@ export class CloudEntryService {
         return;
 
       case 'subscription_pending':
+      case 'checkout_pending':
         this.clearPoll();
-        this.view.set({ kind: 'subscription_pending', onboarding: snapshot });
+        this.view.set({ kind: 'checkout_pending', onboarding: snapshot });
+        return;
+
+      case 'grace':
+      case 'past_due':
+        this.clearPoll();
+        this.view.set({ kind: 'payment_recovery', onboarding: snapshot });
+        return;
+
+      case 'canceled':
+        this.clearPoll();
+        this.view.set({ kind: 'canceled', onboarding: snapshot });
         return;
 
       case 'subscription_inactive':
+      case 'inactive':
         this.clearPoll();
-        this.view.set({ kind: 'subscription_inactive', onboarding: snapshot });
+        this.view.set({ kind: this.classifyInactive(snapshot), onboarding: snapshot });
         return;
 
       case 'account_unavailable':
@@ -258,6 +277,17 @@ export class CloudEntryService {
         this.view.set({ kind: 'account_unavailable', onboarding: snapshot });
         return;
     }
+  }
+
+  private classifyInactive(snapshot: CloudOnboardingSnapshot): 'payment_recovery' | 'canceled' | 'inactive' {
+    const status = (snapshot.subscriptionStatus ?? '').toLowerCase().replace(/[\s_]+/g, '');
+    if (status.includes('pastdue') || status.includes('grace') || status.includes('past_due')) {
+      return 'payment_recovery';
+    }
+    if (status.includes('cancel')) {
+      return 'canceled';
+    }
+    return 'inactive';
   }
 
   private readOfferFromLocation(): string | null {
