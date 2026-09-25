@@ -571,6 +571,12 @@ export class WritingStudio implements OnInit {
         }
       },
       error: () => {
+        if (
+          fromHandoff &&
+          (handoffGeneration !== this.handoffOpenGeneration || this.requestedWritingId !== id)
+        ) {
+          return;
+        }
         if (fromHandoff) this.toast.error('That writing is unavailable');
       },
     });
