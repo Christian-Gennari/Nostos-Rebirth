@@ -1,6 +1,10 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { MarkdownEditorComponent, caretScrollDelta } from './markdown-editor.component';
+import {
+  MarkdownEditorComponent,
+  caretScrollDelta,
+  caretViewportTop,
+} from './markdown-editor.component';
 
 /**
  * TinyMCE is a heavy global; these specs stub it and assert the FINAL chrome
@@ -328,6 +332,20 @@ describe('MarkdownEditorComponent', () => {
     expect(removedEditors[0]).toBe(editors[0]);
   });
 
+  it('gives typewriter mode enough vertical runway to center first and last lines', () => {
+    const contentCss = fixture.componentInstance.editorConfig.content_style as string;
+    expect(contentCss).toContain('body.nostos-typewriter');
+    expect(contentCss).toContain('padding-top: 45vh');
+    expect(contentCss).toContain('padding-bottom: 55vh');
+  });
+
+  it('follows caret activity on typing, keyboard navigation, clicks, and node changes', () => {
+    expect(registeredEditorEvents).toContain('Input');
+    expect(registeredEditorEvents).toContain('KeyUp');
+    expect(registeredEditorEvents).toContain('Click');
+    expect(registeredEditorEvents).toContain('NodeChange');
+  });
+
   it('kills Oxide focus rings, including the ::before pseudo-element ring', () => {
     // Regression: Oxide paints the blue focus rectangle on
     // .tox .tox-edit-area::before (2px solid #006ce7, opacity raised by
@@ -345,20 +363,70 @@ describe('MarkdownEditorComponent', () => {
 });
 
 describe('caretScrollDelta (typewriter geometry)', () => {
-  it('returns null inside the deadband', () => {
+  it('returns null inside the one-line deadband', () => {
     expect(caretScrollDelta(450, 1000)).toBeNull(); // exactly centered
-    expect(caretScrollDelta(500, 1000)).toBeNull(); // 50px drift
-    expect(caretScrollDelta(400, 1000)).toBeNull();
+    expect(caretScrollDelta(480, 1000)).toBeNull(); // 30px drift
+    expect(caretScrollDelta(420, 1000)).toBeNull();
   });
 
-  it('scrolls far carets to 45% of the viewport', () => {
+  it('scrolls carets outside the deadband to 45% of the viewport', () => {
     expect(caretScrollDelta(900, 1000)).toBe(450);
     expect(caretScrollDelta(100, 1000)).toBe(-350);
+    expect(caretScrollDelta(490, 1000)).toBe(40);
   });
 
   it('returns null for invalid viewports', () => {
     expect(caretScrollDelta(100, 0)).toBeNull();
     expect(caretScrollDelta(NaN, 1000)).toBeNull();
+  });
+});
+
+describe('caretViewportTop (collapsed caret geometry)', () => {
+  it('uses a normal range rectangle when the browser reports one', () => {
+    expect(
+      caretViewportTop({
+        getBoundingClientRect: () => ({ top: 412, height: 24 }),
+      }),
+    ).toBe(412);
+  });
+
+  it('probes an adjacent text character when a collapsed range reports all zeroes', () => {
+    const textNode = { nodeType: 3, length: 5, data: 'hello', parentElement: null };
+    const probe = {
+      setStart: vi.fn(),
+      setEnd: vi.fn(),
+      getBoundingClientRect: () => ({ top: 618, height: 28 }),
+    };
+
+    expect(
+      caretViewportTop({
+        collapsed: true,
+        startContainer: textNode,
+        startOffset: 5,
+        getBoundingClientRect: () => ({ top: 0, height: 0 }),
+        cloneRange: () => probe,
+      }),
+    ).toBe(618);
+    expect(probe.setStart).toHaveBeenCalledWith(textNode, 4);
+    expect(probe.setEnd).toHaveBeenCalledWith(textNode, 5);
+  });
+
+  it('falls back to the containing block for an empty caret line', () => {
+    const block = {
+      nodeType: 1,
+      childNodes: [],
+      getBoundingClientRect: () => ({ top: 275, height: 32 }),
+    };
+
+    expect(
+      caretViewportTop({
+        collapsed: true,
+        startContainer: block,
+        startOffset: 0,
+        getBoundingClientRect: () => ({ top: 0, height: 0 }),
+        cloneRange: () => ({}),
+      }),
+    ).toBe(275);
   });
 });
 
