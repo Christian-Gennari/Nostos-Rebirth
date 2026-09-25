@@ -6,6 +6,7 @@ import { catchError, forkJoin, map, of } from 'rxjs';
 import { WritingDto } from '../../core/dtos/writing.dtos';
 import { ToastService } from '../../core/services/toast.service';
 import { WritingsService } from '../../core/services/writings.service';
+import { IconButtonComponent } from '../../ui/icon-button/icon-button.component';
 
 export interface BrainWritingHandoffResult {
   succeededNoteIds: string[];
@@ -15,7 +16,7 @@ export interface BrainWritingHandoffResult {
 @Component({
   standalone: true,
   selector: 'app-brain-writing-handoff',
-  imports: [CommonModule],
+  imports: [CommonModule, IconButtonComponent],
   templateUrl: './brain-writing-handoff.component.html',
   styleUrls: ['./brain-writing-handoff.component.css'],
 })
