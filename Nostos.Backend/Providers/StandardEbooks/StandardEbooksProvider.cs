@@ -28,8 +28,7 @@ public sealed class StandardEbooksProvider : IContentProvider,
     public const string ApprovedUserAgent =
         "Nostos/1.0 (+https://github.com/Christian-Gennari/Nostos-Rebirth)";
 
-    public const string OpdsAccept =
-        "application/atom+xml;profile=opds-catalog";
+    public const string OpdsAccept = "application/atom+xml";
 
     private const int MaxSearchPageSize = 24;
     private const int DetailSearchPageSize = 24;
