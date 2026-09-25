@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 
 import { AddBookModal } from './add-book-modal.component';
 import { Book, BooksService } from '../core/services/books.service';
@@ -59,7 +59,7 @@ const pride: ProviderItem = {
       id: 'epub3-images',
       kind: 'ebook',
       label: 'EPUB3 (E-readers incl. Send-to-Kindle)',
-      sourceFormat: 'epub3-images',
+      sourceFormat: 'application/epub+zip',
       sizeBytes: 24835578,
       isPreferred: true,
     },
@@ -67,7 +67,7 @@ const pride: ProviderItem = {
       id: 'epub-noimages',
       kind: 'ebook',
       label: 'EPUB (no images, older E-readers)',
-      sourceFormat: 'epub-noimages',
+      sourceFormat: 'application/epub+zip',
       sizeBytes: 558381,
       isPreferred: false,
     },
@@ -114,7 +114,7 @@ describe('AddBookModal — From a Source', () => {
     vi.spyOn(providers, 'list').mockReturnValue(of([gutenberg, librivox, wikisource]));
     vi.spyOn(providers, 'searchAll').mockReturnValue(
       of({
-        items: [pride],
+        items: [{ ...pride, assets: [] }],
         hasMore: false,
         sources: [
           {
@@ -124,16 +124,27 @@ describe('AddBookModal — From a Source', () => {
             notice: null,
             errorCode: null,
           },
+          {
+            providerId: 'librivox',
+            displayName: 'LibriVox',
+            succeeded: true,
+            notice: null,
+            errorCode: null,
+          },
+          {
+            providerId: 'wikisource',
+            displayName: 'Wikisource',
+            succeeded: true,
+            notice: null,
+            errorCode: null,
+          },
         ],
       }),
     );
-    vi.spyOn(providers, 'search').mockReturnValue(
-      of({ items: [pride], hasMore: false, notice: null }),
-    );
     // Search results carry no assets by design, so selecting one fetches the
     // full item. Mocked here so the tests never reach for the network.
-    vi.spyOn(providers, 'item').mockImplementation((_providerId, externalId) =>
-      of({ ...pride, externalId }),
+    vi.spyOn(providers, 'item').mockImplementation((providerId, externalId) =>
+      of({ ...pride, providerId, externalId }),
     );
 
     fixture = TestBed.createComponent(AddBookModal);
@@ -228,30 +239,41 @@ describe('AddBookModal — From a Source', () => {
     expect(action.classList.contains('nostos-button--primary')).toBe(true);
   });
 
-  it('loads the sources when the tab is opened and defaults to searching free sources', async () => {
+  it('loads provider metadata without requiring a provider choice', async () => {
     component.enterSourceMode();
     await fixture.whenStable();
     fixture.detectChanges();
 
     expect(providers.list).toHaveBeenCalled();
+    expect(component.sourceKind()).toBe('all');
     expect(fixture.nativeElement.textContent).toContain('Search free books and audiobooks');
+    expect(fixture.nativeElement.querySelectorAll('.source-choice').length).toBe(0);
   });
 
-  it('surfaces a source-failure instead of an empty screen', async () => {
-    vi.spyOn(providers, 'searchAll').mockReturnValue(throwError(() => new Error('down')));
-
+  it('offers material filters instead of provider buttons', async () => {
     component.enterSourceMode();
-    await fixture.whenStable();
-    component.sourceQuery.set('pride');
-    component.searchSource();
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(component.sourceSearchError()).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('.source-error')).toBeTruthy();
+    const labels = Array.from(
+      fixture.nativeElement.querySelectorAll('.source-filter') as NodeListOf<HTMLButtonElement>,
+    ).map((button) => button.textContent?.trim());
+
+    expect(labels).toEqual(['All', 'E-books', 'Audiobooks']);
   });
 
-  it('will not search on a single character, and searches on two', async () => {
+  it('keeps unified search usable if the provider metadata list fails', async () => {
+    vi.spyOn(providers, 'list').mockReturnValue(throwError(() => new Error('down')));
+
+    component.enterSourceMode();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(component.providersError()).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('#source-query')).toBeTruthy();
+  });
+
+  it('will not search on a single character, and aggregate-searches on two', async () => {
     component.enterSourceMode();
     await fixture.whenStable();
 
@@ -266,6 +288,237 @@ describe('AddBookModal — From a Source', () => {
     expect(providers.searchAll).toHaveBeenCalledWith('pride', undefined);
   });
 
+  it('keeps the query and reruns aggregate search when the material filter changes', async () => {
+    component.enterSourceMode();
+    await fixture.whenStable();
+
+    component.sourceQuery.set('pride');
+    component.searchSource();
+    await fixture.whenStable();
+
+    component.setSourceKind('ebook');
+    await fixture.whenStable();
+
+    expect(component.sourceQuery()).toBe('pride');
+    expect(providers.searchAll).toHaveBeenLastCalledWith('pride', 'ebook');
+
+    component.setSourceKind('audiobook');
+    await fixture.whenStable();
+    expect(providers.searchAll).toHaveBeenLastCalledWith('pride', 'audiobook');
+  });
+
+  it('keeps a successful provider notice attributed to that provider', async () => {
+    vi.spyOn(providers, 'searchAll').mockReturnValue(
+      of({
+        items: [{ ...pride, assets: [] }],
+        hasMore: false,
+        sources: [
+          {
+            providerId: 'librivox',
+            displayName: 'LibriVox',
+            succeeded: true,
+            notice: 'Prefix search only.',
+            errorCode: null,
+          },
+        ],
+      }),
+    );
+
+    component.enterSourceMode();
+    await fixture.whenStable();
+    component.sourceQuery.set('pride');
+    component.searchSource();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('LibriVox: Prefix search only.');
+  });
+
+  it('shows unavailable rather than no matches when every provider fails', async () => {
+    vi.spyOn(providers, 'searchAll').mockReturnValue(
+      of({
+        items: [],
+        hasMore: false,
+        sources: [
+          {
+            providerId: 'gutenberg',
+            displayName: 'Project Gutenberg',
+            succeeded: false,
+            notice: null,
+            errorCode: 'provider_unavailable',
+          },
+          {
+            providerId: 'wikisource',
+            displayName: 'Wikisource',
+            succeeded: false,
+            notice: null,
+            errorCode: 'provider_unavailable',
+          },
+        ],
+      }),
+    );
+
+    component.enterSourceMode();
+    await fixture.whenStable();
+    component.sourceQuery.set('pride');
+    component.searchSource();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent;
+    expect(text).toContain('The free book sources are unavailable right now.');
+    expect(text).not.toContain('No matching books were found');
+  });
+
+  it('keeps successful results visible and attributes a failed source', async () => {
+    vi.spyOn(providers, 'searchAll').mockReturnValue(
+      of({
+        items: [{ ...pride, assets: [] }],
+        hasMore: false,
+        sources: [
+          {
+            providerId: 'gutenberg',
+            displayName: 'Project Gutenberg',
+            succeeded: true,
+            notice: null,
+            errorCode: null,
+          },
+          {
+            providerId: 'wikisource',
+            displayName: 'Wikisource',
+            succeeded: false,
+            notice: null,
+            errorCode: 'provider_unavailable',
+          },
+        ],
+      }),
+    );
+
+    component.enterSourceMode();
+    await fixture.whenStable();
+    component.sourceQuery.set('pride');
+    component.searchSource();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.source-result').length).toBe(1);
+    expect(fixture.nativeElement.textContent).toContain("Wikisource couldn't be searched right now.");
+    expect(fixture.nativeElement.textContent).toContain('Pride and Prejudice');
+  });
+
+  it('keeps provider-qualified identity when two sources reuse the same external id', async () => {
+    const wikiItem = {
+      ...pride,
+      providerId: 'wikisource',
+      assets: [],
+      coverUrl: '/api/providers/wikisource/items/1342/cover',
+    };
+    vi.spyOn(providers, 'searchAll').mockReturnValue(
+      of({
+        items: [{ ...pride, assets: [] }, wikiItem],
+        hasMore: false,
+        sources: [
+          {
+            providerId: 'gutenberg',
+            displayName: 'Project Gutenberg',
+            succeeded: true,
+            notice: null,
+            errorCode: null,
+          },
+          {
+            providerId: 'wikisource',
+            displayName: 'Wikisource',
+            succeeded: true,
+            notice: null,
+            errorCode: null,
+          },
+        ],
+      }),
+    );
+
+    component.enterSourceMode();
+    await fixture.whenStable();
+    component.sourceQuery.set('pride');
+    component.searchSource();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const rows = fixture.nativeElement.querySelectorAll('.source-result') as NodeListOf<HTMLButtonElement>;
+    expect(rows.length).toBe(2);
+    rows[1].click();
+    await fixture.whenStable();
+
+    expect(providers.item).toHaveBeenLastCalledWith('wikisource', '1342');
+    expect(component.selectedItem()?.providerId).toBe('wikisource');
+    expect(component.sourceItemKey(component.sourceResults()[0])).not.toBe(
+      component.sourceItemKey(component.sourceResults()[1]),
+    );
+  });
+
+  it('ignores late detail from a previously selected provider with the same external id', () => {
+    const gutenbergDetail = new Subject<ProviderItem>();
+    const wikisourceDetail = new Subject<ProviderItem>();
+    vi.spyOn(providers, 'item').mockImplementation((providerId) =>
+      providerId === 'gutenberg' ? gutenbergDetail : wikisourceDetail,
+    );
+
+    const g = { ...pride, assets: [] };
+    const w = { ...pride, providerId: 'wikisource', assets: [] };
+
+    component.selectSourceItem(g);
+    component.selectSourceItem(w);
+
+    gutenbergDetail.next(pride);
+    expect(component.selectedDetail()).toBeNull();
+
+    wikisourceDetail.next({ ...pride, providerId: 'wikisource' });
+    expect(component.selectedDetail()?.providerId).toBe('wikisource');
+  });
+
+  it('preserves an explicitly selected PDF through metadata review and import', async () => {
+    const detail: ProviderItem = {
+      ...pride,
+      assets: [
+        {
+          ...pride.assets[0],
+          id: 'epub',
+          label: 'EPUB',
+          sourceFormat: 'application/epub+zip',
+          isPreferred: true,
+        },
+        {
+          ...pride.assets[0],
+          id: 'pdf',
+          label: 'PDF',
+          sourceFormat: 'application/pdf',
+          isPreferred: false,
+        },
+      ],
+    };
+    vi.spyOn(providers, 'item').mockReturnValue(of(detail));
+    const acquire = vi.spyOn(providers, 'acquire').mockReturnValue(of(job({ assetId: 'pdf' })));
+
+    component.selectSourceItem({ ...pride, assets: [] });
+    await fixture.whenStable();
+
+    expect(component.selectedFormatFamily()).toBe('EPUB');
+    component.selectFormatFamily('PDF');
+    expect(component.selectedAssetId()).toBe('pdf');
+
+    component.seedFromSelectedItem();
+    component.form.title = 'Pride and Prejudice — reviewed';
+    component.importSelected();
+
+    expect(component.form.type).toBe('ebook');
+    expect(acquire).toHaveBeenCalledWith(
+      'gutenberg',
+      expect.objectContaining({
+        externalId: '1342',
+        assetId: 'pdf',
+      }),
+    );
+  });
+
   it('renders results with their metadata and the proxied cover', async () => {
     component.enterSourceMode();
     await fixture.whenStable();
@@ -278,6 +531,7 @@ describe('AddBookModal — From a Source', () => {
     expect(rows.length).toBe(1);
     expect(rows[0].textContent).toContain('Pride and Prejudice');
     expect(rows[0].textContent).toContain('Jane Austen');
+    expect(rows[0].textContent).toContain('E-book · Project Gutenberg');
 
     // The browser never talks to the source directly: the URL is Nostos's own.
     expect(fixture.nativeElement.querySelector('.source-cover').getAttribute('src')).toBe(
@@ -297,6 +551,9 @@ describe('AddBookModal — From a Source', () => {
 
     expect(component.selectedAssetId()).toBe('epub3-images');
 
+    // The formats sit behind a collapsed disclosure. `textContent` reports them
+    // whether or not it is open — the same way `[hidden]` reported `true` on a
+    // visible element — so this asserts the state, not the presence of a string.
     const formats = fixture.nativeElement.querySelector('.source-formats') as HTMLDetailsElement;
     expect(formats).toBeTruthy();
     expect(formats.open).toBe(false);
