@@ -944,6 +944,7 @@ describe('WritingStudio kept sources (#491)', () => {
   // 7. remove action calls removeSource and drops the row locally.
   it('remove action calls removeSource and drops the row locally', () => {
     component.activeItem.set(sampleDoc1);
+    component.editorText.set(sampleDoc1.content);
     component.keptSources.set([sourceAlpha, sourceBeta]);
     fixture.detectChanges();
 
@@ -1131,7 +1132,7 @@ describe('WritingStudio kept sources (#491)', () => {
     const labels = () =>
       Array.from(
         fixture.nativeElement.querySelectorAll('.source-insertion-actions button'),
-      ).map((button: Element) => button.textContent?.trim());
+      ).map((button) => (button as Element).textContent?.trim());
 
     expect(labels()).toEqual([
       'Insert quote',
