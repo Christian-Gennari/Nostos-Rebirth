@@ -295,10 +295,58 @@
   color: var(--color-text-light);
 }
 
-.clickable-note {
+.inspectable-note {
   display: block;
-  margin-bottom: 1rem;
-  cursor: copy;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.inspectable-note:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.inspected-source-panel {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-height: min(52vh, 460px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0.7rem 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--border-color);
+  white-space: normal;
+}
+
+.inspected-source-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0 0.5rem 0.45rem;
+  color: var(--color-text-light);
+  font-size: 0.68rem;
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.inspected-source-locator {
+  font-weight: var(--fw-regular);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.inspected-source-card {
+  display: block;
+  min-width: 0;
+}
+
+.source-insertion-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 0.65rem 0.5rem 0;
 }
 
 .empty-index {
@@ -650,6 +698,14 @@
   .header-doc-title {
     font-size: 0.95rem;
     max-width: 160px;
+  }
+
+  .inspected-source-panel {
+    max-height: 58dvh;
+  }
+
+  .source-insertion-actions .nostos-button {
+    min-height: 44px;
   }
 
   .editor-desk-telemetry {

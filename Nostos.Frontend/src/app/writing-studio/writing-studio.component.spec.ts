@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Component, input, output, Input } from '@angular/core';
-import { of, Observable } from 'rxjs';
+import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
+import { ActivatedRoute, convertToParamMap } from '@angular/router';
 
 import { WritingStudio } from './writing-studio.component';
 import { WritingsService } from '../core/services/writings.service';
@@ -12,7 +13,6 @@ import { FlatTreeComponent } from '../ui/flat-tree/flat-tree.component';
 import { NoteCardComponent } from '../ui/note-card.component/note-card.component';
 import { MarkdownEditorComponent } from '../ui/markdown-editor/markdown-editor.component';
 import { WritingContentDto, WritingSourceDto } from '../core/dtos/writing.dtos';
-import { throwError } from 'rxjs';
 
 // Heavy editor / UI children are stubbed out: MarkdownEditor boots TinyMCE
 // (not available under vitest), and the tree/note cards pull in drag-drop and
@@ -23,6 +23,7 @@ class MarkdownEditorStub {
   readonly typewriter = input<boolean>(false);
   readonly contentChange = output<string>();
   readonly wordCountChange = output<number>();
+  readonly insertMarkdown = vi.fn(async (_markdown: string) => true);
 }
 
 @Component({ selector: 'app-flat-tree', standalone: true, template: '' })
@@ -943,6 +944,7 @@ describe('WritingStudio kept sources (#491)', () => {
   // 7. remove action calls removeSource and drops the row locally.
   it('remove action calls removeSource and drops the row locally', () => {
     component.activeItem.set(sampleDoc1);
+    component.editorText.set(sampleDoc1.content);
     component.keptSources.set([sourceAlpha, sourceBeta]);
     fixture.detectChanges();
 
@@ -957,6 +959,7 @@ describe('WritingStudio kept sources (#491)', () => {
     fixture.detectChanges();
 
     expect(writingsService.removeSource).toHaveBeenCalledWith('doc-1', 'note-alpha');
+    expect(component.editorText()).toBe(sampleDoc1.content);
     expect(component.keptSources()).toHaveLength(1);
     expect(component.keptSources()[0].id).toBe('note-beta');
     expect(fixture.nativeElement.querySelectorAll('.kept-note-row')).toHaveLength(1);
@@ -1069,6 +1072,320 @@ describe('WritingStudio kept sources (#491)', () => {
     expect(closeBtn).toBeTruthy();
     closeBtn.click();
     fixture.detectChanges();
+    expect(component.showBrainSidebar()).toBe(false);
+  });
+
+  it('browsing a kept source only inspects it and never inserts or changes prose', () => {
+    component.activeItem.set(sampleDoc1);
+    component.editorText.set(sampleDoc1.content);
+    component.keptSources.set([sourceAlpha]);
+    fixture.detectChanges();
+
+    const editor = (component as any).markdownEditor as MarkdownEditorStub;
+    editor.insertMarkdown.mockClear();
+
+    const card = fixture.nativeElement.querySelector(
+      '.kept-note-row app-note-card.inspectable-note',
+    ) as HTMLElement;
+    card.click();
+    fixture.detectChanges();
+
+    expect(component.inspectedSource()?.id).toBe('note-alpha');
+    expect(component.editorText()).toBe(sampleDoc1.content);
+    expect(editor.insertMarkdown).not.toHaveBeenCalled();
+  });
+
+  it('browsing a Library source only inspects it and never inserts or changes prose', () => {
+    component.activeItem.set(sampleDoc1);
+    component.editorText.set(sampleDoc1.content);
+    component.referenceMode.set('library');
+    component.selectConcept('c-1');
+    fixture.detectChanges();
+
+    const editor = (component as any).markdownEditor as MarkdownEditorStub;
+    editor.insertMarkdown.mockClear();
+
+    const card = fixture.nativeElement.querySelector(
+      '.library-note-row app-note-card.inspectable-note',
+    ) as HTMLElement;
+    card.click();
+    fixture.detectChanges();
+
+    expect(component.inspectedSource()?.id).toBe('note-alpha');
+    expect(component.editorText()).toBe(sampleDoc1.content);
+    expect(editor.insertMarkdown).not.toHaveBeenCalled();
+  });
+
+  it('shows only source insertion actions supported by the inspected data', () => {
+    component.activeItem.set(sampleDoc1);
+
+    component.inspectSource({
+      id: 'quote-only',
+      bookId: 'book-1',
+      bookTitle: 'Book Alpha',
+      selectedText: 'A quotation',
+      content: '   ',
+      createdAt: '2026-08-01T10:00:00Z',
+    });
+    fixture.detectChanges();
+
+    const labels = () =>
+      Array.from(
+        fixture.nativeElement.querySelectorAll('.source-insertion-actions button'),
+      ).map((button) => (button as Element).textContent?.trim());
+
+    expect(labels()).toEqual([
+      'Insert quote',
+      'Insert as reference',
+      'Open source',
+    ]);
+
+    component.inspectSource({
+      id: 'note-only',
+      bookId: 'book-1',
+      bookTitle: 'Book Alpha',
+      content: 'A reflection',
+      createdAt: '2026-08-01T10:00:00Z',
+    });
+    fixture.detectChanges();
+
+    expect(labels()).toEqual([
+      'Insert note',
+      'Insert as reference',
+      'Open source',
+    ]);
+  });
+
+  it('delegates deliberate insertion to the editor boundary without concatenating editorText', async () => {
+    component.activeItem.set(sampleDoc1);
+    component.editorText.set(sampleDoc1.content);
+    fixture.detectChanges();
+
+    const editor = (component as any).markdownEditor as MarkdownEditorStub;
+    editor.insertMarkdown.mockClear();
+
+    await component.insertQuote(sourceBeta as any);
+
+    expect(editor.insertMarkdown).toHaveBeenCalledWith(
+      '> Beta excerpt\n> — *Book Beta*, p. 42',
+    );
+    expect(component.editorText()).toBe(sampleDoc1.content);
+  });
+
+  it('returns mobile drafting to the editor after a successful deliberate insertion', async () => {
+    component.activeItem.set(sampleDoc1);
+    component.isMobile.set(true);
+    component.showBrainSidebar.set(true);
+    fixture.detectChanges();
+
+    await component.insertReference(sourceBeta as any);
+
+    expect(component.showBrainSidebar()).toBe(false);
+  });
+
+  it('fails insertion honestly when the editor is not ready', async () => {
+    component.activeItem.set(sampleDoc1);
+    fixture.detectChanges();
+
+    const editor = (component as any).markdownEditor as MarkdownEditorStub;
+    editor.insertMarkdown.mockResolvedValueOnce(false);
+
+    await component.insertReference(sourceBeta as any);
+
+    expect(toastService.error).toHaveBeenCalledWith(
+      'The editor is not ready for insertion yet',
+    );
+  });
+
+  it('keeps Open source separate and uses only supported reader navigation', () => {
+    const navigate = vi.fn(() => Promise.resolve(true));
+    (component as any).router = { navigate };
+
+    component.openSource(sourceBeta as any);
+    expect(navigate).toHaveBeenLastCalledWith(['/read', 'book-2'], {
+      queryParams: { sourcePage: 42 },
+    });
+
+    component.openSource(sourceAlpha as any);
+    expect(navigate).toHaveBeenLastCalledWith(['/read', 'book-1'], {
+      queryParams: { sourceCfi: 'epubcfi(/6/2)' },
+    });
+
+    component.openSource({
+      id: 'physical',
+      bookId: 'book-3',
+      bookTitle: 'Physical Book',
+      content: 'note',
+      createdAt: '2026-08-01T10:00:00Z',
+      sourceAnchorKind: 'physical_page',
+      sourceAnchorValue: '17',
+      anchorVerified: true,
+    });
+    expect(navigate).toHaveBeenLastCalledWith(['/library', 'book-3']);
+  });
+});
+
+describe('WritingStudio writingId handoff (#492/#493 seam)', () => {
+  let fixture: ComponentFixture<WritingStudio>;
+  let component: WritingStudio;
+  let queryParams: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
+  let writingsService: {
+    list: ReturnType<typeof vi.fn>;
+    get: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    delete: ReturnType<typeof vi.fn>;
+    move: ReturnType<typeof vi.fn>;
+    listSources: ReturnType<typeof vi.fn>;
+    addSource: ReturnType<typeof vi.fn>;
+    removeSource: ReturnType<typeof vi.fn>;
+  };
+  let toastService: { error: ReturnType<typeof vi.fn>; success: ReturnType<typeof vi.fn> };
+
+  const doc = {
+    id: 'doc-handoff',
+    name: 'Brain handoff draft',
+    type: 'Document' as const,
+    parentId: null,
+    updatedAt: '2026-09-25T00:00:00Z',
+  };
+  const folder = {
+    id: 'folder-handoff',
+    name: 'Folder',
+    type: 'Folder' as const,
+    parentId: null,
+    updatedAt: '2026-09-25T00:00:00Z',
+  };
+  const content: WritingContentDto = {
+    id: doc.id,
+    name: doc.name,
+    content: 'Question\n\nWorking paragraph.',
+    updatedAt: doc.updatedAt,
+  };
+  const kept: WritingSourceDto = {
+    id: 'note-handoff',
+    bookId: 'book-handoff',
+    bookTitle: 'The Republic',
+    content: 'Reflection',
+    selectedText: 'Justice',
+    createdAt: '2026-09-20T00:00:00Z',
+    addedAt: '2026-09-25T00:00:00Z',
+    sourceAnchorKind: 'pdf_page',
+    sourceAnchorValue: '42',
+    anchorVerified: true,
+  };
+
+  async function createWithParams(params: Record<string, string> = {}) {
+    queryParams = new BehaviorSubject(convertToParamMap(params));
+    writingsService = {
+      list: vi.fn(() => of([doc, folder])),
+      get: vi.fn(() => of(content)),
+      create: vi.fn(() => of({})),
+      update: vi.fn(() => of(content)),
+      delete: vi.fn(() => of(undefined)),
+      move: vi.fn(() => of({})),
+      listSources: vi.fn(() => of([kept])),
+      addSource: vi.fn(() => of(kept)),
+      removeSource: vi.fn(() => of(undefined)),
+    };
+    toastService = { error: vi.fn(), success: vi.fn() };
+
+    TestBed.overrideComponent(WritingStudio, {
+      remove: { imports: [FlatTreeComponent, NoteCardComponent, MarkdownEditorComponent] },
+      add: { imports: [FlatTreeStub, NoteCardStub, MarkdownEditorStub] },
+    });
+
+    await TestBed.configureTestingModule({
+      imports: [WritingStudio],
+      providers: [
+        { provide: WritingsService, useValue: writingsService },
+        { provide: ToastService, useValue: toastService },
+        { provide: ActivatedRoute, useValue: {
+          queryParamMap: queryParams.asObservable(),
+          snapshot: { queryParamMap: queryParams.value },
+        } },
+        { provide: ConceptsService, useValue: { list: vi.fn(() => of([])), get: vi.fn() } },
+        { provide: BooksService, useValue: { list: vi.fn(() => of({ items: [] })) } },
+        { provide: NotesService, useValue: { list: vi.fn(() => of([])) } },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(WritingStudio);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  }
+
+  it('opens a valid writingId with title, content and kept sources', async () => {
+    await createWithParams({ writingId: doc.id });
+
+    expect(writingsService.get).toHaveBeenCalledWith(doc.id);
+    expect(component.activeItem()?.id).toBe(doc.id);
+    expect(component.editorTitle()).toBe(doc.name);
+    expect(component.editorText()).toBe(content.content);
+    expect(writingsService.listSources).toHaveBeenCalledWith(doc.id);
+    expect(component.keptSources()).toEqual([kept]);
+  });
+
+  it('reacts to writingId query-param changes without inventing another handoff contract', async () => {
+    await createWithParams();
+
+    expect(writingsService.get).not.toHaveBeenCalled();
+    queryParams.next(convertToParamMap({ writingId: doc.id }));
+    fixture.detectChanges();
+
+    expect(writingsService.get).toHaveBeenCalledWith(doc.id);
+    expect(component.activeItem()?.id).toBe(doc.id);
+  });
+
+  it('does not treat a folder id as an editor document', async () => {
+    await createWithParams({ writingId: folder.id });
+
+    expect(writingsService.get).not.toHaveBeenCalled();
+    expect(component.activeItem()).toBeNull();
+    expect(toastService.error).toHaveBeenCalledWith('That writing is unavailable');
+  });
+
+  it('handles a missing writing id safely', async () => {
+    await createWithParams({ writingId: 'missing-id' });
+
+    expect(writingsService.get).not.toHaveBeenCalled();
+    expect(component.activeItem()).toBeNull();
+    expect(toastService.error).toHaveBeenCalledWith('That writing is unavailable');
+  });
+
+  it('handles a deleted writing that disappears between list and get safely', async () => {
+    await createWithParams();
+    writingsService.get.mockReturnValueOnce(
+      throwError(() => new Error('404')),
+    );
+
+    queryParams.next(convertToParamMap({ writingId: doc.id }));
+    fixture.detectChanges();
+
+    expect(component.activeItem()).toBeNull();
+    expect(toastService.error).toHaveBeenCalledWith('That writing is unavailable');
+  });
+
+  it('keeps ordinary /studio behavior unchanged without writingId', async () => {
+    await createWithParams();
+
+    expect(writingsService.get).not.toHaveBeenCalled();
+    expect(component.activeItem()).toBeNull();
+    expect(component.referenceMode()).toBe('writing');
+  });
+
+  it('lands a mobile handoff in the editor with both drawers closed', async () => {
+    await createWithParams();
+
+    component.isMobile.set(true);
+    component.showFileSidebar.set(true);
+    component.showBrainSidebar.set(true);
+
+    queryParams.next(convertToParamMap({ writingId: doc.id }));
+    fixture.detectChanges();
+
+    expect(component.activeItem()?.id).toBe(doc.id);
+    expect(component.showFileSidebar()).toBe(false);
     expect(component.showBrainSidebar()).toBe(false);
   });
 });

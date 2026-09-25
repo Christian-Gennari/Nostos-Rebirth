@@ -8,9 +8,11 @@ import {
   DestroyRef,
   untracked,
   ElementRef,
+  ViewChild,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { DragDropModule } from '@angular/cdk/drag-drop';
 
 import { WritingsService } from '../core/services/writings.service';
@@ -29,6 +31,14 @@ import { InputDirective } from '../ui/form-control/form-control.directive';
 import { BadgeComponent } from '../ui/badge/badge.component';
 import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
 import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
+import {
+  buildNoteMarkdown,
+  buildQuoteMarkdown,
+  buildReferenceMarkdown,
+  hasMeaningfulNoteContent,
+  hasMeaningfulSelectedText,
+  sourceHumanLabel,
+} from './source-insertion.helpers';
 
 /** localStorage flag for typewriter mode in the studio. */
 const TYPEWRITER_KEY = 'nostos.typewriter';
@@ -93,9 +103,19 @@ export class WritingStudio implements OnInit {
   private conceptsService = inject(ConceptsService);
   private booksService = inject(BooksService);
   private notesService = inject(NotesService);
+  private route = inject(ActivatedRoute, { optional: true });
+  private router = inject(Router, { optional: true });
 
   private destroyRef = inject(DestroyRef);
   private hostElement = inject(ElementRef<HTMLElement>);
+  @ViewChild('editor') private markdownEditor?: MarkdownEditorComponent;
+
+  private writingHandoffSubscription: { unsubscribe(): void } | null = null;
+  private requestedWritingId: string | null = null;
+  private handledWritingHandoffId: string | null = null;
+  private handoffOpenGeneration = 0;
+  private writingTreeLoaded = false;
+
   isMobile = signal(window.innerWidth < 768);
   showFileSidebar = signal(true);
   showBrainSidebar = signal(!this.isMobile());
@@ -116,6 +136,9 @@ export class WritingStudio implements OnInit {
 
   /** Set of kept note IDs for fast lookup */
   keptNoteIds = computed(() => new Set(this.keptSources().map((s) => s.id)));
+
+  /** Source currently being inspected. Browsing never mutates the writing. */
+  inspectedSource = signal<Note | null>(null);
 
   /**
    * Kept sources mapped to Note shape for NoteCardComponent,
@@ -291,6 +314,7 @@ export class WritingStudio implements OnInit {
     window.addEventListener('keydown', this.onKeyDown);
     this.destroyRef.onDestroy(() => {
       window.removeEventListener('keydown', this.onKeyDown);
+      this.writingHandoffSubscription?.unsubscribe();
       // Never leave the body class behind if the component is torn down mid-zen.
       document.body.classList.remove('nostos-zen');
     });
@@ -329,6 +353,7 @@ export class WritingStudio implements OnInit {
   }
 
   ngOnInit() {
+    this.watchWritingHandoff();
     this.loadTree();
     this.loadBrain();
     this.loadBooks();
@@ -379,9 +404,58 @@ export class WritingStudio implements OnInit {
   }
 
   loadTree() {
-    this.writingsService.list().subscribe((items) => {
-      this.rootItems.set(items);
+    this.writingsService.list().subscribe({
+      next: (items) => {
+        this.rootItems.set(items);
+        this.writingTreeLoaded = true;
+        const requested = this.requestedWritingId;
+        if (requested) this.openWritingFromHandoff(requested);
+      },
+      error: () => {
+        this.writingTreeLoaded = true;
+        if (this.requestedWritingId) this.toast.error('That writing is unavailable');
+      },
     });
+  }
+
+  private watchWritingHandoff(): void {
+    if (!this.route) return;
+
+    const queryParamMap = this.route.queryParamMap;
+    if (queryParamMap?.subscribe) {
+      this.writingHandoffSubscription = queryParamMap.subscribe((params) => {
+        this.handleWritingHandoffId(params.get('writingId'));
+      });
+      return;
+    }
+
+    this.handleWritingHandoffId(this.route.snapshot?.queryParamMap?.get('writingId') ?? null);
+  }
+
+  private handleWritingHandoffId(rawId: string | null): void {
+    const writingId = rawId?.trim() || null;
+    this.requestedWritingId = writingId;
+    this.handoffOpenGeneration++;
+
+    if (!writingId) {
+      this.handledWritingHandoffId = null;
+      return;
+    }
+
+    if (this.writingTreeLoaded) this.openWritingFromHandoff(writingId);
+  }
+
+  private openWritingFromHandoff(writingId: string): void {
+    if (this.handledWritingHandoffId === writingId) return;
+    this.handledWritingHandoffId = writingId;
+
+    const item = this.rootItems().find((candidate) => candidate.id === writingId);
+    if (!item || item.type !== 'Document') {
+      this.toast.error('That writing is unavailable');
+      return;
+    }
+
+    this.openWritingDocument(item.id, true, this.handoffOpenGeneration);
   }
 
   getNameForId(id: string): string {
@@ -454,6 +528,7 @@ export class WritingStudio implements OnInit {
       next: () => {
         if (this.activeItem()?.id !== active.id) return;
         this.keptSources.update((prev) => prev.filter((s) => s.id !== noteId));
+        if (this.inspectedSource()?.id === noteId) this.inspectedSource.set(null);
       },
       error: () => {
         this.toast.error('Failed to remove source');
@@ -464,17 +539,45 @@ export class WritingStudio implements OnInit {
 
   handleItemSelected(node: any) {
     const item = node as WritingDto;
-
     if (item.type === 'Folder') return;
 
-    this.writingsService.get(item.id).subscribe({
+    // Manual selection wins over any slower route-handoff request already in flight.
+    this.handoffOpenGeneration++;
+    this.openWritingDocument(item.id, false);
+  }
+
+  private openWritingDocument(
+    id: string,
+    fromHandoff: boolean,
+    handoffGeneration?: number,
+  ): void {
+    this.writingsService.get(id).subscribe({
       next: (contentDto) => {
+        if (
+          fromHandoff &&
+          (handoffGeneration !== this.handoffOpenGeneration || this.requestedWritingId !== id)
+        ) {
+          return;
+        }
         this.activeItem.set(contentDto);
         this.editorTitle.set(contentDto.name);
         this.editorText.set(contentDto.content);
+        this.inspectedSource.set(null);
         this.loadKeptSources(contentDto.id);
 
-        if (this.isMobile()) this.showFileSidebar.set(false);
+        if (this.isMobile()) {
+          this.showFileSidebar.set(false);
+          if (fromHandoff) this.showBrainSidebar.set(false);
+        }
+      },
+      error: () => {
+        if (
+          fromHandoff &&
+          (handoffGeneration !== this.handoffOpenGeneration || this.requestedWritingId !== id)
+        ) {
+          return;
+        }
+        if (fromHandoff) this.toast.error('That writing is unavailable');
       },
     });
   }
@@ -548,6 +651,7 @@ export class WritingStudio implements OnInit {
         this.editorText.set('');
         this.editorTitle.set('');
         this.keptSources.set([]);
+        this.inspectedSource.set(null);
       }
     });
   }
@@ -569,7 +673,18 @@ export class WritingStudio implements OnInit {
       });
   }
 
+  setReferenceMode(mode: 'writing' | 'library'): void {
+    if (this.referenceMode() !== mode) this.inspectedSource.set(null);
+    this.referenceMode.set(mode);
+  }
+
+  setLibraryTab(tab: 'brain' | 'notes'): void {
+    if (this.activeSidebarTab() !== tab) this.inspectedSource.set(null);
+    this.activeSidebarTab.set(tab);
+  }
+
   selectConcept(id: string) {
+    this.inspectedSource.set(null);
     this.selectedConceptId.set(id);
     this.conceptsService.get(id).subscribe((d) => {
       // Map NoteContextDto (noteId) → Note (id) for NoteCardComponent compatibility
@@ -587,17 +702,94 @@ export class WritingStudio implements OnInit {
   }
 
   selectBook(id: string) {
+    this.inspectedSource.set(null);
     this.selectedBookId.set(id);
     this.notesService.list(id).subscribe((notes) => this.selectedBookNotes.set(notes));
   }
 
-  insertNoteIntoEditor(text: string) {
-    if (!text) return;
+  inspectSource(note: Note): void {
+    this.inspectedSource.set(note);
+  }
 
-    this.editorText.update((current) =>
-      current ? `${current}\n\n> "${text}"\n` : `> "${text}"\n`,
-    );
+  closeInspectedSource(): void {
+    this.inspectedSource.set(null);
+  }
+
+  sourceDisplayLocator(source: Note): string | null {
+    return sourceHumanLabel(source)?.locator ?? null;
+  }
+
+  canInsertQuote(source: Note | null = this.inspectedSource()): boolean {
+    return !!source && hasMeaningfulSelectedText(source) && !!sourceHumanLabel(source);
+  }
+
+  canInsertNote(source: Note | null = this.inspectedSource()): boolean {
+    return !!source && hasMeaningfulNoteContent(source) && !!sourceHumanLabel(source);
+  }
+
+  canInsertReference(source: Note | null = this.inspectedSource()): boolean {
+    return !!source && !!sourceHumanLabel(source);
+  }
+
+  async insertQuote(source: Note): Promise<void> {
+    await this.insertSourceMarkdown(buildQuoteMarkdown(source));
+  }
+
+  async insertNote(source: Note): Promise<void> {
+    await this.insertSourceMarkdown(buildNoteMarkdown(source));
+  }
+
+  async insertReference(source: Note): Promise<void> {
+    await this.insertSourceMarkdown(buildReferenceMarkdown(source));
+  }
+
+  private async insertSourceMarkdown(markdown: string | null): Promise<void> {
+    if (!markdown) return;
+    if (!this.activeItem() || !this.markdownEditor) {
+      this.toast.error('Open a writing and place the cursor in the editor first');
+      return;
+    }
+
+    const inserted = await this.markdownEditor.insertMarkdown(markdown);
+    if (!inserted) {
+      this.toast.error('The editor is not ready for insertion yet');
+      return;
+    }
 
     if (this.isMobile()) this.showBrainSidebar.set(false);
+  }
+
+  openSource(source: Note): void {
+    if (!this.router || !source.bookId) return;
+
+    const kind = source.sourceAnchorKind?.trim().toLowerCase();
+    const value = source.sourceAnchorValue?.trim();
+
+    if (source.anchorVerified === true && kind === 'pdf_page' && value) {
+      const page = Number(value);
+      if (Number.isInteger(page) && page > 0) {
+        void this.router.navigate(['/read', source.bookId], {
+          queryParams: { sourcePage: page },
+        });
+        return;
+      }
+    }
+
+    if (source.anchorVerified === true && kind === 'epub_cfi' && value) {
+      void this.router.navigate(['/read', source.bookId], {
+        queryParams: { sourceCfi: value },
+      });
+      return;
+    }
+
+    const legacyCfi = source.cfiRange?.trim();
+    if (legacyCfi?.startsWith('epubcfi(')) {
+      void this.router.navigate(['/read', source.bookId], {
+        queryParams: { sourceCfi: legacyCfi },
+      });
+      return;
+    }
+
+    void this.router.navigate(['/library', source.bookId]);
   }
 }

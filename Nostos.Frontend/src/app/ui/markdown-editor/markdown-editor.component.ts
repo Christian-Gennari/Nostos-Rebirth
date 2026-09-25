@@ -585,6 +585,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   });
 
   private editor: any;
+  private editorReady = false;
   private tinyMce: TinyMceApi | null = null;
   private editorInit: Promise<void> | null = null;
   private destroyed = false;
@@ -656,6 +657,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
       };
 
       editor.on('init', () => {
+        this.editorReady = true;
         editor.getBody().style.opacity = '1';
         // Re-read the latest theme as init can finish after the user toggles it.
         this.syncIframeTheme(editor);
@@ -745,6 +747,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   }
 
   private destroyEditor() {
+    this.editorReady = false;
     if (this.editor) {
       // Capture final state before destroying
       const finalHtml = this.editor.getContent();
@@ -754,6 +757,30 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
       this.tinyMce?.remove(this.editor);
       this.editor = null;
     }
+  }
+
+  /**
+   * Insert a Markdown snippet at TinyMCE's real current selection/caret.
+   *
+   * Studio owns what the snippet means (quote/note/reference + provenance);
+   * this boundary only converts Markdown, delegates placement to TinyMCE, then
+   * emits the resulting full document through the normal HTML -> Markdown path.
+   * If the editor is not actually ready, no fallback position is invented.
+   */
+  async insertMarkdown(markdown: string): Promise<boolean> {
+    const snippet = markdown.trim();
+    const editor = this.editor;
+    if (!snippet || !editor || !this.editorReady) return false;
+
+    const html = await marked.parse(snippet);
+
+    // Parsing may yield after the editor was destroyed or replaced.
+    if (!this.editorReady || this.editor !== editor) return false;
+
+    editor.insertContent(html);
+    this.onHtmlChange(editor.getContent());
+    editor.focus?.();
+    return true;
   }
 
   onHtmlChange(html: string) {
