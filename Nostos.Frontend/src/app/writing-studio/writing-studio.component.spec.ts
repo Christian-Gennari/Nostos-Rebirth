@@ -708,6 +708,13 @@ describe('WritingStudio delete (no window.confirm)', () => {
 });
 
 describe('WritingStudio kept sources (#491)', () => {
+  async function settleSaveQueue(): Promise<void> {
+    // queueWritingSave intentionally chains through the previous save promise.
+    // Let both the firstValueFrom continuation and the serialized .then() lane
+    // drain without depending on wall-clock timers.
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+  }
+
   let fixture: ComponentFixture<WritingStudio>;
   let component: WritingStudio;
   let writingsService: {
@@ -1342,7 +1349,7 @@ describe('WritingStudio kept sources (#491)', () => {
     fixture.detectChanges();
 
     const opening = component.openSource(sourceBeta as any);
-    await Promise.resolve();
+    await settleSaveQueue();
     expect(writingsService.update).toHaveBeenCalledTimes(1);
 
     component.editorText.set('Typed while save was running');
@@ -1350,9 +1357,7 @@ describe('WritingStudio kept sources (#491)', () => {
 
     firstSave.next({ ...sampleDoc1, content: 'First unsaved version' });
     firstSave.complete();
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
+    await settleSaveQueue();
 
     expect(writingsService.update).toHaveBeenCalledTimes(2);
     expect(writingsService.update).toHaveBeenLastCalledWith('doc-1', {
@@ -1394,8 +1399,7 @@ describe('WritingStudio kept sources (#491)', () => {
       expect(writingsService.update).toHaveBeenCalledTimes(1);
       oldSave.next({ ...sampleDoc1, content: 'Older debounce text' });
       oldSave.complete();
-      await Promise.resolve();
-      await Promise.resolve();
+      await settleSaveQueue();
 
       expect(writingsService.update).toHaveBeenCalledTimes(2);
       expect(writingsService.update).toHaveBeenLastCalledWith('doc-1', {
