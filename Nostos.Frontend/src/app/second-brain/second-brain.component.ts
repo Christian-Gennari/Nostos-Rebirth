@@ -40,6 +40,10 @@ import { InputDirective } from '../ui/form-control/form-control.directive';
 import { DropdownComponent, type DropdownOption } from '../ui/dropdown/dropdown.component';
 import { AssistantContextService } from '../ui/assistant/assistant-context.service';
 import { AssistantService } from '../ui/assistant/assistant.service';
+import {
+  BrainWritingHandoffComponent,
+  type BrainWritingHandoffResult,
+} from './writing-handoff/brain-writing-handoff.component';
 
 import {
   ALL_SOURCES,
@@ -81,6 +85,7 @@ import {
     ConfirmModal,
     ConceptMapComponent,
     ConceptInputComponent,
+    BrainWritingHandoffComponent,
   ],
   templateUrl: './second-brain.component.html',
   styleUrls: ['./second-brain.component.css'],
@@ -184,6 +189,13 @@ export class SecondBrain implements AfterViewChecked {
   relatedLoading = signal(false);
   relatedExpanded = signal(false);
   relatedEvidenceId = signal<string | null>(null);
+
+  // Deliberate Brain → Writing handoff (#492). Selection is opt-in and scoped
+  // to the currently inspected evidence; canonical notes are never mutated.
+  sourceSelectionMode = signal(false);
+  selectedSourceNoteIds = signal<Set<string>>(new Set());
+  handoffNoteIds = signal<string[]>([]);
+  selectedSourceCount = computed(() => this.selectedSourceNoteIds().size);
 
   deleteTarget = signal<NoteContextDto | null>(null);
   deletingNote = signal(false);
@@ -601,6 +613,8 @@ export class SecondBrain implements AfterViewChecked {
    * different jobs either way, so a query must never appear to filter the queue.
    */
   openReview(): void {
+    this.clearSourceSelectionState();
+    this.closeWritingHandoff();
     this.clearSearch();
     this.closeNotePanel();
     this.reviewId.set(null);
@@ -814,6 +828,8 @@ export class SecondBrain implements AfterViewChecked {
   }
 
   openNotePanel(hit: NoteSearchHit): void {
+    this.clearSourceSelectionState();
+    this.closeWritingHandoff();
     this.panelNote.set(hit);
   }
 
@@ -1233,6 +1249,10 @@ export class SecondBrain implements AfterViewChecked {
 
   setViewMode(mode: string): void {
     if (!BRAIN_VIEW_MODES.includes(mode as BrainViewMode)) return;
+    if (mode !== 'list') {
+      this.clearSourceSelectionState();
+      this.closeWritingHandoff();
+    }
     // Deliberately does NOT clear the search any more.
     //
     // It used to, because the search lived in the index rail and map view closes
@@ -1338,6 +1358,10 @@ export class SecondBrain implements AfterViewChecked {
   }
 
   selectConcept(id: string): void {
+    if (id !== this.selectedId()) {
+      this.clearSourceSelectionState();
+      this.closeWritingHandoff();
+    }
     this.selectedId.set(id);
     this.relatedEvidenceId.set(null);
     this.noteSearchQuery.set('');
@@ -1386,11 +1410,70 @@ export class SecondBrain implements AfterViewChecked {
 
   // Clears selection to return to Index on mobile
   clearSelection(): void {
+    this.clearSourceSelectionState();
+    this.closeWritingHandoff();
     this.selectedId.set(null);
     this.relatedEvidenceId.set(null);
     this.loadingDetail.set(false);
     this.selectedDetail.set(null);
     this.relatedConcepts.set([]);
+  }
+
+  startSourceSelection(): void {
+    this.sourceSelectionMode.set(true);
+    this.selectedSourceNoteIds.set(new Set());
+  }
+
+  cancelSourceSelection(): void {
+    this.clearSourceSelectionState();
+    this.closeWritingHandoff();
+  }
+
+  setSourceSelected(noteId: string, selected: boolean): void {
+    if (!this.sourceSelectionMode()) return;
+    this.selectedSourceNoteIds.update((current) => {
+      const next = new Set(current);
+      if (selected) next.add(noteId);
+      else next.delete(noteId);
+      return next;
+    });
+  }
+
+  isSourceSelected(noteId: string): boolean {
+    return this.selectedSourceNoteIds().has(noteId);
+  }
+
+  openSelectedSourcesHandoff(): void {
+    this.openWritingHandoff([...this.selectedSourceNoteIds()]);
+  }
+
+  openWritingHandoff(noteIds: readonly string[]): void {
+    const unique = [...new Set(noteIds.filter((noteId) => !!noteId))];
+    if (!unique.length) return;
+    this.handoffNoteIds.set(unique);
+  }
+
+  closeWritingHandoff(): void {
+    this.handoffNoteIds.set([]);
+  }
+
+  handleWritingHandoffCompleted(result: BrainWritingHandoffResult): void {
+    if (result.failedNoteIds.length) {
+      const failed = [...new Set(result.failedNoteIds)];
+      this.handoffNoteIds.set(failed);
+      if (this.sourceSelectionMode()) {
+        this.selectedSourceNoteIds.set(new Set(failed));
+      }
+      return;
+    }
+
+    this.closeWritingHandoff();
+    this.clearSourceSelectionState();
+  }
+
+  private clearSourceSelectionState(): void {
+    this.sourceSelectionMode.set(false);
+    this.selectedSourceNoteIds.set(new Set());
   }
 
   /**
