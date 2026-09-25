@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:dcterms="http://purl.org/dc/terms/">
+  <id>https://ws-export.wmcloud.org/opds/en/Ready_for_export.xml</id>
+  <title>English Wikisource — Ready for export</title>
+  <entry>
+    <id>https://en.wikisource.org/wiki/Pride_and_Prejudice</id>
+    <title>Pride and Prejudice</title>
+    <author><name>Jane Austen</name></author>
+    <summary>A novel of manners.</summary>
+    <dcterms:language>en</dcterms:language>
+    <category term="Fiction" />
+    <rights>Public Domain</rights>
+    <link rel="alternate" type="text/html" href="https://en.wikisource.org/wiki/Pride_and_Prejudice" />
+    <link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="https://ws-export.wmcloud.org/?lang=en&amp;format=epub&amp;page=Pride%20and%20Prejudice" />
+    <link rel="http://opds-spec.org/image" type="image/jpeg" href="https://thumb.wikimedia.org/example/pride.jpg" />
+  </entry>
+  <entry>
+    <id>https://en.wikisource.org/wiki/A_Modern_Essay</id>
+    <title>A Modern Essay</title>
+    <author><name>Example Author</name></author>
+    <dcterms:language>en</dcterms:language>
+    <category term="Essay" />
+    <rights>CC-BY-SA 3.0</rights>
+    <link rel="alternate" type="text/html" href="https://en.wikisource.org/wiki/A_Modern_Essay" />
+    <link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="https://ws-export.wmcloud.org/?lang=en&amp;format=epub&amp;page=A%20Modern%20Essay" />
+    <link rel="http://opds-spec.org/image" type="image/png" href="https://upload.wikimedia.org/example/essay.png" />
+  </entry>
+  <entry>
+    <id>https://en.wikisource.org/wiki/Alice%27s_Adventures_in_Wonderland</id>
+    <title>Alice's Adventures in Wonderland</title>
+    <author><name>Lewis Carroll</name></author>
+    <dcterms:language>en</dcterms:language>
+    <rights>Public Domain</rights>
+    <link rel="alternate" type="text/html" href="https://en.wikisource.org/wiki/Alice%27s_Adventures_in_Wonderland" />
+    <link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="https://ws-export.wmcloud.org/?lang=en&amp;format=epub&amp;page=Alice%27s%20Adventures%20in%20Wonderland" />
+  </entry>
+</feed>
