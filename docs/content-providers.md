@@ -416,6 +416,77 @@ PDF" without a Wikisource-specific branch. Rights and source URLs remain the
 work's own Atom metadata, and downloads stay behind the WS Export/Wikimedia host
 allow-list.
 
+## Standard Ebooks (built-in provider)
+
+Registered as `standard-ebooks`. Standard Ebooks approved Nostos for access to
+its official OPDS feeds on **September 25, 2026** by whitelisting the project
+User-Agent:
+
+```
+Nostos/1.0 (+https://github.com/Christian-Gennari/Nostos-Rebirth)
+```
+
+That access model carries **no shared credential or feed secret**. The same
+provider identity is therefore used in SelfHosted and Cloud; nothing sensitive
+is committed to the repository or sent to a browser. The User-Agent is part of
+the approved integration contract and must not be changed casually — an
+unapproved/default client is expected to receive `401 Unauthorized`.
+
+**Protocol.** Nostos uses Standard Ebooks' official OPDS search endpoint, never
+the human-facing website:
+
+```
+https://standardebooks.org/feeds/opds/all?query=<text>&per-page=<n>&page=<n>
+```
+
+Standard Ebooks supports both OPDS 1.x Atom and OPDS 2.0 JSON. Nostos
+deliberately requests the Atom acquisition representation. At the time this
+provider was implemented, the Atom entries include the source's complete
+per-title `<rights>` statement while the OPDS 2.0 publication generator does
+not emit an equivalent rights field. Preserving that source wording is more
+important than preferring the newer wire format, and the choice remains entirely
+inside the provider boundary.
+
+**Identity and detail.** Standard Ebooks' canonical identifier is the ebook page
+URL, for example:
+
+```
+https://standardebooks.org/ebooks/jane-austen/pride-and-prejudice
+```
+
+Nostos persists a route-safe provider id derived from that canonical path
+(`jane-austen~pride-and-prejudice`). Some editions add another path segment
+for a translator/editor, and that segment remains part of the id. The feed does
+not expose a separate per-publication OPDS endpoint, so item detail is
+re-resolved through the official search template and then **exact-matched
+against the canonical identifier**. A malformed external id is rejected before
+any network request.
+
+**What the provider maps**
+
+- title, author(s), language, publisher, publication date, summary and subjects;
+- the canonical Standard Ebooks page as source provenance;
+- the source's complete rights statement, including its jurisdiction warning
+  and CC0 statement for original Standard Ebooks content;
+- the source-provided cover artwork;
+- EPUB acquisition links and advertised sizes.
+
+Only the EPUB representations that Nostos's existing ebook reader can consume
+are exposed:
+
+1. **Recommended compatible epub** — preferred by default;
+2. **Advanced epub** — retained as an explicit alternative.
+
+Kobo Kepub, AZW3/Kindle and XHTML links may appear in the feed but are not
+offered as import assets here. The provider does not add new reader formats just
+because the source publishes them.
+
+The selected EPUB is handed to the common acquisition pipeline. Downloads are
+restricted to `standardebooks.org` (including its subdomains through the
+provider host policy), use the same approved Nostos User-Agent, retain source
+provenance, and inherit the generic duplicate/import semantics. No
+Standard-Ebooks-specific behavior is added to the library or EPUB reader.
+
 ## LibriVox (built-in provider)
 
 Registered as `librivox`. The worked example of a provider whose material is
