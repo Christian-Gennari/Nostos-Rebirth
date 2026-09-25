@@ -11,6 +11,7 @@ namespace Nostos.Backend.Tests.Providers;
 
 public sealed class WikisourceProviderTests
 {
+    private const string CatalogPath = "/opds/en/Ready_for_export.xml";
     private static string LoadFixture(string filename)
     {
         var basePath = AppContext.BaseDirectory;
@@ -51,7 +52,7 @@ public sealed class WikisourceProviderTests
     public async Task CatalogParsing_NormalizesMetadataAssetsCoverAndRights()
     {
         var (provider, handler) = CreateProvider();
-        handler.RegisterXml(WikisourceCatalog.CatalogPath, LoadFixture("ready-for-export.xml"));
+        handler.RegisterXml(CatalogPath, LoadFixture("ready-for-export.xml"));
 
         var result = await provider.SearchAsync(
             new ProviderSearchQuery("pride"),
@@ -66,6 +67,8 @@ public sealed class WikisourceProviderTests
         item.Metadata.Title.Should().Be("Pride and Prejudice");
         item.Metadata.Author.Should().Be("Jane Austen");
         item.Metadata.Language.Should().Be("English");
+        item.Metadata.Publisher.Should().Be("Wikisource");
+        item.Metadata.PublishedDate.Should().Be("1813");
         item.Metadata.Categories.Should().Be("Fiction");
         item.Source.Should().NotBeNull();
         item.Source!.ItemUrl.Should().Be("https://en.wikisource.org/wiki/Pride_and_Prejudice");
@@ -152,7 +155,7 @@ public sealed class WikisourceProviderTests
         plan.Asset.Kind.Should().Be(ProviderMediaKind.Ebook);
         plan.Parts.Should().ContainSingle();
         plan.Parts[0].Url.Should().Be(
-            new Uri("https://ws-export.wmcloud.org/?lang=en&format=epub&page=Pride%20and%20Prejudice"));
+            new Uri("https://ws-export.wmcloud.org/?lang=en&format=epub&page=Pride+and+Prejudice"));
         plan.Parts[0].FileExtension.Should().Be(".epub");
         plan.Output.Should().Be(new ProviderOutput(".epub", "application/epub+zip", "EPUB"));
         plan.Source!.RightsStatement.Should().Be("CC-BY-SA 3.0");
@@ -190,7 +193,7 @@ public sealed class WikisourceProviderTests
     {
         var (provider, handler) = CreateProvider();
         handler.Register(
-            WikisourceCatalog.CatalogPath,
+            CatalogPath,
             new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(
