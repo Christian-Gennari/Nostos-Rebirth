@@ -32,6 +32,8 @@ public sealed record ProviderAssetDto(
 public sealed record ProviderItemDto(
     string ProviderId,
     string ExternalId,
+    /// <summary>"ebook" or "audiobook", available on thin search results.</summary>
+    string MediaKind,
     string Title,
     string? Subtitle,
     string? Author,
@@ -56,6 +58,23 @@ public sealed record ProviderSearchResultDto(
     bool HasMore,
     /// <summary>Provider-supplied note about a thin result set (e.g. a catalogue that only matches whole titles).</summary>
     string? Notice);
+
+/// <summary>Per-provider outcome of one aggregate discovery request.</summary>
+public sealed record ProviderDiscoverySourceStatusDto(
+    string ProviderId,
+    string DisplayName,
+    bool Succeeded,
+    string? Notice,
+    string? ErrorCode);
+
+/// <summary>
+/// Provider-neutral discovery response. Successful results remain useful when
+/// one source is temporarily unavailable.
+/// </summary>
+public sealed record ProviderDiscoverySearchResultDto(
+    IReadOnlyList<ProviderItemDto> Items,
+    bool HasMore,
+    IReadOnlyList<ProviderDiscoverySourceStatusDto> Sources);
 
 /// <summary>
 /// The user's own edits to the metadata an import would otherwise take from the
