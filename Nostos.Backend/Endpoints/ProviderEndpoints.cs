@@ -41,7 +41,7 @@ public static class ProviderEndpoints
             async (
                 string? query,
                 int? limit,
-                ProviderMediaKind? kind,
+                string? kind,
                 ProviderDiscoveryService discovery,
                 CancellationToken ct) =>
             {
@@ -51,9 +51,22 @@ public static class ProviderEndpoints
                 if (query.Length > 200)
                     return Results.BadRequest(new { error = "Search text is limited to 200 characters." });
 
+                ProviderMediaKind? mediaKind = null;
+                if (!string.IsNullOrWhiteSpace(kind))
+                {
+                    if (Enum.TryParse<ProviderMediaKind>(kind, ignoreCase: true, out var parsedKind))
+                    {
+                        mediaKind = parsedKind;
+                    }
+                    else
+                    {
+                        return Results.BadRequest(new { error = "Invalid material kind." });
+                    }
+                }
+
                 var result = await discovery.SearchAsync(
                     query.Trim(),
-                    kind,
+                    mediaKind,
                     Math.Clamp(limit ?? 20, 1, 50),
                     ct);
 

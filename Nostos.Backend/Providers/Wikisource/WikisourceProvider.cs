@@ -76,7 +76,7 @@ public sealed class WikisourceProvider : IContentProvider,
 
         var offset = Math.Max(0, query.Offset);
         var limit = Math.Clamp(query.Limit, 1, 100);
-        var page = filtered.Skip(offset).Take(limit).Select(ToProviderItem).ToList();
+        var page = filtered.Skip(offset).Take(limit).Select(b => ToProviderItem(b, false)).ToList();
 
         return new ProviderSearchPage(
             Items: page,
@@ -86,7 +86,7 @@ public sealed class WikisourceProvider : IContentProvider,
     public async Task<ProviderItem?> GetItemAsync(string externalId, CancellationToken ct)
     {
         var book = await LoadBookAsync(externalId, ct);
-        return book is null ? null : ToProviderItem(book);
+        return book is null ? null : ToProviderItem(book, includeAssets: true);
     }
 
     public async Task<ProviderAcquisitionPlan?> PlanAcquisitionAsync(
@@ -196,12 +196,12 @@ public sealed class WikisourceProvider : IContentProvider,
         return page;
     }
 
-    private ProviderItem ToProviderItem(WikisourceBook book) => new(
+    private ProviderItem ToProviderItem(WikisourceBook book, bool includeAssets = false) => new(
         ProviderId: Id,
         ExternalId: book.Page,
         MediaKind: ProviderMediaKind.Ebook,
         Metadata: MetadataFor(book),
-        Assets: book.Assets.Select(ToProviderAsset).ToList(),
+        Assets: includeAssets ? book.Assets.Select(ToProviderAsset).ToList() : [],
         Cover: book.Cover,
         Source: new ProviderSourceInfo(
             ItemUrl: book.SourceUrl?.ToString(),
