@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Nostos.Backend.Providers;
 using Nostos.Backend.Providers.Contracts;
 using Nostos.Backend.Providers.Discovery;
@@ -78,6 +79,50 @@ public sealed class ProviderDiscoveryServiceTests
     }
 
     [Fact]
+    public async Task HungProvider_TimesOutWithoutBlockingSuccessfulSibling()
+    {
+        var never = new TaskCompletionSource<ProviderSearchPage>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var good = SearchProvider.Ebook(
+            "alpha",
+            Item("alpha", "1", ProviderMediaKind.Ebook));
+        var hung = SearchProvider.Ebook("beta", (_, _) => never.Task);
+
+        var result = await CreateService(TimeSpan.FromMilliseconds(60), good, hung)
+            .SearchAsync("x", null, 20, CancellationToken.None)
+            .WaitAsync(TimeSpan.FromSeconds(2));
+
+        result.Items.Should().ContainSingle().Which.ProviderId.Should().Be("alpha");
+        result.Sources.Single(source => source.ProviderId == "alpha").Succeeded.Should().BeTrue();
+
+        var timedOut = result.Sources.Single(source => source.ProviderId == "beta");
+        timedOut.Succeeded.Should().BeFalse();
+        timedOut.ErrorCode.Should().Be(ProviderDiscoveryErrorCodes.Timeout);
+    }
+
+    [Fact]
+    public async Task ProviderLocalTaskCancellation_IsReportedAsTimeout_WithoutCancellingSibling()
+    {
+        var good = SearchProvider.Ebook(
+            "alpha",
+            Item("alpha", "1", ProviderMediaKind.Ebook));
+        var locallyCancelled = SearchProvider.Ebook(
+            "beta",
+            (_, _) => Task.FromCanceled<ProviderSearchPage>(
+                new CancellationToken(canceled: true)));
+
+        var result = await CreateService(TimeSpan.FromSeconds(1), good, locallyCancelled)
+            .SearchAsync("x", null, 20, CancellationToken.None);
+
+        result.Items.Should().ContainSingle().Which.ProviderId.Should().Be("alpha");
+        result.Sources.Single(source => source.ProviderId == "alpha").Succeeded.Should().BeTrue();
+
+        var timedOut = result.Sources.Single(source => source.ProviderId == "beta");
+        timedOut.Succeeded.Should().BeFalse();
+        timedOut.ErrorCode.Should().Be(ProviderDiscoveryErrorCodes.Timeout);
+    }
+
+    [Fact]
     public async Task NoticesAndFailuresRemainAttributedToTheirProvider()
     {
         var noticed = SearchProvider.Ebook(
@@ -95,6 +140,23 @@ public sealed class ProviderDiscoveryServiceTests
         result.Sources.Single(source => source.ProviderId == "alpha").Notice.Should().Be("Prefix search only.");
         result.Sources.Single(source => source.ProviderId == "beta").ErrorCode
             .Should().Be(ProviderException.ResponseInvalid);
+    }
+
+    [Fact]
+    public async Task UnexpectedFailure_ReportsGenericErrorWithoutLeakingDetail()
+    {
+        var failed = SearchProvider.Ebook(
+            "beta",
+            (_, _) => Task.FromException<ProviderSearchPage>(
+                new InvalidOperationException("do not expose this")));
+
+        var result = await CreateService(failed)
+            .SearchAsync("x", null, 20, CancellationToken.None);
+
+        var source = result.Sources.Should().ContainSingle().Subject;
+        source.Succeeded.Should().BeFalse();
+        source.ErrorCode.Should().Be(ProviderDiscoveryErrorCodes.SearchFailed);
+        source.Notice.Should().BeNull();
     }
 
     [Fact]
@@ -162,23 +224,50 @@ public sealed class ProviderDiscoveryServiceTests
     [Fact]
     public async Task RequestCancellation_Propagates()
     {
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var provider = SearchProvider.Ebook(
             "alpha",
             async (_, ct) =>
             {
+                started.SetResult();
                 await Task.Delay(Timeout.InfiniteTimeSpan, ct);
                 return new ProviderSearchPage([]);
             });
         using var cts = new CancellationTokenSource();
 
-        var pending = CreateService(provider).SearchAsync("x", null, 20, cts.Token);
+        var pending = CreateService(TimeSpan.FromSeconds(5), provider)
+            .SearchAsync("x", null, 20, cts.Token);
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
         cts.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void NonPositiveSearchTimeout_FallsBackToFiniteDefault(int milliseconds)
+    {
+        var options = new ProviderDiscoveryOptions
+        {
+            SearchTimeout = TimeSpan.FromMilliseconds(milliseconds),
+        };
+
+        options.EffectiveSearchTimeout.Should().Be(ProviderDiscoveryOptions.DefaultSearchTimeout);
+        options.EffectiveSearchTimeout.Should().BeGreaterThan(TimeSpan.Zero);
+    }
+
     private static ProviderDiscoveryService CreateService(params IContentProvider[] providers) =>
-        new(new ProviderRegistry(providers), NullLogger<ProviderDiscoveryService>.Instance);
+        CreateService(ProviderDiscoveryOptions.DefaultSearchTimeout, providers);
+
+    private static ProviderDiscoveryService CreateService(
+        TimeSpan searchTimeout,
+        params IContentProvider[] providers) =>
+        new(
+            new ProviderRegistry(providers),
+            Options.Create(new ProviderDiscoveryOptions { SearchTimeout = searchTimeout }),
+            NullLogger<ProviderDiscoveryService>.Instance);
 
     private static ProviderItem Item(string providerId, string externalId, ProviderMediaKind kind) =>
         new(
