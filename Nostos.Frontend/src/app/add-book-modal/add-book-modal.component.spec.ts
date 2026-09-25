@@ -1,8 +1,9 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 import { AddBookModal } from './add-book-modal.component';
-import { Book, BooksService } from '../core/services/books.service';
+import { Book, BookLookupError, BooksService } from '../core/services/books.service';
+import { ToastService } from '../core/services/toast.service';
 
 const collections = [
   { id: 'root', name: 'Root', parentId: null },
@@ -129,6 +130,29 @@ describe('AddBookModal', () => {
     expect(digitalFileInput).toBeNull();
     expect(fixture.nativeElement.textContent).toContain('Identify by ISBN');
     expect(fixture.nativeElement.querySelector('#book-title')).toBeTruthy();
+  });
+
+  it.each([
+    ['invalid-isbn', 400, 'Invalid ISBN. Enter a valid ISBN-10 or ISBN-13.'],
+    ['not-found', 404, 'No book metadata found for this ISBN.'],
+    [
+      'unavailable',
+      503,
+      'Book metadata services are temporarily unavailable. Please try again.',
+    ],
+  ] as const)('shows a distinct ISBN lookup error for %s', (reason, status, expectedMessage) => {
+    const books = TestBed.inject(BooksService);
+    const toast = TestBed.inject(ToastService);
+    vi.spyOn(books, 'lookup').mockReturnValue(
+      throwError(() => new BookLookupError(reason, status)),
+    );
+    const errorToast = vi.spyOn(toast, 'error').mockImplementation(() => undefined);
+
+    component.form.isbn = '9780141183848';
+    component.fetchMetadata();
+
+    expect(errorToast).toHaveBeenCalledWith(expectedMessage);
+    expect(component.isFetching()).toBe(false);
   });
 
   it('makes local upload the first visible task, then derives a compact review from the file', async () => {

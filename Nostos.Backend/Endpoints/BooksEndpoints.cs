@@ -520,11 +520,43 @@ public static class BooksEndpoints
             "/lookup/{isbn}",
             async (string isbn, BookLookupService service, CancellationToken ct) =>
             {
-                if (BookIdentityNormalizer.NormalizeIsbn(isbn) is null)
-                    return Results.BadRequest(new { error = "Invalid ISBN." });
+                var normalizedIsbn = BookIdentityNormalizer.NormalizeIsbn(isbn);
+                if (normalizedIsbn is null)
+                {
+                    return Results.Problem(
+                        statusCode: StatusCodes.Status400BadRequest,
+                        title: "Invalid ISBN",
+                        detail: "Enter a valid ISBN-10 or ISBN-13.",
+                        extensions: new Dictionary<string, object?>
+                        {
+                            ["code"] = "invalid_isbn",
+                        });
+                }
 
-                var metadata = await service.LookupCombinedAsync(isbn, ct);
-                return metadata is not null ? Results.Ok(metadata) : Results.NotFound();
+                var outcome = await service.LookupCombinedDetailedAsync(normalizedIsbn, ct);
+                if (outcome.Metadata is not null)
+                    return Results.Ok(outcome.Metadata);
+
+                if (outcome.Failed)
+                {
+                    return Results.Problem(
+                        statusCode: StatusCodes.Status503ServiceUnavailable,
+                        title: "Book metadata services unavailable",
+                        detail: "Book metadata services are temporarily unavailable. Please try again.",
+                        extensions: new Dictionary<string, object?>
+                        {
+                            ["code"] = "book_metadata_unavailable",
+                        });
+                }
+
+                return Results.Problem(
+                    statusCode: StatusCodes.Status404NotFound,
+                    title: "Book metadata not found",
+                    detail: "No book metadata found for this ISBN.",
+                    extensions: new Dictionary<string, object?>
+                    {
+                        ["code"] = "book_metadata_not_found",
+                    });
             }
         );
 

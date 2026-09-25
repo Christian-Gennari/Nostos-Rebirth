@@ -3,7 +3,11 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpEventType } from '@angular/common/http';
 import { finalize } from 'rxjs';
-import { BooksService, Book as BookModel } from '../core/services/books.service';
+import {
+  BookLookupError,
+  BooksService,
+  Book as BookModel,
+} from '../core/services/books.service';
 import { ProvidersService } from '../core/services/providers.service';
 import { ImportService } from '../core/services/import.service';
 import { ToastService } from '../core/services/toast.service';
@@ -359,7 +363,22 @@ export class AddBookModal {
           };
           this.toast.success('Metadata fetched successfully.');
         },
-        error: () => this.toast.error('Book details not found.'),
+        error: (error: unknown) => {
+          if (!(error instanceof BookLookupError)) {
+            this.toast.error('Unable to fetch book metadata.');
+            return;
+          }
+
+          const message =
+            error.reason === 'invalid-isbn'
+              ? 'Invalid ISBN. Enter a valid ISBN-10 or ISBN-13.'
+              : error.reason === 'not-found'
+                ? 'No book metadata found for this ISBN.'
+                : error.reason === 'unavailable'
+                  ? 'Book metadata services are temporarily unavailable. Please try again.'
+                  : 'Unable to fetch book metadata.';
+          this.toast.error(message);
+        },
       });
   }
 
