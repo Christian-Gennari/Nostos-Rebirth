@@ -86,6 +86,8 @@ public sealed class LibriVoxProviderTests
 
         var item0 = result.Items[0];
         item0.ExternalId.Should().Be("2469");
+        item0.MediaKind.Should().Be(ProviderMediaKind.Audiobook);
+        item0.Assets.Should().BeEmpty();
         item0.Metadata.Title.Should().Be("1601: Conversation, as it was by the Social Fireside, in the Time of the Tudors");
         item0.Metadata.Author.Should().Be("Mark Twain");
         item0.Metadata.Narrator.Should().Be("Denny Sayers (d. 2015) and 8 others");
@@ -194,6 +196,7 @@ public sealed class LibriVoxProviderTests
 
         item.Should().NotBeNull();
         item!.ExternalId.Should().Be("2469");
+        item.MediaKind.Should().Be(ProviderMediaKind.Audiobook);
         item.Metadata.Title.Should().Be("1601: Conversation, as it was by the Social Fireside, in the Time of the Tudors");
         item.Metadata.Author.Should().Be("Mark Twain");
         item.Metadata.Language.Should().Be("English");
