@@ -64,6 +64,7 @@ public sealed class WikisourceProviderTests
         var item = result.Items.Single();
         item.ProviderId.Should().Be("wikisource");
         item.ExternalId.Should().Be("Pride and Prejudice");
+        item.MediaKind.Should().Be(ProviderMediaKind.Ebook);
         item.Metadata.Title.Should().Be("Pride and Prejudice");
         item.Metadata.Author.Should().Be("Jane Austen");
         item.Metadata.Language.Should().Be("English");
@@ -74,11 +75,8 @@ public sealed class WikisourceProviderTests
         item.Source!.ItemUrl.Should().Be("https://en.wikisource.org/wiki/Pride_and_Prejudice");
         item.Source.RightsStatement.Should().Be("Public Domain");
 
-        item.Assets.Should().ContainSingle();
-        item.Assets[0].Id.Should().Be("epub");
-        item.Assets[0].Kind.Should().Be(ProviderMediaKind.Ebook);
-        item.Assets[0].SourceFormat.Should().Be("application/epub+zip");
-        item.Assets[0].IsPreferred.Should().BeTrue();
+        // Search remains thin: format assets are loaded only after selection.
+        item.Assets.Should().BeEmpty();
 
         item.Cover.Should().NotBeNull();
         item.Cover!.Url.Should().Be(new Uri("https://thumb.wikimedia.org/example/pride.jpg"));
@@ -132,6 +130,11 @@ public sealed class WikisourceProviderTests
 
         item.Should().NotBeNull();
         item!.Source!.RightsStatement.Should().Be("CC-BY-SA 3.0");
+        item.MediaKind.Should().Be(ProviderMediaKind.Ebook);
+        item.Assets.Select(asset => asset.Id).Should().Equal("epub", "pdf");
+        item.Assets.Single(asset => asset.Id == "epub").IsPreferred.Should().BeTrue();
+        item.Assets.Single(asset => asset.Id == "epub").SourceFormat.Should().Be("application/epub+zip");
+        item.Assets.Single(asset => asset.Id == "pdf").SourceFormat.Should().Be("application/pdf");
         handler.RecordedRequestPaths.Should().ContainSingle(
             "/?lang=en&format=atom&page=Pride%20and%20Prejudice");
     }
@@ -162,6 +165,29 @@ public sealed class WikisourceProviderTests
     }
 
     [Fact]
+    public async Task PlanAcquisition_Pdf_UsesIndependentWsExportRoute()
+    {
+        var (provider, handler) = CreateProvider();
+        handler.RegisterXml(
+            "/?lang=en&format=atom&page=Pride%20and%20Prejudice",
+            LoadFixture("item-pride-and-prejudice.atom"));
+
+        var plan = await provider.PlanAcquisitionAsync(
+            new ProviderAcquisitionRequest("Pride and Prejudice", AssetId: "pdf"),
+            CancellationToken.None);
+
+        plan.Should().NotBeNull();
+        plan!.Asset.Id.Should().Be("pdf");
+        plan.Asset.Kind.Should().Be(ProviderMediaKind.Ebook);
+        plan.Asset.SourceFormat.Should().Be("application/pdf");
+        plan.Parts.Should().ContainSingle();
+        plan.Parts[0].Url.Should().Be(
+            new Uri("https://ws-export.wmcloud.org/?lang=en&format=pdf&page=Pride%20and%20Prejudice"));
+        plan.Parts[0].FileExtension.Should().Be(".pdf");
+        plan.Output.Should().Be(new ProviderOutput(".pdf", "application/pdf", "PDF"));
+    }
+
+    [Fact]
     public async Task PlanAcquisition_UnknownAsset_ThrowsStableProviderError()
     {
         var (provider, handler) = CreateProvider();
@@ -170,7 +196,7 @@ public sealed class WikisourceProviderTests
             LoadFixture("item-pride-and-prejudice.atom"));
 
         var act = async () => await provider.PlanAcquisitionAsync(
-            new ProviderAcquisitionRequest("Pride and Prejudice", AssetId: "pdf"),
+            new ProviderAcquisitionRequest("Pride and Prejudice", AssetId: "mobi"),
             CancellationToken.None);
 
         var error = await act.Should().ThrowAsync<ProviderException>();
@@ -211,7 +237,7 @@ public sealed class WikisourceProviderTests
     }
 
     [Fact]
-    public void PolicyAndRegistration_UseOnlySpecifiedHostsAndSingleEpubPart()
+    public void PolicyAndRegistration_UseOnlySpecifiedHostsAndSingleEbookPart()
     {
         var (provider, _) = CreateProvider();
 
