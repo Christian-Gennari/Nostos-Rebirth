@@ -269,6 +269,119 @@ describe('SecondBrain', () => {
     localStorage.clear();
   });
 
+  describe('Brain → Writing source handoff (#492)', () => {
+    it('keeps selection controls hidden until Select sources is explicitly entered', () => {
+      component.selectConcept('c-alpha');
+      flushDetail('c-alpha', detailWithNotes('c-alpha', 'Alpha'));
+      fixture.detectChanges();
+
+      expect(component.sourceSelectionMode()).toBe(false);
+      expect(fixture.nativeElement.querySelector('.source-select-control')).toBeNull();
+
+      const selectSources = [...fixture.nativeElement.querySelectorAll('button')].find(
+        (button: HTMLButtonElement) => button.textContent?.trim() === 'Select sources'
+      ) as HTMLButtonElement;
+      expect(selectSources).toBeTruthy();
+
+      selectSources.click();
+      fixture.detectChanges();
+
+      const checkboxes = [
+        ...fixture.nativeElement.querySelectorAll('.source-select-control input'),
+      ] as HTMLInputElement[];
+      expect(checkboxes.length).toBe(3);
+      expect(component.selectedSourceCount()).toBe(0);
+
+      checkboxes[0].checked = true;
+      checkboxes[0].dispatchEvent(new Event('change'));
+      checkboxes[1].checked = true;
+      checkboxes[1].dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+
+      expect(component.selectedSourceCount()).toBe(2);
+      expect(component.selectedSourceNoteIds()).toEqual(
+        new Set(['c-alpha-newest', 'c-alpha-middle'])
+      );
+      expect(fixture.nativeElement.textContent).toContain('2 selected');
+      expect(fixture.nativeElement.textContent).toContain('Keep with writing…');
+    });
+
+    it('routes a focused search-result note through the same note-ID handoff', () => {
+      const hit: NoteSearchHit = {
+        id: 'search-note-1',
+        bookId: 'book-search',
+        bookTitle: 'Search source',
+        content: 'A focused result',
+        selectedText: null,
+        snippet: 'A focused result',
+        conceptNames: ['Alpha'],
+        createdAt: '2026-09-20T10:00:00Z',
+      };
+
+      component.openNotePanel(hit);
+      fixture.detectChanges();
+
+      const keep = [...fixture.nativeElement.querySelectorAll('.brain-note-panel-actions button')].find(
+        (button: HTMLButtonElement) => button.textContent?.includes('Keep with writing')
+      ) as HTMLButtonElement;
+      expect(keep).toBeTruthy();
+
+      keep.click();
+      fixture.detectChanges();
+
+      expect(component.handoffNoteIds()).toEqual(['search-note-1']);
+      http.expectOne('/api/writings').flush([]);
+    });
+
+    it('deduplicates entry IDs before opening the destination picker', () => {
+      component.openWritingHandoff(['note-1', 'note-1', 'note-2']);
+      expect(component.handoffNoteIds()).toEqual(['note-1', 'note-2']);
+    });
+
+    it('retains only failed selections after a partial handoff', () => {
+      component.sourceSelectionMode.set(true);
+      component.selectedSourceNoteIds.set(new Set(['note-1', 'note-2', 'note-3']));
+      component.handoffNoteIds.set(['note-1', 'note-2', 'note-3']);
+
+      component.handleWritingHandoffCompleted({
+        succeededNoteIds: ['note-1', 'note-2'],
+        failedNoteIds: ['note-3'],
+      });
+
+      expect(component.sourceSelectionMode()).toBe(true);
+      expect(component.selectedSourceNoteIds()).toEqual(new Set(['note-3']));
+      expect(component.handoffNoteIds()).toEqual(['note-3']);
+    });
+
+    it('cleans up source selection after successful completion', () => {
+      component.sourceSelectionMode.set(true);
+      component.selectedSourceNoteIds.set(new Set(['note-1']));
+      component.handoffNoteIds.set(['note-1']);
+
+      component.handleWritingHandoffCompleted({
+        succeededNoteIds: ['note-1'],
+        failedNoteIds: [],
+      });
+
+      expect(component.sourceSelectionMode()).toBe(false);
+      expect(component.selectedSourceNoteIds().size).toBe(0);
+      expect(component.handoffNoteIds()).toEqual([]);
+    });
+
+    it('clears source selection when the current concept evidence context is abandoned', () => {
+      component.selectConcept('c-alpha');
+      flushDetail('c-alpha', detail('c-alpha', 'Alpha'));
+      component.sourceSelectionMode.set(true);
+      component.selectedSourceNoteIds.set(new Set(['c-alpha-n1']));
+
+      component.selectConcept('c-beta');
+      flushDetail('c-beta', detail('c-beta', 'Beta'));
+
+      expect(component.sourceSelectionMode()).toBe(false);
+      expect(component.selectedSourceNoteIds().size).toBe(0);
+    });
+  });
+
   it('never raises the loading state when a concept is selected from cache', async () => {
     component.selectConcept('c-alpha');
     expect(component.loadingDetail()).toBe(true);
@@ -1459,6 +1572,22 @@ describe('SecondBrain', () => {
       );
       expect(fixture.nativeElement.querySelector('.review-pane')?.textContent).toContain('Link to concept');
       expect(fixture.nativeElement.querySelector('.review-pane')?.textContent).toContain('Edit note');
+    });
+
+    it('offers the same single-note handoff from the focused unlinked-review note', () => {
+      enterReview();
+
+      const keep = [...fixture.nativeElement.querySelectorAll('.review-actions button')].find(
+        (button: HTMLButtonElement) => button.textContent?.includes('Keep with writing')
+      ) as HTMLButtonElement;
+      expect(keep).toBeTruthy();
+
+      keep.click();
+      fixture.detectChanges();
+
+      expect(component.handoffNoteIds()).toEqual(['hit-1']);
+      http.expectOne('/api/writings').flush([]);
+      http.expectNone((request) => request.method === 'PUT' && request.url.startsWith('/api/notes/'));
     });
 
     it('focuses a queue row without deciding anything about it', () => {

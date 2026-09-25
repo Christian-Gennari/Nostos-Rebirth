@@ -2480,3 +2480,97 @@
     max-width: none;
   }
 }
+
+
+/* --- Brain → Writing source handoff (#492) ------------------------------- */
+/* Selection is deliberately a temporary mode: cards look normal until the
+   reader asks to choose evidence for a writing. */
+.source-selection-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+.source-selection-count {
+  color: var(--color-text-muted);
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+.source-selection-card {
+  position: relative;
+}
+
+.source-selection-card app-note-card {
+  display: block;
+  border-radius: var(--radius-md);
+  transition: outline-color 0.15s ease;
+}
+
+.source-selection-card.source-selected app-note-card {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 62%, transparent);
+  outline-offset: 2px;
+}
+
+.source-select-control {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.65rem;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 30px;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-surface);
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+
+.source-select-control:hover {
+  color: var(--color-text-main);
+  background: var(--bg-hover);
+}
+
+.source-select-control input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--color-primary);
+}
+
+.brain-note-panel-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--border-color);
+}
+
+@media (max-width: 768px) {
+  .detail-tools {
+    flex-wrap: wrap;
+  }
+
+  .source-selection-tools {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-end;
+  }
+
+  .source-selection-tools .source-selection-count {
+    margin-right: auto;
+  }
+
+  .source-select-control {
+    top: 0.5rem;
+    right: 0.5rem;
+    min-height: 34px;
+  }
+}
