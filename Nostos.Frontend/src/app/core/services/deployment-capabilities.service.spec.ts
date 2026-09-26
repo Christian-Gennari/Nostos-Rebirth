@@ -42,6 +42,7 @@ describe('DeploymentCapabilitiesService', () => {
       supportsPrivateNetworkAccess: true,
       supportsEreaderAccess: true,
       usageMeteringAvailable: false,
+      accountManagementUrl: null,
     });
 
     const result = await resultPromise;
@@ -66,6 +67,7 @@ describe('DeploymentCapabilitiesService', () => {
       supportsPrivateNetworkAccess: false,
       supportsEreaderAccess: true,
       usageMeteringAvailable: true,
+      accountManagementUrl: 'https://nostos.page/account',
     });
 
     const first = await firstPromise;
@@ -74,6 +76,7 @@ describe('DeploymentCapabilitiesService', () => {
     http.expectNone('/api/runtime/capabilities');
     expect(first).toEqual(second);
     expect(second.deploymentMode).toBe('Cloud');
+    expect(second.accountManagementUrl).toBe('https://nostos.page/account');
   });
   it('can refetch the capability contract for a safe retry after a transient failure', async () => {
     const firstPromise = firstValueFrom(service.get());
@@ -88,6 +91,7 @@ describe('DeploymentCapabilitiesService', () => {
       supportsPrivateNetworkAccess: false,
       supportsEreaderAccess: true,
       usageMeteringAvailable: true,
+      accountManagementUrl: 'https://nostos.page/account',
     });
     await firstPromise;
 
@@ -104,6 +108,7 @@ describe('DeploymentCapabilitiesService', () => {
       supportsPrivateNetworkAccess: true,
       supportsEreaderAccess: true,
       usageMeteringAvailable: false,
+      accountManagementUrl: null,
     });
 
     expect((await refreshPromise).deploymentMode).toBe('SelfHosted');

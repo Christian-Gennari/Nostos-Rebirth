@@ -595,6 +595,32 @@
                       <span class="label-desc">Authenticated with your Nostos Cloud account.</span>
                     }
                   </div>
+                </div>
+
+                @if (cloudAccountManagementUrl(); as accountUrl) {
+                  <div class="setting-row" data-testid="cloud-account-management">
+                    <div class="setting-label">
+                      <span class="label-text">Account & billing</span>
+                      <span class="label-desc">Manage your hosted account, subscription, and purchases on nostos.page.</span>
+                    </div>
+                    <a
+                      appButton
+                      variant="secondary"
+                      [href]="accountUrl"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      data-testid="cloud-account-management-link"
+                    >
+                      Manage account & billing ↗
+                    </a>
+                  </div>
+                }
+
+                <div class="setting-row">
+                  <div class="setting-label">
+                    <span class="label-text">Session</span>
+                    <span class="label-desc">Sign out of this Nostos app session.</span>
+                  </div>
                   <button appButton variant="secondary" type="button" (click)="signOut()">
                     Sign out
                   </button>
@@ -763,37 +789,23 @@
             </div>
           }
 
-          @if (aiRefillPacksFailed()) {
-            <div class="setting-row">
+          @if (cloudAccountManagementUrl(); as accountUrl) {
+            <div class="setting-row" data-testid="managed-ai-refill-handoff">
               <div class="setting-label">
-                <span class="label-text">AI refills are temporarily unavailable</span>
-                <span class="label-desc">Your existing allowance and any purchased refill balance are unchanged.</span>
+                <span class="label-text">AI refills</span>
+                <span class="label-desc">Purchase and manage refill capacity on your Nostos account page.</span>
               </div>
+              <a
+                appButton
+                variant="secondary"
+                [href]="accountUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="managed-ai-refill-link"
+              >
+                Manage refills ↗
+              </a>
             </div>
-          } @else {
-            @for (pack of aiRefillPacks(); track pack.packId) {
-              <div class="setting-row" data-testid="ai-refill-pack">
-                <div class="setting-label">
-                  <span class="label-text">{{ pack.displayName }}</span>
-                  <span class="label-desc">
-                    Adds prepaid Ask Nostos capacity that remains available until used.
-                    @if (pack.displayPrice) {
-                      {{ pack.displayPrice }}
-                    }
-                  </span>
-                </div>
-                <button
-                  appButton
-                  variant="secondary"
-                  type="button"
-                  [disabled]="aiRefillCheckoutBusy() !== null"
-                  (click)="buyAiRefill(pack.packId)"
-                  [attr.aria-label]="'Buy ' + pack.displayName"
-                >
-                  {{ aiRefillCheckoutBusy() === pack.packId ? 'Opening…' : 'Add refill' }}
-                </button>
-              </div>
-            }
           }
         </div>
       </section>

@@ -19,18 +19,3 @@ export interface CloudManagedAiUsage {
   renewsAtUtc: string | null;
   refill: CloudManagedAiRefillStatus;
 }
-
-export interface CloudAiRefillPack {
-  packId: string;
-  displayName: string;
-  displayPrice: string | null;
-}
-
-export interface CloudAiRefillPacksResponse {
-  packs: CloudAiRefillPack[];
-}
-
-export interface CloudAiRefillCheckout {
-  packId: string;
-  checkoutUrl: string;
-}

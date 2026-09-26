@@ -34,7 +34,8 @@ public static class DeploymentCapabilitiesEndpoints
             SupportsLocalBackupConfiguration: deployment.Capabilities.SupportsLocalBackupConfiguration,
             SupportsPrivateNetworkAccess: deployment.Capabilities.SupportsPrivateNetworkAccess,
             SupportsEreaderAccess: deployment.Capabilities.SupportsEreaderAccess,
-            UsageMeteringAvailable: deployment.Capabilities.UsageMeteringAvailable);
+            UsageMeteringAvailable: deployment.Capabilities.UsageMeteringAvailable,
+            AccountManagementUrl: deployment.Capabilities.AccountManagementUrl);
 }
 
 public sealed record DeploymentCapabilitiesResponse(
@@ -47,4 +48,5 @@ public sealed record DeploymentCapabilitiesResponse(
     bool SupportsLocalBackupConfiguration,
     bool SupportsPrivateNetworkAccess,
     bool SupportsEreaderAccess,
-    bool UsageMeteringAvailable);
+    bool UsageMeteringAvailable,
+    string? AccountManagementUrl);

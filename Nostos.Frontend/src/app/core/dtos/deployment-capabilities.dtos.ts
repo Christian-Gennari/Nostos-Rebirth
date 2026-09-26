@@ -11,4 +11,5 @@ export interface DeploymentCapabilities {
   supportsPrivateNetworkAccess: boolean;
   supportsEreaderAccess: boolean;
   usageMeteringAvailable: boolean;
+  accountManagementUrl?: string | null;
 }

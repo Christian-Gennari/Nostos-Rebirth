@@ -2,7 +2,6 @@ import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse, HttpEventType, HttpResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
-import { firstValueFrom } from 'rxjs';
 
 import { BackupService } from '../core/services/backup.service';
 import { OpdsService } from '../core/services/opds.service';
@@ -37,10 +36,7 @@ import { CloudAiRefillService } from '../core/services/cloud-ai-refill.service';
 import { CloudAuthService } from '../core/services/cloud-auth.service';
 import { CloudSession } from '../core/dtos/cloud-auth.dtos';
 import { PortableLibraryService } from '../core/services/portable-library.service';
-import {
-  CloudAiRefillPack,
-  CloudManagedAiUsage,
-} from '../core/dtos/cloud-ai-refill.dtos';
+import { CloudManagedAiUsage } from '../core/dtos/cloud-ai-refill.dtos';
 import {
   AiProviderKind,
   AiProviderSection,
@@ -223,6 +219,9 @@ export class SettingsComponent implements OnInit, OnDestroy {
     () => this.deploymentCapabilities()?.supportsEreaderAccess === true,
   );
   readonly isCloud = computed(() => this.deploymentCapabilities()?.deploymentMode === 'Cloud');
+  readonly cloudAccountManagementUrl = computed(() =>
+    this.isCloud() ? (this.deploymentCapabilities()?.accountManagementUrl ?? null) : null,
+  );
   readonly supportsCloudPortableExport = computed(() => this.isCloud());
   readonly cloudSession = signal<CloudSession | null>(null);
   readonly managedEreaderAccess = computed(
@@ -381,9 +380,6 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
   readonly managedAiUsage = signal<CloudManagedAiUsage | null>(null);
   readonly managedAiUsageFailed = signal(false);
-  readonly aiRefillPacks = signal<CloudAiRefillPack[]>([]);
-  readonly aiRefillPacksFailed = signal(false);
-  readonly aiRefillCheckoutBusy = signal<string | null>(null);
 
   readonly managedAiUsageCopy = computed(() => {
     switch (this.managedAiUsage()?.state) {
@@ -619,31 +615,6 @@ export class SettingsComponent implements OnInit, OnDestroy {
         this.managedAiUsageFailed.set(true);
       },
     });
-
-    this.cloudAiRefills.getPacks().subscribe({
-      next: ({ packs }) => {
-        this.aiRefillPacks.set(packs);
-        this.aiRefillPacksFailed.set(false);
-      },
-      error: () => {
-        this.aiRefillPacks.set([]);
-        this.aiRefillPacksFailed.set(true);
-      },
-    });
-  }
-
-  async buyAiRefill(packId: string): Promise<void> {
-    if (this.aiRefillCheckoutBusy() !== null) return;
-
-    this.aiRefillCheckoutBusy.set(packId);
-    try {
-      const checkout = await firstValueFrom(this.cloudAiRefills.createCheckout(packId));
-      globalThis.location.assign(checkout.checkoutUrl);
-    } catch {
-      this.toast.error('Could not start AI refill checkout.');
-    } finally {
-      this.aiRefillCheckoutBusy.set(null);
-    }
   }
 
   // --- AI provider card -------------------------------------------------
