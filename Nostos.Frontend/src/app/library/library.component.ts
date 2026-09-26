@@ -17,7 +17,6 @@ import { CollectionsService } from '../core/services/collections.service';
 import { Collection } from '../core/dtos/collection.dtos';
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { AddBookModal } from '../add-book-modal/add-book-modal.component';
-import { AddBookIntent } from '../add-book-modal/add-book-intent.component';
 import { ConfirmModal } from '../ui/confirm-modal/confirm-modal.component';
 import { StarRatingComponent } from '../ui/star-rating/star-rating.component';
 import { IconButtonComponent } from '../ui/icon-button/icon-button.component';
@@ -112,7 +111,6 @@ interface WorkFormatGlyph {
     NostosIconComponent,
     ViewToggleComponent,
     AddBookModal,
-    AddBookIntent,
     ConfirmModal,
     StarRatingComponent,
     IconButtonComponent,
@@ -191,10 +189,6 @@ export class Library implements OnInit, OnDestroy {
   ] satisfies readonly ViewToggleOption[];
   readonly sidebarExpanded = this.preferences.sidebarExpanded;
   showAddModal = signal(false);
-  /** The acquisition chooser that precedes Add Book. */
-  showAddIntent = signal(false);
-  /** The chooser's answer is passed to the focused Add Book surface. */
-  addIntent = signal<'upload' | 'source' | 'physical' | 'manual' | null>(null);
 
   toggleSidebar(): void {
     this.preferences.setSidebarExpanded(!this.sidebarExpanded());
@@ -493,42 +487,15 @@ export class Library implements OnInit, OnDestroy {
 
   // ... (Modals and Actions remain unchanged)
   /**
-   * Add Book records the acquisition choice before opening the focused review
-   * surface. The modal owns the rest of that flow.
+   * Add Book opens the task directly. The modal starts with unified provider
+   * discovery and keeps manual intake as a secondary mode inside the same sheet.
    */
-  openAddIntent(): void {
-    this.showAddIntent.set(true);
-  }
-
-  private openAddFlow(intent: 'upload' | 'source' | 'physical' | 'manual'): void {
-    this.addIntent.set(intent);
-    this.showAddIntent.set(false);
-    this.showAddModal.set(true);
-  }
-
-  addUpload(): void {
-    this.openAddFlow('upload');
-  }
-
-  addFromSource(): void {
-    this.openAddFlow('source');
-  }
-
-  addPhysical(): void {
-    this.openAddFlow('physical');
-  }
-
-  addByHand(): void {
-    this.openAddFlow('manual');
-  }
-
   openAddModal(): void {
-    this.openAddFlow('manual');
+    this.showAddModal.set(true);
   }
 
   closeAddModal(): void {
     this.showAddModal.set(false);
-    this.addIntent.set(null);
   }
 
   openEditModal(book: Book): void {

@@ -196,6 +196,82 @@ describe('AddBookModal — From a Source', () => {
     expect(component.providerList().length).toBeGreaterThan(0);
   });
 
+  it('keeps provider discovery and manual intake as two modes in the same sheet', async () => {
+    fixture.componentRef.setInput('sourceFirst', true);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const modeButtons = Array.from(
+      fixture.nativeElement.querySelectorAll('.add-mode-button') as NodeListOf<HTMLButtonElement>,
+    );
+    expect(modeButtons.map((button) => button.textContent?.trim())).toEqual([
+      'Find a book',
+      'Add manually',
+    ]);
+    expect(modeButtons[0].getAttribute('aria-pressed')).toBe('true');
+    expect(modeButtons[1].getAttribute('aria-pressed')).toBe('false');
+
+    modeButtons[1].click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(component.sourceMode()).toBe(false);
+    expect(component.flowIntent()).toBe('manual');
+    expect(fixture.nativeElement.textContent).toContain('Identify by ISBN');
+    expect(fixture.nativeElement.querySelector('#book-type')).toBeTruthy();
+
+    const manualFile = fixture.nativeElement.querySelector('.manual-file') as HTMLElement;
+    const quickIsbn = fixture.nativeElement.querySelector('.quick-identifier') as HTMLElement;
+    expect(manualFile.hidden).toBe(true);
+    expect(quickIsbn.hidden).toBe(false);
+
+    component.onTypeChange('ebook');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(manualFile.hidden).toBe(false);
+    expect(quickIsbn.hidden).toBe(true);
+    expect(fixture.nativeElement.querySelector('.file-drop-zone--manual')).toBeTruthy();
+    expect(fixture.nativeElement.textContent).not.toContain('How is this book coming into Nostos?');
+  });
+
+  it('lets manual digital intake choose a file without creating another top-level path', async () => {
+    // Follow the same route as a Library user: Add Book opens in provider
+    // discovery, then manual intake is chosen inside the sheet. This also keeps
+    // the open/reset effect settled before the format is changed.
+    fixture.componentRef.setInput('sourceFirst', true);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const manualMode = Array.from(
+      fixture.nativeElement.querySelectorAll('.add-mode-button') as NodeListOf<HTMLButtonElement>,
+    ).find((button) => button.textContent?.trim() === 'Add manually');
+    expect(manualMode).toBeTruthy();
+
+    manualMode!.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    component.onTypeChange('ebook');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const input = fixture.nativeElement.querySelector(
+      '.file-drop-zone--manual input[type="file"]',
+    ) as HTMLInputElement;
+    expect(input).toBeTruthy();
+
+    const file = new File(['x'], 'book.epub', { type: 'application/epub+zip' });
+    Object.defineProperty(input, 'files', { value: [file] });
+    input.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    expect(component.selectedFile()).toBe(file);
+    expect(component.form.type).toBe('ebook');
+    expect(component.form.title).toBe('book');
+    expect(fixture.nativeElement.textContent).toContain('book.epub');
+  });
+
   it('uses canonical controls for the ordinary source search field and import action', async () => {
     component.enterSourceMode();
     await fixture.whenStable();

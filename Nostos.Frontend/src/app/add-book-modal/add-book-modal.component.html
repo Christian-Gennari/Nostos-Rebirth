@@ -14,22 +14,20 @@
             {{
               isEditMode()
                 ? 'Edit Book'
-                : sourceMode()
-                  ? 'Find a free book'
-                  : awaitingLocalFile()
-                    ? 'Upload a book'
-                    : 'Review Book'
+                : !sourceMode() && seededFromSource()
+                  ? 'Review Book'
+                  : 'Add a book'
             }}
           </h2>
           <p class="modal-subtitle">
             {{
               isEditMode()
                 ? 'Change the details you need, then save.'
-                : sourceMode()
-                  ? 'Search every configured free source at once.'
-                  : awaitingLocalFile()
-                    ? 'Choose the file first. The book details come next.'
-                    : 'Check the essentials. Everything else is optional.'
+                : !sourceMode() && seededFromSource()
+                  ? 'Check the essentials. Everything else is optional.'
+                  : sourceMode()
+                    ? 'Find the book first and let Nostos fill what it can.'
+                    : 'Add your own copy with only the details that matter.'
             }}
           </p>
         </div>
@@ -82,6 +80,33 @@
             }
           }
 
+          @if (!isEditMode() && (sourceMode() || flowIntent() === 'manual')) {
+            <div class="add-mode-switch" role="group" aria-label="Add book method">
+              <button
+                type="button"
+                class="add-mode-button"
+                [class.active]="sourceMode()"
+                [attr.aria-pressed]="sourceMode()"
+                [disabled]="!!runningAcquisition()"
+                (click)="showSourceMode()"
+              >
+                <nostos-icon name="magnifying-glass" [size]="15"></nostos-icon>
+                <span>Find a book</span>
+              </button>
+              <button
+                type="button"
+                class="add-mode-button"
+                [class.active]="!sourceMode()"
+                [attr.aria-pressed]="!sourceMode()"
+                [disabled]="!!runningAcquisition()"
+                (click)="showManualMode()"
+              >
+                <nostos-icon name="pencil-simple" [size]="15"></nostos-icon>
+                <span>Add manually</span>
+              </button>
+            </div>
+          }
+
           <!-- Acquisition-first add / direct edit. The full bibliographic record
                is one shallow disclosure away, never the default task. -->
           <div class="review-flow" [hidden]="sourceMode()">
@@ -132,7 +157,7 @@
                   @if (seededFromSource()) {
                     <strong>From {{ seededSourceName() }}</strong>
                     <span>{{ selectedAssetLabel() || (form.type === 'audiobook' ? 'Audiobook' : 'E-book') }}</span>
-                  } @else if (flowIntent() === 'upload') {
+                  } @else if (flowIntent() === 'upload' || (flowIntent() === 'manual' && selectedFile())) {
                     <strong>{{ fileSummary() }}</strong>
                     <span>{{ form.type === 'audiobook' ? 'Audiobook file' : 'E-book file' }}</span>
                   } @else if (flowIntent() === 'physical') {
@@ -161,19 +186,62 @@
                 <div class="upload-status" role="status">Uploading... {{ uploadProgress() }}%</div>
               }
 
-              @if (!isEditMode() && flowIntent() === 'physical') {
-                <section class="quick-identifier" aria-labelledby="physical-lookup-heading">
+              @if (!isEditMode() && flowIntent() === 'manual') {
+                <section
+                  class="manual-file"
+                  aria-labelledby="manual-file-heading"
+                  [hidden]="form.type === 'physical'"
+                >
+                  <div class="section-heading">
+                    <div>
+                      <h3 id="manual-file-heading">Book file</h3>
+                      <p>Optional. Choose the local file now, or add only the library record.</p>
+                    </div>
+                  </div>
+                  <label
+                    class="file-drop-zone file-drop-zone--manual"
+                    [class.drag-active]="fileDragActive()"
+                    (dragover)="onDragOver($event, 'file')"
+                    (dragleave)="onDragLeave($event, 'file')"
+                    (drop)="onDragLeave($event, 'file')"
+                  >
+                    <input
+                      type="file"
+                      class="file-input"
+                      (change)="onFileSelected($event)"
+                      accept=".epub,.pdf,.txt,.mobi,.mp3,.m4a,.m4b"
+                    />
+                    <nostos-icon name="upload-simple" [size]="20" weight="light"></nostos-icon>
+                    @if (fileSummary(); as summary) {
+                      <span class="drop-zone-title">{{ summary }}</span>
+                      <span class="drop-zone-hint">Choose another file to replace it</span>
+                    } @else {
+                      <span class="drop-zone-title">Choose a book file or drop it here</span>
+                      <span class="drop-zone-hint">EPUB, PDF, TXT, MOBI, MP3, M4A, M4B</span>
+                    }
+                  </label>
+                </section>
+              }
+
+              @if (
+                !isEditMode() && (flowIntent() === 'physical' || flowIntent() === 'manual')
+              ) {
+                <section
+                  class="quick-identifier"
+                  aria-labelledby="physical-lookup-heading"
+                  [hidden]="flowIntent() === 'manual' && form.type !== 'physical'"
+                >
                   <div class="section-heading">
                     <div>
                       <h3 id="physical-lookup-heading">Identify by ISBN</h3>
                       <p>Optional. Fetch what Nostos can, then review the result below.</p>
                     </div>
                   </div>
-                  <app-form-field label="ISBN" forId="book-isbn">
+                  <app-form-field label="ISBN" forId="book-isbn-quick">
                     <div class="input-group-fetch">
                       <input
                         #isbnInput
-                        id="book-isbn"
+                        id="book-isbn-quick"
                         appInput
                         controlSize="compact"
                         type="text"
@@ -481,8 +549,14 @@
                     </app-form-field>
                   </section>
 
-                  @if (!(flowIntent() === 'physical' && !isEditMode())) {
-                    <section class="metadata-group" aria-labelledby="identifier-metadata-heading">
+                  @if (isEditMode() || flowIntent() !== 'physical') {
+                    <section
+                      class="metadata-group"
+                      aria-labelledby="identifier-metadata-heading"
+                      [hidden]="
+                        !isEditMode() && flowIntent() === 'manual' && form.type === 'physical'
+                      "
+                    >
                       <div class="section-heading">
                         <div>
                           <h3 id="identifier-metadata-heading">Identifiers</h3>

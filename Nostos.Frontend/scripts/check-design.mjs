@@ -838,7 +838,6 @@ function legacySettingsFormRecipes(css) {
 const MIGRATED_UI_V1_TEMPLATES = [
   'src/app/settings/settings.component.html',
   'src/app/add-book-modal/add-book-modal.component.html',
-  'src/app/add-book-modal/add-book-intent.component.html',
   'src/app/home/home.component.html',
   'src/app/ui/assistant/assistant.component.html',
   'src/app/library/library.component.html',
@@ -998,8 +997,7 @@ for (const relativePath of MIGRATED_UI_V1_STYLES) {
  */
 const PRODUCT_RAW_BUTTON_CLASSES = new Map([
   ['src/app/settings/settings.component.html', new Set(['settings-nav-item', 'theme-card'])],
-  ['src/app/add-book-modal/add-book-modal.component.html', new Set(['tab-btn', 'source-choice', 'source-result', 'source-filter'])],
-  ['src/app/add-book-modal/add-book-intent.component.html', new Set(['add-intent-choice'])],
+  ['src/app/add-book-modal/add-book-modal.component.html', new Set(['tab-btn', 'source-choice', 'source-result', 'source-filter', 'add-mode-button'])],
   ['src/app/ui/assistant/assistant.component.html',
     new Set(['assistant-expand', 'suggestion-chip', 'anchor-chip-dismiss', 'voice-control', 'assistant-trigger'])],
   ['src/app/library/library.component.html',
