@@ -213,6 +213,7 @@ describe('AddBookModal — From a Source', () => {
 
     modeButtons[1].click();
     fixture.detectChanges();
+    await fixture.whenStable();
 
     expect(component.sourceMode()).toBe(false);
     expect(component.flowIntent()).toBe('manual');
@@ -226,6 +227,7 @@ describe('AddBookModal — From a Source', () => {
 
     component.onTypeChange('ebook');
     fixture.detectChanges();
+    await fixture.whenStable();
 
     expect(manualFile.hidden).toBe(false);
     expect(quickIsbn.hidden).toBe(true);
@@ -233,10 +235,14 @@ describe('AddBookModal — From a Source', () => {
     expect(fixture.nativeElement.textContent).not.toContain('How is this book coming into Nostos?');
   });
 
-  it('lets manual digital intake choose a file without creating another top-level path', () => {
+  it('lets manual digital intake choose a file without creating another top-level path', async () => {
     component.showManualMode();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
     component.onTypeChange('ebook');
     fixture.detectChanges();
+    await fixture.whenStable();
 
     const input = fixture.nativeElement.querySelector(
       '.file-drop-zone--manual input[type="file"]',
