@@ -9,6 +9,7 @@ describe('CloudEntryComponent', () => {
     view: ReturnType<typeof signal<CloudEntryView>>;
     actionPending: ReturnType<typeof signal<boolean>>;
     actionError: ReturnType<typeof signal<string | null>>;
+    checkoutRedirect: ReturnType<typeof signal<string | null>>;
     productReady: ReturnType<typeof signal<boolean>>;
     selectedOffer: ReturnType<typeof signal<any>>;
     beginCheckout: ReturnType<typeof vi.fn>;
@@ -37,6 +38,7 @@ describe('CloudEntryComponent', () => {
       }),
       actionPending: signal(false),
       actionError: signal<string | null>(null),
+      checkoutRedirect: signal<string | null>(null),
       productReady: signal(false),
       selectedOffer: signal({
         offerId: 'standard-monthly',
@@ -159,5 +161,17 @@ describe('CloudEntryComponent', () => {
 
     const checkBtn = compiled.querySelector('button.nostos-button--secondary') as HTMLButtonElement;
     expect(checkBtn).toBeTruthy();
+  });
+
+  it('redirects when checkoutRedirect signal emits a url', () => {
+    const fixture = TestBed.createComponent(CloudEntryComponent);
+    const navigateSpy = vi.spyOn(fixture.componentInstance, 'navigateTo').mockImplementation(() => {});
+
+    TestBed.flushEffects();
+
+    mockEntry.checkoutRedirect.set('https://nostos.page/pay?_ptxn=txn_123');
+    TestBed.flushEffects();
+
+    expect(navigateSpy).toHaveBeenCalledWith('https://nostos.page/pay?_ptxn=txn_123');
   });
 });

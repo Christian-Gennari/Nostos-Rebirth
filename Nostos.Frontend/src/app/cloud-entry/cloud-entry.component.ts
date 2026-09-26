@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild, inject } from '@angular/core';
+import { Component, ElementRef, ViewChild, effect, inject } from '@angular/core';
 import { ButtonComponent } from '../ui/button/button.component';
 import { NostosIconComponent } from '../ui/icon/nostos-icon.component';
 import { CloudEntryService } from '../core/services/cloud-entry.service';
@@ -16,13 +16,26 @@ export class CloudEntryComponent {
   @ViewChild('archiveInput')
   private archiveInput?: ElementRef<HTMLInputElement>;
 
+  constructor() {
+    effect(() => {
+      const redirectUrl = this.entry.checkoutRedirect();
+      if (redirectUrl) {
+        this.navigateTo(redirectUrl);
+      }
+    });
+  }
+
+  navigateTo(url: string): void {
+    globalThis.location.assign(url);
+  }
+
   signIn(): void {
-    globalThis.location.assign(this.entry.loginUrl());
+    this.navigateTo(this.entry.loginUrl());
   }
 
   async checkout(): Promise<void> {
     const url = await this.entry.beginCheckout(this.entry.selectedOffer()?.offerId ?? null);
-    if (url) globalThis.location.assign(url);
+    if (url) this.navigateTo(url);
   }
 
   async checkSubscription(): Promise<void> {
@@ -31,7 +44,7 @@ export class CloudEntryComponent {
 
   async manageSubscription(): Promise<void> {
     const url = await this.entry.openBillingPortal();
-    if (url) globalThis.location.assign(url);
+    if (url) this.navigateTo(url);
   }
 
   chooseImport(): void {

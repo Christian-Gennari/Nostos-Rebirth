@@ -398,6 +398,92 @@ describe('CloudEntryService', () => {
     expect(onboarding.provision).not.toHaveBeenCalled();
   });
 
+  it('auto-advances to checkout when visiting /start with valid offer and canCheckout', async () => {
+    history.replaceState({}, '', '/start?offer=standard-monthly');
+    sessionStorage.clear();
+
+    capabilities.get.mockReturnValue(of(cloudCapabilities));
+    auth.getSession.mockReturnValue(of(session));
+    onboarding.getState.mockReturnValue(of({
+      state: 'subscription_required',
+      subscriptionStatus: 'None',
+      ready: false,
+      canCheckout: true,
+      canCheckSubscription: true,
+      canManageSubscription: false,
+      canRetry: false,
+      selectedOffer: {
+        offerId: 'standard-monthly',
+        planName: 'Standard',
+        billingCadence: 'Monthly',
+      },
+    }));
+    onboarding.createCheckout.mockReturnValue(of({ url: 'https://nostos.page/pay?_ptxn=auto_123' }));
+
+    await service.initialize();
+
+    expect(service.checkoutRedirect()).toBe('https://nostos.page/pay?_ptxn=auto_123');
+    expect(onboarding.createCheckout).toHaveBeenCalledWith('standard-monthly');
+    expect(sessionStorage.getItem('nostos_cloud_auto_checkout_1e4df713-1a34-4fc7-9a90-c45169256845_standard-monthly')).toBe('attempted');
+  });
+
+  it('auto-advances to checkout with canonical offer ID even if query case differs', async () => {
+    history.replaceState({}, '', '/start?offer=Pro-Annual');
+    sessionStorage.clear();
+
+    capabilities.get.mockReturnValue(of(cloudCapabilities));
+    auth.getSession.mockReturnValue(of(session));
+    onboarding.getState.mockReturnValue(of({
+      state: 'subscription_required',
+      subscriptionStatus: 'None',
+      ready: false,
+      canCheckout: true,
+      canCheckSubscription: true,
+      canManageSubscription: false,
+      canRetry: false,
+      selectedOffer: {
+        offerId: 'pro-annual',
+        planName: 'Pro',
+        billingCadence: 'Annual',
+      },
+    }));
+    onboarding.createCheckout.mockReturnValue(of({ url: 'https://nostos.page/pay?_ptxn=canonical_pro' }));
+
+    await service.initialize();
+
+    expect(service.checkoutRedirect()).toBe('https://nostos.page/pay?_ptxn=canonical_pro');
+    expect(onboarding.createCheckout).toHaveBeenCalledWith('pro-annual');
+    expect(sessionStorage.getItem('nostos_cloud_auto_checkout_1e4df713-1a34-4fc7-9a90-c45169256845_pro-annual')).toBe('attempted');
+  });
+
+  it('does not auto-advance when returning to /start if sessionStorage marker is already set', async () => {
+    history.replaceState({}, '', '/start?offer=standard-monthly');
+    sessionStorage.setItem('nostos_cloud_auto_checkout_1e4df713-1a34-4fc7-9a90-c45169256845_standard-monthly', 'attempted');
+
+    capabilities.get.mockReturnValue(of(cloudCapabilities));
+    auth.getSession.mockReturnValue(of(session));
+    onboarding.getState.mockReturnValue(of({
+      state: 'subscription_required',
+      subscriptionStatus: 'None',
+      ready: false,
+      canCheckout: true,
+      canCheckSubscription: true,
+      canManageSubscription: false,
+      canRetry: false,
+      selectedOffer: {
+        offerId: 'standard-monthly',
+        planName: 'Standard',
+        billingCadence: 'Monthly',
+      },
+    }));
+
+    await service.initialize();
+
+    expect(service.checkoutRedirect()).toBeNull();
+    expect(onboarding.createCheckout).not.toHaveBeenCalled();
+    expect(service.view().kind).toBe('subscription_required');
+  });
+
   it('maps a pending checkout cleanly to subscription_required with canCheckSubscription intact', async () => {
     capabilities.get.mockReturnValue(of(cloudCapabilities));
     auth.getSession.mockReturnValue(of(session));
