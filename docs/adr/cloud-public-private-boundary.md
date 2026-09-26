@@ -2,7 +2,7 @@
 
 - **Status:** Accepted; implemented by the public product seam and #462 cutover work
 - **Tracking:** [#438](https://github.com/Christian-Gennari/Nostos-Rebirth/issues/438), [#462](https://github.com/Christian-Gennari/Nostos-Rebirth/issues/462)
-- **Related:** #258 Nostos Cloud programme; #435 production infrastructure migration remains separate
+- **Related:** #258 Nostos Cloud programme; paid hosting/database productionization now lives in the private Nostos-Cloud launch-readiness work
 - **Operational gate:** isolated private staging parity/security evidence is required before hosted traffic is moved
 
 ## Decision
@@ -94,5 +94,4 @@ The private artifact must pass isolated provider-backed staging parity and secur
 checks before it receives hosted traffic. Keep the last known-good public Cloud
 artifact available during the transition. Public cleanup removes hosted
 implementation from the public build after that gate; Git history retains the
-rollback source. This repository split does not migrate the production database or
-change the infrastructure decision tracked by #435.
+rollback source. This repository split does not migrate the production database or choose a hosted provider. The current private-host decision keeps PostgreSQL on Neon and productionizes it in place; provider-specific launch work belongs in Nostos-Cloud.
