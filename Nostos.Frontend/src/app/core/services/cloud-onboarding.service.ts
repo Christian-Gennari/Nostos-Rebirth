@@ -28,8 +28,11 @@ export class CloudOnboardingService {
     return this.http.post<CloudOnboardingRedirect>('/api/cloud/onboarding/checkout', request);
   }
 
-  reconcileSubscription(): Observable<CloudOnboardingSnapshot> {
-    return this.http.post<CloudOnboardingSnapshot>('/api/cloud/onboarding/reconcile', {});
+  reconcileSubscription(offerId: string | null = null): Observable<CloudOnboardingSnapshot> {
+    let params = new HttpParams();
+    if (offerId !== null) params = params.set('offer', offerId);
+
+    return this.http.post<CloudOnboardingSnapshot>('/api/cloud/onboarding/reconcile', {}, { params });
   }
 
   createBillingPortal(): Observable<CloudOnboardingRedirect> {

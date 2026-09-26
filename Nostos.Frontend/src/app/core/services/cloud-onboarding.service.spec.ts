@@ -108,4 +108,30 @@ describe('CloudOnboardingService', () => {
 
     expect((await resultPromise).ready).toBe(true);
   });
+
+  it('forwards the offer query param to reconcileSubscription when provided', async () => {
+    const resultPromise = firstValueFrom(service.reconcileSubscription('standard-monthly'));
+    const request = http.expectOne('/api/cloud/onboarding/reconcile?offer=standard-monthly');
+
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({});
+
+    request.flush({
+      state: 'checkout_pending',
+      subscriptionStatus: 'None',
+      ready: false,
+      canCheckout: true,
+      canCheckSubscription: true,
+      canManageSubscription: false,
+      canRetry: false,
+      selectedOffer: {
+        offerId: 'standard-monthly',
+        planName: 'Standard',
+        billingCadence: 'Monthly',
+      },
+    });
+
+    const result = await resultPromise;
+    expect(result.selectedOffer?.offerId).toBe('standard-monthly');
+  });
 });

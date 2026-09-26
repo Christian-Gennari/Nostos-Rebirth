@@ -142,8 +142,10 @@ export class CloudEntryService {
     this.actionPending.set(true);
     this.actionError.set(null);
 
+    const offerId = this.selectedOffer()?.offerId ?? this.requestedOffer();
+
     try {
-      const snapshot = await firstValueFrom(this.onboarding.reconcileSubscription());
+      const snapshot = await firstValueFrom(this.onboarding.reconcileSubscription(offerId));
       await this.applyOnboarding(snapshot);
     } catch {
       this.actionError.set("We couldn't check your subscription right now. Try again.");
