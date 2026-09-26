@@ -40,11 +40,13 @@ export interface CloudEntryView {
 export class CloudEntryService {
   private readonly session = signal<CloudSession | null>(null);
   private readonly requestedOffer = signal<string | null>(null);
+  private hasAutoAdvancedCheckout = false;
   private pollHandle: ReturnType<typeof setTimeout> | undefined;
 
   readonly view = signal<CloudEntryView>({ kind: 'loading' });
   readonly actionPending = signal(false);
   readonly actionError = signal<string | null>(null);
+  readonly checkoutRedirect = signal<string | null>(null);
   readonly productReady = computed(() => this.view().kind === 'product');
   readonly selectedOffer = computed(() => this.view().onboarding?.selectedOffer ?? null);
 
@@ -58,6 +60,7 @@ export class CloudEntryService {
   async initialize(force = false): Promise<void> {
     this.clearPoll();
     this.actionError.set(null);
+    this.checkoutRedirect.set(null);
     this.requestedOffer.set(null);
     this.view.set({ kind: 'loading' });
 
@@ -118,6 +121,10 @@ export class CloudEntryService {
     const selectedOffer = this.selectedOffer();
     if (!selectedOffer || !offerId || offerId !== selectedOffer.offerId) {
       this.actionError.set('Choose a valid Cloud plan before continuing to checkout.');
+      return null;
+    }
+
+    if (!this.view().onboarding?.canCheckout) {
       return null;
     }
 
@@ -250,6 +257,7 @@ export class CloudEntryService {
       case 'checkout_pending':
         this.clearPoll();
         this.view.set({ kind: 'subscription_required', onboarding: snapshot });
+        void this.maybeAutoAdvanceCheckout(snapshot);
         return;
 
       case 'grace':
@@ -273,6 +281,42 @@ export class CloudEntryService {
         this.clearPoll();
         this.view.set({ kind: 'account_unavailable', onboarding: snapshot });
         return;
+    }
+  }
+
+  private async maybeAutoAdvanceCheckout(snapshot: CloudOnboardingSnapshot): Promise<void> {
+    if (this.hasAutoAdvancedCheckout) return;
+
+    // Only auto-advance if user explicitly arrived with an offer,
+    // the backend resolved a valid selectedOffer, and checkout is permitted.
+    const explicitOffer = this.requestedOffer();
+    if (!explicitOffer || !snapshot.canCheckout || !snapshot.selectedOffer) return;
+
+    // State alignment: Backend CreateCheckoutAsync accepts subscription_required or subscription_pending
+    if (snapshot.state !== 'subscription_required' && snapshot.state !== 'subscription_pending') {
+      return;
+    }
+
+    const canonicalOfferId = snapshot.selectedOffer.offerId;
+    const accountId = this.session()?.account?.id ?? 'anonymous';
+    const storageKey = `nostos_cloud_auto_checkout_${accountId}_${canonicalOfferId}`;
+
+    try {
+      if (globalThis.sessionStorage?.getItem(storageKey) === 'attempted') {
+        return;
+      }
+      globalThis.sessionStorage?.setItem(storageKey, 'attempted');
+    } catch {
+      // If sessionStorage is unavailable or throws, fail-safe: do not auto-redirect
+      return;
+    }
+
+    this.hasAutoAdvancedCheckout = true;
+    const url = await this.beginCheckout(canonicalOfferId);
+
+    // Verify state has not drifted or changed to product while awaiting checkout creation
+    if (url && this.view().kind === 'subscription_required') {
+      this.checkoutRedirect.set(url);
     }
   }
 

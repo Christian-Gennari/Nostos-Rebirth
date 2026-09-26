@@ -25,6 +25,7 @@ describe('App', () => {
             view: signal({ kind: 'product' }),
             actionPending: signal(false),
             actionError: signal(null),
+            checkoutRedirect: signal(null),
           },
         },
         {
