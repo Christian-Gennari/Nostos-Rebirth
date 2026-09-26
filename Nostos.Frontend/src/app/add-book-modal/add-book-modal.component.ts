@@ -56,7 +56,7 @@ type AddBookIntentKind = 'upload' | 'source' | 'physical' | 'manual';
 export class AddBookModal {
   readonly bookTypeOptions = [
     { value: 'physical', label: 'Physical Book' },
-    { value: 'ebook', label: 'E-Book' },
+    { value: 'ebook', label: 'E-book (EPUB, PDF)' },
     { value: 'audiobook', label: 'Audiobook' },
   ] satisfies readonly DropdownOption[];
   private booksService = inject(BooksService);
