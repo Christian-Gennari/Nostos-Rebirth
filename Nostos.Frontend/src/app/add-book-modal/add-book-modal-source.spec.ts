@@ -218,11 +218,17 @@ describe('AddBookModal — From a Source', () => {
     expect(component.flowIntent()).toBe('manual');
     expect(fixture.nativeElement.textContent).toContain('Identify by ISBN');
     expect(fixture.nativeElement.querySelector('#book-type')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('.file-drop-zone--manual')).toBeNull();
+
+    const manualFile = fixture.nativeElement.querySelector('.manual-file') as HTMLElement;
+    const quickIsbn = fixture.nativeElement.querySelector('.quick-identifier') as HTMLElement;
+    expect(manualFile.hidden).toBe(true);
+    expect(quickIsbn.hidden).toBe(false);
 
     component.onTypeChange('ebook');
     fixture.detectChanges();
 
+    expect(manualFile.hidden).toBe(false);
+    expect(quickIsbn.hidden).toBe(true);
     expect(fixture.nativeElement.querySelector('.file-drop-zone--manual')).toBeTruthy();
     expect(fixture.nativeElement.textContent).not.toContain('How is this book coming into Nostos?');
   });
