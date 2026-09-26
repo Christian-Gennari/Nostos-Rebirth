@@ -27,7 +27,7 @@ export class CloudAuthService {
     return this.session$;
   }
 
-  loginUrl(returnUrl: string, offerId: string | null = null): string {
+  loginUrl(returnUrl: string, offerId: string | null = null, prompt: string | null = null): string {
     const isLocalReturnUrl = returnUrl.startsWith('/') && !returnUrl.startsWith('//');
     const safeReturnUrl = isLocalReturnUrl ? returnUrl : '/';
     const target =
@@ -35,7 +35,13 @@ export class CloudAuthService {
         ? this.withOffer(safeReturnUrl, offerId)
         : safeReturnUrl;
 
-    return `/api/auth/login?returnUrl=${encodeURIComponent(target)}`;
+    const query = new URLSearchParams();
+    query.set('returnUrl', target);
+    if (prompt) {
+      query.set('prompt', prompt);
+    }
+
+    return `/api/auth/login?${query.toString()}`;
   }
 
   logout(): void {

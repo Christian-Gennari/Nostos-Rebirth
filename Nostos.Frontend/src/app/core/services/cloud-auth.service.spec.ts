@@ -87,6 +87,9 @@ describe('CloudAuthService', () => {
     expect(service.loginUrl('/library')).toBe('/api/auth/login?returnUrl=%2Flibrary');
     expect(service.loginUrl('https://evil.example')).toBe('/api/auth/login?returnUrl=%2F');
     expect(service.loginUrl('//evil.example')).toBe('/api/auth/login?returnUrl=%2F');
+    expect(service.loginUrl('/start', null, 'login')).toBe(
+      '/api/auth/login?returnUrl=%2Fstart&prompt=login',
+    );
   });
 
   it('preserves the selected Cloud offer inside a local auth return URL', () => {
