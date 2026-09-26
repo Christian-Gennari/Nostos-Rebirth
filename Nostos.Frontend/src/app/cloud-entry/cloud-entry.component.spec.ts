@@ -126,5 +126,38 @@ describe('CloudEntryComponent', () => {
     const checkBtn = compiled.querySelector('button.nostos-button--secondary') as HTMLButtonElement;
     expect(checkBtn).toBeTruthy();
     expect(checkBtn.textContent).toContain('Check subscription');
+
+    checkBtn.click();
+    expect(mockEntry.checkSubscription).toHaveBeenCalledTimes(1);
+  });
+
+  it('omits Continue to checkout button when canCheckout is false', () => {
+    mockEntry.view.set({
+      kind: 'subscription_required',
+      onboarding: {
+        state: 'subscription_required',
+        subscriptionStatus: 'None',
+        ready: false,
+        canCheckout: false,
+        canCheckSubscription: true,
+        canManageSubscription: false,
+        canRetry: false,
+        selectedOffer: {
+          offerId: 'standard-monthly',
+          planName: 'Standard',
+          billingCadence: 'Monthly',
+        },
+      },
+    });
+
+    const fixture = TestBed.createComponent(CloudEntryComponent);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const checkoutBtn = compiled.querySelector('button.nostos-button--primary') as HTMLButtonElement;
+    expect(checkoutBtn).toBeFalsy();
+
+    const checkBtn = compiled.querySelector('button.nostos-button--secondary') as HTMLButtonElement;
+    expect(checkBtn).toBeTruthy();
   });
 });
