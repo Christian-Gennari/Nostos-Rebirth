@@ -68,9 +68,9 @@ export class AddBookModal {
   // Inputs & Outputs
   isOpen = input.required<boolean>();
 
-  /** Legacy direct-source entry kept for callers outside the Library chooser. */
+  /** Open Add Book directly in unified provider discovery. */
   sourceFirst = input<boolean>(false);
-  /** Acquisition choice made by the Add Book chooser. */
+  /** Legacy focused-entry hook retained for callers outside the Library. */
   initialIntent = input<AddBookIntentKind | null>(null);
   collections = input.required<Collection[]>();
   book = input<BookModel | null>(null);
@@ -209,6 +209,32 @@ export class AddBookModal {
     }
 
     setTimeout(() => this.titleInput()?.nativeElement?.focus(), 0);
+  }
+
+  /** Switch the same Add Book sheet back to unified provider discovery. */
+  showSourceMode(): void {
+    if (this.isEditMode() || this.runningAcquisition()) return;
+
+    this.flowIntent.set('source');
+    this.enterSourceMode();
+    setTimeout(() => this.sourceQueryInput()?.nativeElement?.focus(), 0);
+  }
+
+  /**
+   * Manual is one fallback mode. Format decides whether ISBN lookup or a local
+   * book file is relevant; those are not separate top-level acquisition doors.
+   */
+  showManualMode(): void {
+    if (this.isEditMode() || this.runningAcquisition()) return;
+
+    this.clearSourceSelection();
+    this.sourceMode.set(false);
+    this.flowIntent.set('manual');
+
+    setTimeout(() => {
+      if (this.form.type === 'physical') this.isbnInput()?.nativeElement?.focus();
+      else this.titleInput()?.nativeElement?.focus();
+    }, 0);
   }
 
   onTypeChange(type: string): void {
@@ -698,6 +724,7 @@ export class AddBookModal {
   enterSourceMode(): void {
     if (this.isEditMode()) return;
 
+    this.flowIntent.set('source');
     this.sourceMode.set(true);
     if (this.providerList().length === 0 && !this.providersLoading()) this.loadProviders();
   }
