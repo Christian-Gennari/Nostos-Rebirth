@@ -27,7 +27,8 @@ public sealed record DeploymentCapabilities(
     bool SupportsLocalBackupConfiguration,
     bool SupportsPrivateNetworkAccess,
     bool SupportsEreaderAccess,
-    bool UsageMeteringAvailable);
+    bool UsageMeteringAvailable,
+    string? AccountManagementUrl);
 
 /// <summary>
 /// Server-authoritative deployment descriptor resolved once during startup.
@@ -37,6 +38,8 @@ public sealed record DeploymentDescriptor(
     DeploymentCapabilities Capabilities)
 {
     public const string ConfigurationKey = "Nostos:DeploymentMode";
+    public const string AccountManagementUrlConfigurationKey = "Nostos:AccountManagementUrl";
+    public const string DefaultCloudAccountManagementUrl = "https://nostos.page/account";
 
     public static DeploymentDescriptor FromConfiguration(IConfiguration configuration)
     {
@@ -53,7 +56,31 @@ public sealed record DeploymentDescriptor(
                 $"Supported values are '{DeploymentMode.SelfHosted}' and '{DeploymentMode.Cloud}'.");
         }
 
-        return For(mode);
+        var deployment = For(mode);
+        if (mode != DeploymentMode.Cloud)
+            return deployment;
+
+        var configuredAccountManagementUrl = configuration[AccountManagementUrlConfigurationKey];
+        if (string.IsNullOrWhiteSpace(configuredAccountManagementUrl))
+            return deployment;
+
+        var trimmedAccountManagementUrl = configuredAccountManagementUrl.Trim();
+        if (!Uri.TryCreate(trimmedAccountManagementUrl, UriKind.Absolute, out var accountManagementUri)
+            || (accountManagementUri.Scheme != Uri.UriSchemeHttps
+                && accountManagementUri.Scheme != Uri.UriSchemeHttp))
+        {
+            throw new InvalidOperationException(
+                $"Invalid '{AccountManagementUrlConfigurationKey}' value '{configuredAccountManagementUrl}'. " +
+                "Expected an absolute http(s) URL.");
+        }
+
+        return deployment with
+        {
+            Capabilities = deployment.Capabilities with
+            {
+                AccountManagementUrl = trimmedAccountManagementUrl,
+            },
+        };
     }
 
     public static DeploymentDescriptor For(DeploymentMode mode) =>
@@ -70,7 +97,8 @@ public sealed record DeploymentDescriptor(
                     SupportsLocalBackupConfiguration: true,
                     SupportsPrivateNetworkAccess: true,
                     SupportsEreaderAccess: true,
-                    UsageMeteringAvailable: false)),
+                    UsageMeteringAvailable: false,
+                    AccountManagementUrl: null)),
 
             DeploymentMode.Cloud => new(
                 mode,
@@ -83,7 +111,8 @@ public sealed record DeploymentDescriptor(
                     SupportsLocalBackupConfiguration: false,
                     SupportsPrivateNetworkAccess: false,
                     SupportsEreaderAccess: true,
-                    UsageMeteringAvailable: true)),
+                    UsageMeteringAvailable: true,
+                    AccountManagementUrl: DefaultCloudAccountManagementUrl)),
 
             _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unsupported Nostos deployment mode."),
         };

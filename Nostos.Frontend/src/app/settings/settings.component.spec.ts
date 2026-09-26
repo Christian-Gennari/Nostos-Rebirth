@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { signal } from '@angular/core';
-import { NEVER, Observable, Subject, of, throwError } from 'rxjs';
+import { Observable, Subject, of, throwError } from 'rxjs';
 import {
   HttpErrorResponse,
   HttpEvent,
@@ -51,6 +51,7 @@ const selfHostedCapabilities: DeploymentCapabilities = {
   supportsPrivateNetworkAccess: true,
   supportsEreaderAccess: true,
   usageMeteringAvailable: false,
+  accountManagementUrl: null,
 };
 
 const cloudCapabilities: DeploymentCapabilities = {
@@ -64,6 +65,7 @@ const cloudCapabilities: DeploymentCapabilities = {
   supportsPrivateNetworkAccess: false,
   supportsEreaderAccess: true,
   usageMeteringAvailable: true,
+  accountManagementUrl: 'https://nostos.page/account',
 };
 
 const capabilitiesServiceMock = {
@@ -110,18 +112,6 @@ const cloudAuthServiceMock = {
 
 const cloudAiRefillServiceMock = {
   getUsage: vi.fn((): Observable<CloudManagedAiUsage> => of(managedAiUsage)),
-  getPacks: vi.fn(() =>
-    of({
-      packs: [
-        {
-          packId: 'ai-refill-small',
-          displayName: 'AI Refill - Small',
-          displayPrice: '2.99 EUR',
-        },
-      ],
-    }),
-  ),
-  createCheckout: vi.fn(() => NEVER),
 };
 
 /** A reachable catalog address, as the server reports it behind its proxy. */
@@ -326,20 +316,6 @@ describe('SettingsComponent backup-only surface', () => {
     cloudAuthServiceMock.logout.mockClear();
     cloudAiRefillServiceMock.getUsage.mockClear();
     cloudAiRefillServiceMock.getUsage.mockReturnValue(of(managedAiUsage));
-    cloudAiRefillServiceMock.getPacks.mockClear();
-    cloudAiRefillServiceMock.getPacks.mockReturnValue(
-      of({
-        packs: [
-          {
-            packId: 'ai-refill-small',
-            displayName: 'AI Refill - Small',
-            displayPrice: '2.99 EUR',
-          },
-        ],
-      }),
-    );
-    cloudAiRefillServiceMock.createCheckout.mockClear();
-    cloudAiRefillServiceMock.createCheckout.mockReturnValue(NEVER);
     opdsServiceMock.getInfo.mockClear();
     opdsServiceMock.getInfo.mockReturnValue(of(remoteInfo));
     opdsServiceMock.getManagedAccess.mockClear();
@@ -432,6 +408,8 @@ describe('SettingsComponent backup-only surface', () => {
     const navText = fixture.nativeElement.querySelector('.settings-nav')?.textContent ?? '';
     expect(navText).not.toContain('Account');
     expect(fixture.nativeElement.querySelector('[data-testid="cloud-account-settings"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="cloud-account-management-link"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="managed-ai-refill-link"]')).toBeNull();
     expect(cloudAuthServiceMock.getSession).not.toHaveBeenCalled();
   });
 
@@ -453,6 +431,13 @@ describe('SettingsComponent backup-only surface', () => {
     ) as HTMLElement;
     expect(card.textContent).toContain('Reader');
     expect(card.textContent).toContain('reader@example.test');
+
+    const manageAccount = card.querySelector(
+      '[data-testid="cloud-account-management-link"]',
+    ) as HTMLAnchorElement;
+    expect(manageAccount.textContent).toContain('Manage account & billing');
+    expect(manageAccount.href).toBe('https://nostos.page/account');
+    expect(manageAccount.target).toBe('_blank');
 
     const signOut = Array.from(card.querySelectorAll('button')).find((button: any) =>
       (button.textContent ?? '').includes('Sign out'),
@@ -593,10 +578,9 @@ describe('SettingsComponent backup-only surface', () => {
     expect(aiProviderServiceMock.get).not.toHaveBeenCalled();
   });
 
-  it('shows managed Ask Nostos allowance and refill packs only for Cloud metering', () => {
+  it('keeps qualitative Ask Nostos usage state and hands refill management to the account site', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="managed-ai-usage-card"]')).toBeNull();
     expect(cloudAiRefillServiceMock.getUsage).not.toHaveBeenCalled();
-    expect(cloudAiRefillServiceMock.getPacks).not.toHaveBeenCalled();
 
     capabilitiesServiceMock.get.mockReturnValueOnce(of(cloudCapabilities));
     render();
@@ -605,46 +589,31 @@ describe('SettingsComponent backup-only surface', () => {
       '[data-testid="managed-ai-usage-card"]',
     ) as HTMLElement;
     const text = (card.textContent ?? '').replace(/\s+/g, ' ').trim();
+    const refillLink = card.querySelector(
+      '[data-testid="managed-ai-refill-link"]',
+    ) as HTMLAnchorElement;
 
     expect(card).not.toBeNull();
     expect(text).toContain('Your included Ask Nostos allowance is nearly used.');
     expect(text).toContain('Renews Oct 1.');
-    expect(text).toContain('AI Refill - Small');
-    expect(text).toContain('2.99 EUR');
+    expect(text).toContain('You do not currently have purchased AI refill capacity.');
+    expect(text).toContain('Manage refills');
+    expect(text).not.toContain('Add refill');
     expect(text).not.toContain('Paddle');
-    expect(text).not.toContain('microusd');
+    expect(card.querySelector('[data-testid="ai-refill-pack"]')).toBeNull();
+    expect(refillLink.href).toBe('https://nostos.page/account');
     expect(cloudAiRefillServiceMock.getUsage).toHaveBeenCalledTimes(1);
-    expect(cloudAiRefillServiceMock.getPacks).toHaveBeenCalledTimes(1);
   });
 
-  it('starts refill checkout with the stable product pack id', () => {
-    capabilitiesServiceMock.get.mockReturnValueOnce(of(cloudCapabilities));
-    render();
-
-    const card = fixture.nativeElement.querySelector(
-      '[data-testid="managed-ai-usage-card"]',
-    ) as HTMLElement;
-    const add = Array.from(card.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('Add refill'),
-    ) as HTMLButtonElement;
-
-    add.click();
-    fixture.detectChanges();
-
-    expect(cloudAiRefillServiceMock.createCheckout).toHaveBeenCalledWith('ai-refill-small');
-    expect(add.disabled).toBe(true);
-    expect(add.textContent).toContain('Opening…');
-  });
-
-  it('fails closed for refill APIs when usage metering is not advertised', () => {
+  it('fails closed for refill usage when usage metering is not advertised', () => {
     capabilitiesServiceMock.get.mockReturnValueOnce(
       of({ ...cloudCapabilities, usageMeteringAvailable: false }),
     );
     render();
 
     expect(fixture.nativeElement.querySelector('[data-testid="managed-ai-usage-card"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="managed-ai-refill-link"]')).toBeNull();
     expect(cloudAiRefillServiceMock.getUsage).not.toHaveBeenCalled();
-    expect(cloudAiRefillServiceMock.getPacks).not.toHaveBeenCalled();
   });
 
   it('keeps Cloud Library & data available for portable export without e-reader access', () => {

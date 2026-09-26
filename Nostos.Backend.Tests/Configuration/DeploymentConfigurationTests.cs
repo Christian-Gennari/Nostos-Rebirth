@@ -26,7 +26,8 @@ public sealed class DeploymentConfigurationTests
             SupportsLocalBackupConfiguration: true,
             SupportsPrivateNetworkAccess: true,
             SupportsEreaderAccess: true,
-            UsageMeteringAvailable: false));
+            UsageMeteringAvailable: false,
+            AccountManagementUrl: null));
     }
 
     [Fact]
@@ -46,7 +47,8 @@ public sealed class DeploymentConfigurationTests
             SupportsLocalBackupConfiguration: false,
             SupportsPrivateNetworkAccess: false,
             SupportsEreaderAccess: true,
-            UsageMeteringAvailable: true));
+            UsageMeteringAvailable: true,
+            AccountManagementUrl: DeploymentDescriptor.DefaultCloudAccountManagementUrl));
     }
 
     [Fact]
@@ -91,13 +93,35 @@ public sealed class DeploymentConfigurationTests
         response.SupportsPrivateNetworkAccess.Should().BeFalse();
         response.SupportsEreaderAccess.Should().BeTrue();
         response.UsageMeteringAvailable.Should().BeTrue();
+        response.AccountManagementUrl.Should().Be(DeploymentDescriptor.DefaultCloudAccountManagementUrl);
     }
 
-    private static IConfiguration BuildConfiguration(string mode) =>
-        new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                [DeploymentDescriptor.ConfigurationKey] = mode,
-            })
+    [Fact]
+    public void Cloud_account_management_url_can_be_overridden_without_affecting_self_hosted()
+    {
+        const string configuredUrl = "https://accounts.example.test/manage";
+
+        var cloud = DeploymentDescriptor.FromConfiguration(
+            BuildConfiguration("Cloud", configuredUrl));
+        var selfHosted = DeploymentDescriptor.FromConfiguration(
+            BuildConfiguration("SelfHosted", configuredUrl));
+
+        cloud.Capabilities.AccountManagementUrl.Should().Be(configuredUrl);
+        selfHosted.Capabilities.AccountManagementUrl.Should().BeNull();
+    }
+
+    private static IConfiguration BuildConfiguration(string mode, string? accountManagementUrl = null)
+    {
+        var values = new Dictionary<string, string?>
+        {
+            [DeploymentDescriptor.ConfigurationKey] = mode,
+        };
+
+        if (accountManagementUrl is not null)
+            values[DeploymentDescriptor.AccountManagementUrlConfigurationKey] = accountManagementUrl;
+
+        return new ConfigurationBuilder()
+            .AddInMemoryCollection(values)
             .Build();
+    }
 }
