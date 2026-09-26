@@ -39,5 +39,4 @@ exact public pin and rejects copied canonical product source outside its submodu
 The private host authority promotion is represented by #462. Isolated
 provider-backed staging parity/security evidence remains a prerequisite before
 the hosted release is operationally promoted. Keep the last known-good hosted
-artifact available for rollback during the transition. This work does not include
-the production infrastructure migration tracked separately by #435.
+artifact available for rollback during the transition. This work does not include production infrastructure changes. The private host now owns those decisions; the current paid-production direction keeps PostgreSQL on Neon rather than depending on a later provider migration.
