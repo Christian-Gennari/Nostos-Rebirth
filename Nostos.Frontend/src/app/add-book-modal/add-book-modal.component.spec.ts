@@ -38,7 +38,7 @@ describe('AddBookModal', () => {
     const dialog = fixture.nativeElement.querySelector('[role="dialog"]');
     expect(dialog).toBeTruthy();
     expect(dialog.getAttribute('aria-modal')).toBe('true');
-    expect(dialog.getAttribute('aria-label')).toBe('Add New Book');
+    expect(dialog.getAttribute('aria-label')).toBe('Add a book');
   });
 
   it('uses DialogActions and canonical native buttons for the ordinary create footer', () => {
