@@ -152,7 +152,7 @@ describe('MarkdownEditorComponent', () => {
     expect(initCalls[0].skin).toBe('oxide');
   });
 
-  it('applies the iframe theme at PreInit and themes transient loading surfaces', () => {
+  it('themes startup surfaces without painting native textarea content', () => {
     expect(registeredEditorEvents).toContain('PreInit');
 
     const css = componentCss();
@@ -160,7 +160,27 @@ describe('MarkdownEditorComponent', () => {
     // assert the selector's semantic shape rather than its source spelling.
     expect(css).toMatch(/>\s*textarea/);
     expect(css).toContain('background: var(--editor-ui-bg, var(--bg-surface))');
+    expect(css).toContain('.editor-starting');
+    expect(css).toContain('color: transparent');
+    expect(css).toContain('-webkit-text-fill-color: transparent');
+    expect(css).toContain('caret-color: transparent');
     expect(css).toContain('.tox .tox-throbber');
+    expect(fixture.componentInstance.editorStarting).toBe(false);
+  });
+
+  it('reveals the native fallback and leaves startup retryable when TinyMCE loading fails', async () => {
+    const component = fixture.componentInstance as any;
+    component.editor = null;
+    component.destroyed = false;
+    component.editorInit = Promise.resolve();
+    component.tinyMceLoader = {
+      load: () => Promise.reject(new Error('TinyMCE unavailable')),
+    };
+
+    await expect(component.initEditor()).rejects.toThrow('TinyMCE unavailable');
+
+    expect(component.editorStarting).toBe(false);
+    expect(component.editorInit).toBeNull();
   });
 
   it('uses the final chrome config: plugins, toolbar, quickbars, no menubar/statusbar', () => {
