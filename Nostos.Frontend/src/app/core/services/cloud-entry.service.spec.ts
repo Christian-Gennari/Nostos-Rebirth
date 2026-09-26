@@ -165,6 +165,46 @@ describe('CloudEntryService', () => {
     expect(onboarding.createCheckout).toHaveBeenCalledWith('pro-annual');
   });
 
+  it('passes the selected offer to reconcileSubscription so the selection is retained across checks', async () => {
+    capabilities.get.mockReturnValue(of(cloudCapabilities));
+    auth.getSession.mockReturnValue(of(session));
+    onboarding.getState.mockReturnValue(of({
+      state: 'checkout_pending',
+      subscriptionStatus: 'None',
+      ready: false,
+      canCheckout: true,
+      canCheckSubscription: true,
+      canManageSubscription: false,
+      canRetry: false,
+      selectedOffer: {
+        offerId: 'standard-monthly',
+        planName: 'Standard',
+        billingCadence: 'Monthly',
+      },
+    }));
+    onboarding.reconcileSubscription.mockReturnValue(of({
+      state: 'checkout_pending',
+      subscriptionStatus: 'None',
+      ready: false,
+      canCheckout: true,
+      canCheckSubscription: true,
+      canManageSubscription: false,
+      canRetry: false,
+      selectedOffer: {
+        offerId: 'standard-monthly',
+        planName: 'Standard',
+        billingCadence: 'Monthly',
+      },
+    }));
+
+    await service.initialize();
+    expect(service.selectedOffer()?.offerId).toBe('standard-monthly');
+
+    await service.checkSubscription();
+    expect(onboarding.reconcileSubscription).toHaveBeenCalledWith('standard-monthly');
+    expect(service.selectedOffer()?.offerId).toBe('standard-monthly');
+  });
+
   it('does not submit an unvalidated browser offer to checkout', async () => {
     history.replaceState({}, '', '/start?offer=pro-annual');
     capabilities.get.mockReturnValue(of(cloudCapabilities));

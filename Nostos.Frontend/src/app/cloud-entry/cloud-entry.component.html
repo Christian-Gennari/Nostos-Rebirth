@@ -25,19 +25,26 @@
           <p>
             Continue with <strong>{{ offer.planName }}</strong> on {{ offer.billingCadence }} billing.
           </p>
+          <button
+            appButton
+            variant="primary"
+            type="button"
+            [disabled]="entry.actionPending()"
+            [busy]="entry.actionPending()"
+            (click)="checkout()"
+          >
+            Continue to checkout
+          </button>
         } @else {
-          <p>Choose a Cloud plan to continue to checkout.</p>
+          <p>Choose a plan on our pricing page to start your Cloud library.</p>
+          <a
+            appButton
+            variant="primary"
+            href="https://nostos.page/pricing"
+          >
+            View Cloud plans
+          </a>
         }
-        <button
-          appButton
-          variant="primary"
-          type="button"
-          [disabled]="entry.actionPending() || !entry.selectedOffer()"
-          [busy]="entry.actionPending()"
-          (click)="checkout()"
-        >
-          Continue to checkout
-        </button>
       }
 
       @case ('checkout_pending') {
@@ -54,16 +61,26 @@
         }
         <div class="cloud-entry__actions">
           @if (entry.view().onboarding?.canCheckout) {
-            <button
-              appButton
-              variant="primary"
-              type="button"
-              [disabled]="entry.actionPending() || !entry.selectedOffer()"
-              [busy]="entry.actionPending()"
-              (click)="checkout()"
-            >
-              Continue checkout
-            </button>
+            @if (entry.selectedOffer()) {
+              <button
+                appButton
+                variant="primary"
+                type="button"
+                [disabled]="entry.actionPending()"
+                [busy]="entry.actionPending()"
+                (click)="checkout()"
+              >
+                Continue checkout
+              </button>
+            } @else {
+              <a
+                appButton
+                variant="primary"
+                href="https://nostos.page/pricing"
+              >
+                View Cloud plans
+              </a>
+            }
           }
           @if (entry.view().onboarding?.canCheckSubscription) {
             <button
@@ -132,16 +149,26 @@
         }
         <div class="cloud-entry__actions">
           @if (entry.view().onboarding?.canCheckout) {
-            <button
-              appButton
-              variant="primary"
-              type="button"
-              [disabled]="entry.actionPending() || !entry.selectedOffer()"
-              [busy]="entry.actionPending()"
-              (click)="checkout()"
-            >
-              Re-subscribe
-            </button>
+            @if (entry.selectedOffer()) {
+              <button
+                appButton
+                variant="primary"
+                type="button"
+                [disabled]="entry.actionPending()"
+                [busy]="entry.actionPending()"
+                (click)="checkout()"
+              >
+                Re-subscribe
+              </button>
+            } @else {
+              <a
+                appButton
+                variant="primary"
+                href="https://nostos.page/pricing"
+              >
+                View Cloud plans
+              </a>
+            }
           } @else if (entry.view().onboarding?.canManageSubscription) {
             <button
               appButton

@@ -19,7 +19,7 @@ export type ButtonSize = 'sm' | 'md' | 'lg';
  * appIconButton.
  */
 @Component({
-  selector: 'button[appButton]',
+  selector: 'button[appButton], a[appButton]',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: '<ng-content />',
