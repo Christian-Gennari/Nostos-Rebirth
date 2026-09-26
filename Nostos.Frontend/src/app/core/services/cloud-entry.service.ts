@@ -100,7 +100,10 @@ export class CloudEntryService {
   loginUrl(): string {
     const location = globalThis.location;
     const returnUrl = `${location.pathname}${location.search}${location.hash}` || '/';
-    return this.auth.loginUrl(returnUrl, this.requestedOffer());
+    const isSignedOutState = new URLSearchParams(location.search).get('signedOut') === 'true';
+    return isSignedOutState
+      ? this.auth.loginUrl(returnUrl, this.requestedOffer(), 'login')
+      : this.auth.loginUrl(returnUrl, this.requestedOffer());
   }
 
   async retry(): Promise<void> {

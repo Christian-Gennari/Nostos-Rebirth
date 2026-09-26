@@ -107,6 +107,13 @@ describe('CloudEntryService', () => {
     expect(auth.loginUrl).toHaveBeenCalledWith('/', null);
   });
 
+  it('passes prompt=login to auth service when returning from an explicit sign out', () => {
+    history.replaceState({}, '', '/start?signedOut=true');
+
+    service.loginUrl();
+    expect(auth.loginUrl).toHaveBeenCalledWith('/start?signedOut=true', null, 'login');
+  });
+
   it('preserves a raw start offer through authentication without trusting it as checkout state', async () => {
     history.replaceState({}, '', '/start?offer=Pro-Annual');
     capabilities.get.mockReturnValue(of(cloudCapabilities));
