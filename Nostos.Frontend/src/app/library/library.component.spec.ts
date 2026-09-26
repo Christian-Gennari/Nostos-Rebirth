@@ -857,49 +857,26 @@ describe('Library', () => {
     expect(fixture.nativeElement.querySelector('.offscreen-imports')).toBeNull();
   });
 
-  it('shows an empty state with a creation action when the library is empty', () => {
+  it('shows an empty state whose creation action opens Add Book directly', () => {
     fixture.detectChanges();
 
-    const empty = fixture.nativeElement.querySelector('.container.lg .books-empty-state') as HTMLElement;
+    const empty = fixture.nativeElement.querySelector(
+      '.container.lg .books-empty-state',
+    ) as HTMLElement;
     expect(empty.textContent).toContain('Your library is empty');
     empty.querySelector('button')!.click();
 
-    // The action leads to "how are you adding this?", which then decides whether
-    // the form opens empty or at the source search.
-    expect(component.showAddIntent()).toBe(true);
-    expect(component.showAddModal()).toBe(false);
+    expect(component.showAddModal()).toBe(true);
   });
 
-  it('passes each acquisition choice to Add Book before opening the modal', () => {
-    component.openAddIntent();
-    expect(component.showAddIntent()).toBe(true);
+  it('opens and closes Add Book without a separate acquisition chooser', () => {
+    expect(fixture.nativeElement.querySelector('app-add-book-intent')).toBeNull();
 
-    component.addUpload();
-    expect(component.showAddIntent()).toBe(false);
+    component.openAddModal();
     expect(component.showAddModal()).toBe(true);
-    expect(component.addIntent()).toBe('upload');
-
-    component.showAddModal.set(false);
-    component.openAddIntent();
-    component.addFromSource();
-    expect(component.showAddModal()).toBe(true);
-    expect(component.addIntent()).toBe('source');
-
-    component.showAddModal.set(false);
-    component.openAddIntent();
-    component.addPhysical();
-    expect(component.showAddModal()).toBe(true);
-    expect(component.addIntent()).toBe('physical');
-
-    component.showAddModal.set(false);
-    component.openAddIntent();
-    component.addByHand();
-    expect(component.showAddModal()).toBe(true);
-    expect(component.addIntent()).toBe('manual');
 
     component.closeAddModal();
     expect(component.showAddModal()).toBe(false);
-    expect(component.addIntent()).toBeNull();
   });
 
   it('offers to clear the search when nothing matches', () => {
