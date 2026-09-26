@@ -487,8 +487,8 @@ export class Library implements OnInit, OnDestroy {
 
   // ... (Modals and Actions remain unchanged)
   /**
-   * Add Book opens the task directly. The modal starts with unified provider
-   * discovery and keeps manual intake as a secondary mode inside the same sheet.
+   * Add Book opens with focused provider discovery. Choosing a result moves to
+   * review; manual intake is a secondary escape hatch from that first step.
    */
   openAddModal(): void {
     this.showAddModal.set(true);
