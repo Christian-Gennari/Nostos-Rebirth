@@ -14,7 +14,7 @@
             {{
               isEditMode()
                 ? 'Edit Book'
-                : seededFromSource()
+                : !sourceMode() && seededFromSource()
                   ? 'Review Book'
                   : 'Add a book'
             }}
@@ -23,7 +23,7 @@
             {{
               isEditMode()
                 ? 'Change the details you need, then save.'
-                : seededFromSource()
+                : !sourceMode() && seededFromSource()
                   ? 'Check the essentials. Everything else is optional.'
                   : sourceMode()
                     ? 'Find the book first and let Nostos fill what it can.'
