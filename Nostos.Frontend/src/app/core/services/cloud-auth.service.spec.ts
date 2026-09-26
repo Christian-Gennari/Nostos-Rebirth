@@ -69,6 +69,20 @@ describe('CloudAuthService', () => {
     expect((await refreshPromise).authenticated).toBe(true);
   });
 
+  it('submits logout as a top-level POST to the BFF', () => {
+    const submit = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {});
+
+    service.logout();
+
+    expect(submit).toHaveBeenCalledTimes(1);
+    const form = submit.mock.instances[0] as HTMLFormElement;
+    expect(form.method.toLowerCase()).toBe('post');
+    expect(form.getAttribute('action')).toBe('/api/auth/logout');
+    expect(document.body.contains(form)).toBe(false);
+
+    submit.mockRestore();
+  });
+
   it('only creates login URLs with local return targets', () => {
     expect(service.loginUrl('/library')).toBe('/api/auth/login?returnUrl=%2Flibrary');
     expect(service.loginUrl('https://evil.example')).toBe('/api/auth/login?returnUrl=%2F');
