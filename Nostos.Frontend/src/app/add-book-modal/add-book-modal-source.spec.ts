@@ -196,6 +196,58 @@ describe('AddBookModal — From a Source', () => {
     expect(component.providerList().length).toBeGreaterThan(0);
   });
 
+  it('keeps provider discovery and manual intake as two modes in the same sheet', async () => {
+    fixture.componentRef.setInput('sourceFirst', true);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const modeButtons = Array.from(
+      fixture.nativeElement.querySelectorAll('.add-mode-button') as NodeListOf<HTMLButtonElement>,
+    );
+    expect(modeButtons.map((button) => button.textContent?.trim())).toEqual([
+      'Find a book',
+      'Add manually',
+    ]);
+    expect(modeButtons[0].getAttribute('aria-pressed')).toBe('true');
+    expect(modeButtons[1].getAttribute('aria-pressed')).toBe('false');
+
+    modeButtons[1].click();
+    fixture.detectChanges();
+
+    expect(component.sourceMode()).toBe(false);
+    expect(component.flowIntent()).toBe('manual');
+    expect(fixture.nativeElement.textContent).toContain('Identify by ISBN');
+    expect(fixture.nativeElement.querySelector('#book-type')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.file-drop-zone--manual')).toBeNull();
+
+    component.onTypeChange('ebook');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.file-drop-zone--manual')).toBeTruthy();
+    expect(fixture.nativeElement.textContent).not.toContain('How is this book coming into Nostos?');
+  });
+
+  it('lets manual digital intake choose a file without creating another top-level path', () => {
+    component.showManualMode();
+    component.onTypeChange('ebook');
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector(
+      '.file-drop-zone--manual input[type="file"]',
+    ) as HTMLInputElement;
+    expect(input).toBeTruthy();
+
+    const file = new File(['x'], 'book.epub', { type: 'application/epub+zip' });
+    Object.defineProperty(input, 'files', { value: [file] });
+    input.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    expect(component.selectedFile()).toBe(file);
+    expect(component.form.type).toBe('ebook');
+    expect(component.form.title).toBe('book');
+    expect(fixture.nativeElement.textContent).toContain('book.epub');
+  });
+
   it('uses canonical controls for the ordinary source search field and import action', async () => {
     component.enterSourceMode();
     await fixture.whenStable();
