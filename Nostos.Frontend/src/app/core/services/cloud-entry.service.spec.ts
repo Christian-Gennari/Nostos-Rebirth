@@ -398,7 +398,7 @@ describe('CloudEntryService', () => {
     expect(onboarding.provision).not.toHaveBeenCalled();
   });
 
-  it('maps a pending checkout to the safe-to-resume state', async () => {
+  it('maps a pending checkout cleanly to subscription_required with canCheckSubscription intact', async () => {
     capabilities.get.mockReturnValue(of(cloudCapabilities));
     auth.getSession.mockReturnValue(of(session));
     onboarding.getState.mockReturnValue(of({
@@ -418,12 +418,13 @@ describe('CloudEntryService', () => {
 
     await service.initialize();
 
-    expect(service.view().kind).toBe('checkout_pending');
+    expect(service.view().kind).toBe('subscription_required');
+    expect(service.view().onboarding?.canCheckSubscription).toBe(true);
     expect(service.selectedOffer()?.planName).toBe('Pro');
     expect(service.productReady()).toBe(false);
   });
 
-  it('keeps the legacy pending state on the safe-to-resume path', async () => {
+  it('keeps the legacy pending state cleanly on the subscription_required path', async () => {
     capabilities.get.mockReturnValue(of(cloudCapabilities));
     auth.getSession.mockReturnValue(of(session));
     onboarding.getState.mockReturnValue(of({
@@ -439,7 +440,7 @@ describe('CloudEntryService', () => {
 
     await service.initialize();
 
-    expect(service.view().kind).toBe('checkout_pending');
+    expect(service.view().kind).toBe('subscription_required');
     expect(service.productReady()).toBe(false);
   });
 

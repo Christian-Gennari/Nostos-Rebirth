@@ -11,16 +11,15 @@ import { PortableLibraryService } from './portable-library.service';
 
 export type CloudEntryKind =
   | 'loading'
-  | 'product'
   | 'signed_out'
   | 'subscription_required'
-  | 'checkout_pending'
+  | 'first_run'
+  | 'product'
+  | 'provisioning'
+  | 'provisioning_failed'
   | 'payment_recovery'
   | 'canceled'
   | 'inactive'
-  | 'provisioning'
-  | 'provisioning_failed'
-  | 'first_run'
   | 'account_unavailable'
   | 'backend_error';
 
@@ -247,14 +246,10 @@ export class CloudEntryService {
         return;
 
       case 'subscription_required':
-        this.clearPoll();
-        this.view.set({ kind: 'subscription_required', onboarding: snapshot });
-        return;
-
       case 'subscription_pending':
       case 'checkout_pending':
         this.clearPoll();
-        this.view.set({ kind: 'checkout_pending', onboarding: snapshot });
+        this.view.set({ kind: 'subscription_required', onboarding: snapshot });
         return;
 
       case 'grace':

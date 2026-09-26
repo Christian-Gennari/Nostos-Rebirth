@@ -151,6 +151,7 @@ p {
   }
 
   .cloud-entry__actions button,
+  .cloud-entry__actions a,
   .cloud-entry__card > button {
     width: 100%;
   }
