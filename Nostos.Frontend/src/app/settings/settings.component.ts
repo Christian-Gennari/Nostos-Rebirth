@@ -34,6 +34,8 @@ import { AiProviderService } from '../core/services/ai-provider.service';
 import { DeploymentCapabilitiesService } from '../core/services/deployment-capabilities.service';
 import { DeploymentCapabilities } from '../core/dtos/deployment-capabilities.dtos';
 import { CloudAiRefillService } from '../core/services/cloud-ai-refill.service';
+import { CloudAuthService } from '../core/services/cloud-auth.service';
+import { CloudSession } from '../core/dtos/cloud-auth.dtos';
 import { PortableLibraryService } from '../core/services/portable-library.service';
 import {
   CloudAiRefillPack,
@@ -119,7 +121,7 @@ const AI_PROVIDER_COPY = {
 } as const;
 
 /** How a section's inline status line is coloured. */
-type SettingsSection = 'library' | 'assistant' | 'appearance';
+type SettingsSection = 'library' | 'account' | 'assistant' | 'appearance';
 
 type AiProviderStatusTone = 'neutral' | 'ok' | 'error';
 
@@ -200,6 +202,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
   private deploymentCapabilitiesService = inject(DeploymentCapabilitiesService);
   private cloudAiRefills = inject(CloudAiRefillService);
   private portableLibrary = inject(PortableLibraryService);
+  private cloudAuth = inject(CloudAuthService);
 
   /** Which settings surface is visible. This is local UI state, not a route. */
   readonly activeSettingsSection = signal<SettingsSection>('library');
@@ -219,9 +222,9 @@ export class SettingsComponent implements OnInit, OnDestroy {
   readonly supportsEreaderAccess = computed(
     () => this.deploymentCapabilities()?.supportsEreaderAccess === true,
   );
-  readonly supportsCloudPortableExport = computed(
-    () => this.deploymentCapabilities()?.deploymentMode === 'Cloud',
-  );
+  readonly isCloud = computed(() => this.deploymentCapabilities()?.deploymentMode === 'Cloud');
+  readonly supportsCloudPortableExport = computed(() => this.isCloud());
+  readonly cloudSession = signal<CloudSession | null>(null);
   readonly managedEreaderAccess = computed(
     () =>
       this.supportsEreaderAccess() &&
@@ -476,6 +479,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
           this.loadOpdsInfo();
           if (capabilities.deploymentMode === 'Cloud') this.loadManagedOpdsAccess();
         }
+        if (capabilities.deploymentMode === 'Cloud') this.loadCloudSession();
         if (capabilities.canConfigureAiProvider) this.loadAiProvider();
         if (
           capabilities.deploymentMode === 'Cloud' &&
@@ -493,6 +497,17 @@ export class SettingsComponent implements OnInit, OnDestroy {
         this.capabilitiesFailed.set(true);
       },
     });
+  }
+
+  private loadCloudSession(): void {
+    this.cloudAuth.getSession().subscribe({
+      next: (session) => this.cloudSession.set(session),
+      error: () => this.cloudSession.set(null),
+    });
+  }
+
+  signOut(): void {
+    this.cloudAuth.logout();
   }
 
   ngOnDestroy(): void {

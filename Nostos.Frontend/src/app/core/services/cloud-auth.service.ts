@@ -38,6 +38,16 @@ export class CloudAuthService {
     return `/api/auth/login?returnUrl=${encodeURIComponent(target)}`;
   }
 
+  logout(): void {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/api/auth/logout';
+    form.hidden = true;
+    document.body.appendChild(form);
+    form.submit();
+    form.remove();
+  }
+
   private withOffer(returnUrl: string, offerId: string): string {
     const target = new URL(returnUrl, 'https://nostos.local');
     target.searchParams.set('offer', offerId);

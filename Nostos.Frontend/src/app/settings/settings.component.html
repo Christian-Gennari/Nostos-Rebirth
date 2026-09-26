@@ -58,6 +58,22 @@
             </span>
             <span class="settings-nav-copy">Assistant</span>
           </button>
+          @if (isCloud()) {
+          <button
+            type="button"
+            class="settings-nav-item"
+            role="tab"
+            [class.is-active]="activeSettingsSection() === 'account'"
+            [attr.aria-selected]="activeSettingsSection() === 'account'"
+            aria-controls="account"
+            (click)="setSettingsSection('account')"
+          >
+            <span class="settings-nav-icon">
+              <nostos-icon name="gear-six" [size]="17"></nostos-icon>
+            </span>
+            <span class="settings-nav-copy">Account</span>
+          </button>
+          }
           <button
             type="button"
             class="settings-nav-item"
@@ -549,6 +565,42 @@
       </section>
       }
 
+          </section>
+          }
+
+          @if (isCloud()) {
+          <section
+            class="settings-section"
+            id="account"
+            role="tabpanel"
+            aria-labelledby="account-heading"
+            [hidden]="activeSettingsSection() !== 'account'"
+          >
+            <h2 class="settings-section-title" id="account-heading">Account</h2>
+            <section class="settings-card" data-testid="cloud-account-settings">
+              <div class="card-header">
+                <div class="card-header-copy">
+                  <h2>Cloud account</h2>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="setting-row">
+                  <div class="setting-label">
+                    <span class="label-text">
+                      {{ cloudSession()?.account?.displayName || cloudSession()?.account?.email || 'Signed in' }}
+                    </span>
+                    @if (cloudSession()?.account?.email) {
+                      <span class="label-desc">{{ cloudSession()?.account?.email }}</span>
+                    } @else {
+                      <span class="label-desc">Authenticated with your Nostos Cloud account.</span>
+                    }
+                  </div>
+                  <button appButton variant="secondary" type="button" (click)="signOut()">
+                    Sign out
+                  </button>
+                </div>
+              </div>
+            </section>
           </section>
           }
 
