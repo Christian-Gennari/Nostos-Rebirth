@@ -26,6 +26,7 @@ import { AiProviderService } from '../core/services/ai-provider.service';
 import { DeploymentCapabilitiesService } from '../core/services/deployment-capabilities.service';
 import { DeploymentCapabilities } from '../core/dtos/deployment-capabilities.dtos';
 import { CloudAiRefillService } from '../core/services/cloud-ai-refill.service';
+import { CloudAuthService } from '../core/services/cloud-auth.service';
 import { PortableLibraryService } from '../core/services/portable-library.service';
 import { CloudManagedAiUsage } from '../core/dtos/cloud-ai-refill.dtos';
 import {
@@ -90,6 +91,21 @@ const portableLibraryServiceMock = {
         }),
       ),
   ),
+};
+
+const cloudAuthServiceMock = {
+  getSession: vi.fn(() =>
+    of({
+      authenticated: true,
+      accountState: 'Active' as const,
+      account: {
+        id: '1e4df713-1a34-4fc7-9a90-c45169256845',
+        displayName: 'Reader',
+        email: 'reader@example.test',
+      },
+    }),
+  ),
+  logout: vi.fn(),
 };
 
 const cloudAiRefillServiceMock = {
@@ -271,6 +287,7 @@ describe('SettingsComponent backup-only surface', () => {
         { provide: AiProviderService, useValue: aiProviderServiceMock },
         { provide: DeploymentCapabilitiesService, useValue: capabilitiesServiceMock },
         { provide: CloudAiRefillService, useValue: cloudAiRefillServiceMock },
+        { provide: CloudAuthService, useValue: cloudAuthServiceMock },
         { provide: PortableLibraryService, useValue: portableLibraryServiceMock },
       ],
     }).compileComponents();
@@ -294,6 +311,19 @@ describe('SettingsComponent backup-only surface', () => {
         }),
       ),
     );
+    cloudAuthServiceMock.getSession.mockClear();
+    cloudAuthServiceMock.getSession.mockReturnValue(
+      of({
+        authenticated: true,
+        accountState: 'Active',
+        account: {
+          id: '1e4df713-1a34-4fc7-9a90-c45169256845',
+          displayName: 'Reader',
+          email: 'reader@example.test',
+        },
+      }),
+    );
+    cloudAuthServiceMock.logout.mockClear();
     cloudAiRefillServiceMock.getUsage.mockClear();
     cloudAiRefillServiceMock.getUsage.mockReturnValue(of(managedAiUsage));
     cloudAiRefillServiceMock.getPacks.mockClear();
@@ -396,6 +426,40 @@ describe('SettingsComponent backup-only surface', () => {
     ) as HTMLElement;
     expect(activeNav.textContent?.replace(/\s+/g, ' ').trim()).toBe('Library & data');
     expect(activeNav.querySelector('small')).toBeNull();
+  });
+
+  it('does not show or load Cloud account controls in self-hosted mode', () => {
+    const navText = fixture.nativeElement.querySelector('.settings-nav')?.textContent ?? '';
+    expect(navText).not.toContain('Account');
+    expect(fixture.nativeElement.querySelector('[data-testid="cloud-account-settings"]')).toBeNull();
+    expect(cloudAuthServiceMock.getSession).not.toHaveBeenCalled();
+  });
+
+  it('shows the authenticated Cloud identity and signs out through the BFF', () => {
+    capabilitiesServiceMock.get.mockReturnValue(of(cloudCapabilities));
+    render();
+
+    expect(cloudAuthServiceMock.getSession).toHaveBeenCalledTimes(1);
+    const accountTab = Array.from(
+      fixture.nativeElement.querySelectorAll('.settings-nav-item'),
+    ).find((item) => (item.textContent ?? '').includes('Account')) as HTMLButtonElement | undefined;
+    expect(accountTab).toBeTruthy();
+
+    accountTab!.click();
+    fixture.detectChanges();
+
+    const card = fixture.nativeElement.querySelector(
+      '[data-testid="cloud-account-settings"]',
+    ) as HTMLElement;
+    expect(card.textContent).toContain('Reader');
+    expect(card.textContent).toContain('reader@example.test');
+
+    const signOut = Array.from(card.querySelectorAll('button')).find((button) =>
+      (button.textContent ?? '').includes('Sign out'),
+    ) as HTMLButtonElement;
+    signOut.click();
+
+    expect(cloudAuthServiceMock.logout).toHaveBeenCalledTimes(1);
   });
 
   it('renders the Appearance surface with a working Light/Dark choice', () => {
