@@ -632,7 +632,7 @@ describe('AddBookModal — From a Source', () => {
     expect(fixture.nativeElement.textContent).not.toContain('View at source');
   });
 
-  it('asks for collections once, in the form, and not again in the source step', async () => {
+  it('asks for collections once, only after discovery moves to review', async () => {
     component.enterSourceMode();
     await fixture.whenStable();
     component.sourceQuery.set('pride');
@@ -642,8 +642,15 @@ describe('AddBookModal — From a Source', () => {
     component.selectSourceItem(pride);
     fixture.detectChanges();
 
-    // The form's own picker is the only one left. It sits behind the source
-    // step, but the form is what the import reads, so it is the one that stays.
+    // Discovery is now a separate step, so review-only controls must not exist
+    // in the DOM while the user is still choosing a provider result.
+    expect(fixture.nativeElement.querySelectorAll('app-collection-picker').length).toBe(0);
+
+    component.seedFromSelectedItem();
+    fixture.detectChanges();
+
+    // Once the chosen source becomes the prefilled review, collections are
+    // asked exactly once there.
     expect(fixture.nativeElement.querySelectorAll('app-collection-picker').length).toBe(1);
   });
 
