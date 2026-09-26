@@ -49,7 +49,7 @@
           (valueChange)="setViewMode($event)"
         />
 
-        <button appButton variant="primary" size="lg" class="library-add-button" (click)="openAddIntent()">
+        <button appButton variant="primary" size="lg" class="library-add-button" (click)="openAddModal()">
           <nostos-icon name="plus" [size]="18"></nostos-icon>
           <span class="btn-text">Add Book</span>
         </button>
@@ -75,20 +75,11 @@
     </div>
 
     <div class="container lg">
-      <app-add-book-intent
-        [isOpen]="showAddIntent()"
-        (upload)="addUpload()"
-        (source)="addFromSource()"
-        (physical)="addPhysical()"
-        (manual)="addByHand()"
-        (cancel)="showAddIntent.set(false)"
-      >
-      </app-add-book-intent>
 
       <app-add-book-modal
         [isOpen]="showAddModal()"
         [collections]="collections()"
-        [initialIntent]="addIntent()"
+        [sourceFirst]="true"
         (closeModal)="closeAddModal()"
         (bookAdded)="onBookAdded()"
       >
@@ -320,7 +311,7 @@
           <button appButton variant="secondary" size="sm" (click)="filters.clearAll()">Clear filters</button>
           } @else {
           <p>Your library is empty</p>
-          <button appButton variant="primary" (click)="openAddIntent()">Add your first book</button>
+          <button appButton variant="primary" (click)="openAddModal()">Add your first book</button>
           }
         </div>
         }
@@ -488,7 +479,7 @@
           <button appButton variant="secondary" size="sm" (click)="filters.clearAll()">Clear filters</button>
           } @else {
           <p>Your library is empty</p>
-          <button appButton variant="primary" (click)="openAddIntent()">Add your first book</button>
+          <button appButton variant="primary" (click)="openAddModal()">Add your first book</button>
           }
         </div>
         }
