@@ -292,6 +292,14 @@
   color: var(--color-danger);
 }
 
+.portable-export-status {
+  margin-top: 6px;
+}
+
+.portable-export-status.is-error {
+  color: var(--color-danger);
+}
+
 /* --- Last Backup Info --- */
 .last-backup-info {
   display: flex;
@@ -766,6 +774,10 @@
   .setting-row > .nostos-switch,
   .setting-row > .select-sm {
     align-self: flex-start;
+  }
+
+  .portable-export-action {
+    width: 100%;
   }
 
   .catalog-url-row {

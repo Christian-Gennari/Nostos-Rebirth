@@ -1,5 +1,6 @@
 import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse, HttpEventType, HttpResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 
@@ -33,6 +34,7 @@ import { AiProviderService } from '../core/services/ai-provider.service';
 import { DeploymentCapabilitiesService } from '../core/services/deployment-capabilities.service';
 import { DeploymentCapabilities } from '../core/dtos/deployment-capabilities.dtos';
 import { CloudAiRefillService } from '../core/services/cloud-ai-refill.service';
+import { PortableLibraryService } from '../core/services/portable-library.service';
 import {
   CloudAiRefillPack,
   CloudManagedAiUsage,
@@ -48,6 +50,7 @@ const SLOW_STEP_THRESHOLD_MS = 30_000;
 
 /** How long the copy button stays on "Copied" before it offers to copy again. */
 const COPIED_FEEDBACK_MS = 2_500;
+const PORTABLE_EXPORT_URL_LIFETIME_MS = 60_000;
 
 /**
  * Every user-visible string for the AI provider feature, in one place: the card's
@@ -196,6 +199,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
   private aiProvider = inject(AiProviderService);
   private deploymentCapabilitiesService = inject(DeploymentCapabilitiesService);
   private cloudAiRefills = inject(CloudAiRefillService);
+  private portableLibrary = inject(PortableLibraryService);
 
   /** Which settings surface is visible. This is local UI state, not a route. */
   readonly activeSettingsSection = signal<SettingsSection>('library');
@@ -214,6 +218,9 @@ export class SettingsComponent implements OnInit, OnDestroy {
   );
   readonly supportsEreaderAccess = computed(
     () => this.deploymentCapabilities()?.supportsEreaderAccess === true,
+  );
+  readonly supportsCloudPortableExport = computed(
+    () => this.deploymentCapabilities()?.deploymentMode === 'Cloud',
   );
   readonly managedEreaderAccess = computed(
     () =>
@@ -238,7 +245,8 @@ export class SettingsComponent implements OnInit, OnDestroy {
   readonly hasLibrarySettings = computed(
     () =>
       this.supportsLocalBackupConfiguration() ||
-      this.supportsEreaderAccess(),
+      this.supportsEreaderAccess() ||
+      this.supportsCloudPortableExport(),
   );
 
   /** The AI provider card's copy, exposed so the template reads one source. */
@@ -364,6 +372,10 @@ export class SettingsComponent implements OnInit, OnDestroy {
   // --- Managed Cloud AI allowance / refills ----------------------------
   // These endpoints exist only in the official Cloud host. They are never
   // touched until the runtime capability response explicitly advertises them.
+  readonly portableExportBusy = signal(false);
+  readonly portableExportProgress = signal<number | null>(null);
+  readonly portableExportError = signal<string | null>(null);
+
   readonly managedAiUsage = signal<CloudManagedAiUsage | null>(null);
   readonly managedAiUsageFailed = signal(false);
   readonly aiRefillPacks = signal<CloudAiRefillPack[]>([]);
@@ -450,7 +462,8 @@ export class SettingsComponent implements OnInit, OnDestroy {
         // Keep Library & data when any library-facing capability exists.
         if (
           !capabilities.supportsLocalBackupConfiguration &&
-          !capabilities.supportsEreaderAccess
+          !capabilities.supportsEreaderAccess &&
+          capabilities.deploymentMode !== 'Cloud'
         ) {
           this.activeSettingsSection.set('assistant');
         }
@@ -900,6 +913,83 @@ export class SettingsComponent implements OnInit, OnDestroy {
       },
       () => this.toast.error('Could not copy the connection details automatically.'),
     );
+  }
+
+  exportAllNostosData(): void {
+    if (this.portableExportBusy() || !this.supportsCloudPortableExport()) return;
+
+    this.portableExportBusy.set(true);
+    this.portableExportProgress.set(null);
+    this.portableExportError.set(null);
+
+    this.portableLibrary.exportArchive().subscribe({
+      next: (event) => {
+        if (event.type === HttpEventType.DownloadProgress) {
+          this.portableExportProgress.set(
+            event.total && event.total > 0
+              ? Math.min(100, Math.round((event.loaded / event.total) * 100))
+              : null,
+          );
+          return;
+        }
+
+        if (event instanceof HttpResponse) {
+          this.savePortableArchive(event.body, event.headers.get('content-disposition'));
+          if (this.portableExportError() === null) {
+            this.portableExportBusy.set(false);
+            this.portableExportProgress.set(null);
+            this.toast.success('Your Nostos export is ready.');
+          }
+        }
+      },
+      error: (error) => {
+        this.portableExportBusy.set(false);
+        this.portableExportProgress.set(null);
+        this.portableExportError.set(this.portableExportFailureMessage(error));
+        this.toast.error('Could not export your Nostos data.');
+      },
+    });
+  }
+
+  private savePortableArchive(blob: Blob | null, contentDisposition: string | null): void {
+    if (!blob) {
+      this.portableExportBusy.set(false);
+      this.portableExportProgress.set(null);
+      this.portableExportError.set('Nostos returned an empty export. Try again.');
+      this.toast.error('Could not export your Nostos data.');
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = this.portableExportFileName(contentDisposition);
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), PORTABLE_EXPORT_URL_LIFETIME_MS);
+  }
+
+  private portableExportFileName(contentDisposition: string | null): string {
+    const match = contentDisposition?.match(/filename="?([^";]+)"?/iu);
+    const fileName = match?.[1]?.trim();
+    return fileName?.toLowerCase().endsWith('.nostos')
+      ? fileName
+      : 'nostos-export.nostos';
+  }
+
+  private portableExportFailureMessage(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      if (error.status === 401 || error.status === 403) {
+        return 'Your session no longer allows this export. Sign in again, then retry.';
+      }
+      if (error.status === 409) {
+        return 'This export is no longer available for the current account state.';
+      }
+    }
+
+    return 'Nostos could not create the export. Your data was not changed. Try again.';
   }
 
   loadData(): void {

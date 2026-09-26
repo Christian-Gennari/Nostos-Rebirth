@@ -316,6 +316,55 @@
       </section>
       }
 
+      @if (supportsCloudPortableExport()) {
+      <section class="settings-card" data-testid="cloud-portable-export-card">
+        <div class="card-header">
+          <div class="card-header-copy">
+            <h2>Data export</h2>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div class="setting-row">
+            <div class="setting-label">
+              <span class="label-text">Your complete Nostos archive</span>
+              <span class="label-desc">Download one portable .nostos file containing your library, notes, Writing Studio content, covers, and stored EPUB, PDF, and audiobook files. You can import it into a fresh Nostos installation.</span>
+              @if (portableExportBusy()) {
+                <span class="label-desc portable-export-status" aria-live="polite">
+                  @if (portableExportProgress() !== null) {
+                    Downloading your archive — {{ portableExportProgress() }}%
+                  } @else {
+                    Preparing your archive. Larger libraries can take a little longer.
+                  }
+                </span>
+              }
+              @if (portableExportError(); as exportError) {
+                <span class="label-desc portable-export-status is-error" role="alert">{{ exportError }}</span>
+              }
+            </div>
+
+            <button
+              appButton
+              variant="secondary"
+              class="portable-export-action"
+              data-testid="cloud-portable-export-action"
+              [disabled]="portableExportBusy()"
+              [busy]="portableExportBusy()"
+              (click)="exportAllNostosData()"
+            >
+              @if (portableExportBusy()) {
+                <nostos-icon name="circle-notch" [size]="16" class="spin"></nostos-icon>
+                Exporting…
+              } @else {
+                <nostos-icon name="download-simple" [size]="16"></nostos-icon>
+                Export all my Nostos data
+              }
+            </button>
+          </div>
+        </div>
+      </section>
+      }
+
       @if (supportsEreaderAccess()) {
       <!-- E-reader access is one product capability with deployment-specific
            connection models: private-network SelfHosted or managed Cloud credentials. -->

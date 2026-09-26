@@ -2,6 +2,13 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { signal } from '@angular/core';
 import { NEVER, Observable, Subject, of, throwError } from 'rxjs';
+import {
+  HttpErrorResponse,
+  HttpEvent,
+  HttpEventType,
+  HttpHeaders,
+  HttpResponse,
+} from '@angular/common/http';
 
 import { SettingsComponent } from './settings.component';
 import { BackupService } from '../core/services/backup.service';
@@ -19,6 +26,7 @@ import { AiProviderService } from '../core/services/ai-provider.service';
 import { DeploymentCapabilitiesService } from '../core/services/deployment-capabilities.service';
 import { DeploymentCapabilities } from '../core/dtos/deployment-capabilities.dtos';
 import { CloudAiRefillService } from '../core/services/cloud-ai-refill.service';
+import { PortableLibraryService } from '../core/services/portable-library.service';
 import { CloudManagedAiUsage } from '../core/dtos/cloud-ai-refill.dtos';
 import {
   AiProviderModelsRequest,
@@ -68,6 +76,20 @@ const managedAiUsage: CloudManagedAiUsage = {
     available: false,
     state: 'empty',
   },
+};
+
+const portableLibraryServiceMock = {
+  exportArchive: vi.fn(
+    (): Observable<HttpEvent<Blob>> =>
+      of(
+        new HttpResponse({
+          body: new Blob(['portable']),
+          headers: new HttpHeaders({
+            'content-disposition': 'attachment; filename="nostos-export-test.nostos"',
+          }),
+        }),
+      ),
+  ),
 };
 
 const cloudAiRefillServiceMock = {
@@ -249,6 +271,7 @@ describe('SettingsComponent backup-only surface', () => {
         { provide: AiProviderService, useValue: aiProviderServiceMock },
         { provide: DeploymentCapabilitiesService, useValue: capabilitiesServiceMock },
         { provide: CloudAiRefillService, useValue: cloudAiRefillServiceMock },
+        { provide: PortableLibraryService, useValue: portableLibraryServiceMock },
       ],
     }).compileComponents();
 
@@ -260,6 +283,17 @@ describe('SettingsComponent backup-only surface', () => {
     localStorage.clear();
     capabilitiesServiceMock.get.mockClear();
     capabilitiesServiceMock.get.mockReturnValue(of(selfHostedCapabilities));
+    portableLibraryServiceMock.exportArchive.mockClear();
+    portableLibraryServiceMock.exportArchive.mockReturnValue(
+      of(
+        new HttpResponse({
+          body: new Blob(['portable']),
+          headers: new HttpHeaders({
+            'content-disposition': 'attachment; filename="nostos-export-test.nostos"',
+          }),
+        }),
+      ),
+    );
     cloudAiRefillServiceMock.getUsage.mockClear();
     cloudAiRefillServiceMock.getUsage.mockReturnValue(of(managedAiUsage));
     cloudAiRefillServiceMock.getPacks.mockClear();
@@ -549,7 +583,7 @@ describe('SettingsComponent backup-only surface', () => {
     expect(cloudAiRefillServiceMock.getPacks).not.toHaveBeenCalled();
   });
 
-  it('fails closed when Cloud does not advertise e-reader access', () => {
+  it('keeps Cloud Library & data available for portable export without e-reader access', () => {
     capabilitiesServiceMock.get.mockReturnValueOnce(
       of({ ...cloudCapabilities, supportsEreaderAccess: false }),
     );
@@ -558,15 +592,116 @@ describe('SettingsComponent backup-only surface', () => {
 
     render();
 
-    expect(fixture.componentInstance.activeSettingsSection()).toBe('assistant');
+    expect(fixture.componentInstance.activeSettingsSection()).toBe('library');
     expect(
       fixture.debugElement
         .queryAll(By.css('.settings-nav-copy'))
         .map((item) => item.nativeElement.textContent.trim()),
-    ).toEqual(['Assistant', 'Appearance']);
-    expect(fixture.nativeElement.querySelector('#library-data')).toBeNull();
+    ).toEqual(['Library & data', 'Assistant', 'Appearance']);
+    expect(fixture.nativeElement.querySelector('#library-data')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="cloud-portable-export-card"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[data-testid="ereader-access-card"]')).toBeNull();
     expect(opdsServiceMock.getInfo).not.toHaveBeenCalled();
     expect(opdsServiceMock.getManagedAccess).not.toHaveBeenCalled();
+  });
+
+  it('offers one Cloud export action and keeps it out of SelfHosted settings', () => {
+    expect(fixture.nativeElement.querySelector('[data-testid="cloud-portable-export-card"]')).toBeNull();
+
+    capabilitiesServiceMock.get.mockReturnValueOnce(of(cloudCapabilities));
+    render();
+
+    const card = fixture.nativeElement.querySelector(
+      '[data-testid="cloud-portable-export-card"]',
+    ) as HTMLElement;
+    const action = card.querySelector(
+      '[data-testid="cloud-portable-export-action"]',
+    ) as HTMLButtonElement;
+
+    expect(card.textContent).toContain('one portable .nostos file');
+    expect(card.textContent).toContain('stored EPUB, PDF, and audiobook files');
+    expect(action.textContent).toContain('Export all my Nostos data');
+  });
+
+  it('shows export progress and completes the download through the portability service', () => {
+    capabilitiesServiceMock.get.mockReturnValueOnce(of(cloudCapabilities));
+    const pending = new Subject<HttpEvent<Blob>>();
+    portableLibraryServiceMock.exportArchive.mockReturnValueOnce(pending.asObservable());
+    render();
+
+    const component = fixture.componentInstance;
+    const saveSpy = vi
+      .spyOn(
+        component as unknown as {
+          savePortableArchive: (blob: Blob | null, disposition: string | null) => void;
+        },
+        'savePortableArchive',
+      )
+      .mockImplementation(() => {});
+
+    const action = fixture.nativeElement.querySelector(
+      '[data-testid="cloud-portable-export-action"]',
+    ) as HTMLButtonElement;
+    action.click();
+    fixture.detectChanges();
+
+    expect(portableLibraryServiceMock.exportArchive).toHaveBeenCalledTimes(1);
+    expect(action.disabled).toBe(true);
+    expect(
+      fixture.nativeElement.querySelector('.portable-export-status')?.textContent,
+    ).toContain('Preparing your archive');
+
+    pending.next({
+      type: HttpEventType.DownloadProgress,
+      loaded: 50,
+      total: 100,
+    });
+    fixture.detectChanges();
+    expect(
+      fixture.nativeElement.querySelector('.portable-export-status')?.textContent,
+    ).toContain('50%');
+
+    const blob = new Blob(['portable']);
+    pending.next(
+      new HttpResponse({
+        body: blob,
+        headers: new HttpHeaders({
+          'content-disposition': 'attachment; filename="nostos-export-test.nostos"',
+        }),
+      }),
+    );
+    pending.complete();
+    fixture.detectChanges();
+
+    expect(saveSpy).toHaveBeenCalledWith(
+      blob,
+      'attachment; filename="nostos-export-test.nostos"',
+    );
+    expect(component.portableExportBusy()).toBe(false);
+    expect(component.portableExportProgress()).toBeNull();
+    expect(toastMock.success).toHaveBeenCalledWith('Your Nostos export is ready.');
+  });
+
+  it('leaves a clear inline error when Cloud export fails', () => {
+    capabilitiesServiceMock.get.mockReturnValueOnce(of(cloudCapabilities));
+    portableLibraryServiceMock.exportArchive.mockReturnValueOnce(
+      throwError(() => new HttpErrorResponse({ status: 500, statusText: 'Server error' })),
+    );
+    render();
+
+    const action = fixture.nativeElement.querySelector(
+      '[data-testid="cloud-portable-export-action"]',
+    ) as HTMLButtonElement;
+    action.click();
+    fixture.detectChanges();
+
+    const error = fixture.nativeElement.querySelector(
+      '.portable-export-status.is-error',
+    ) as HTMLElement;
+    expect(error.getAttribute('role')).toBe('alert');
+    expect(error.textContent).toContain('Your data was not changed');
+    expect(fixture.componentInstance.portableExportBusy()).toBe(false);
+    expect(toastMock.error).toHaveBeenCalledWith('Could not export your Nostos data.');
   });
 
   it('keeps the Cloud voice toggle as product intent instead of provider configuration', () => {
