@@ -5,7 +5,7 @@
     [maxWidth]="'700px'"
     [maxHeight]="'90vh'"
     [layer]="100"
-    [ariaLabel]="isEditMode() ? 'Edit Book' : 'Add New Book'"
+    [ariaLabel]="isEditMode() ? 'Edit Book' : sourceMode() ? 'Find a book' : seededFromSource() ? 'Review Book' : 'Add a book'"
     (closed)="closeModal.emit()"
   >
       <header class="modal-header" shellHeader>
@@ -14,20 +14,22 @@
             {{
               isEditMode()
                 ? 'Edit Book'
-                : !sourceMode() && seededFromSource()
-                  ? 'Review Book'
-                  : 'Add a book'
+                : sourceMode()
+                  ? 'Find a book'
+                  : seededFromSource()
+                    ? 'Review Book'
+                    : 'Add a book'
             }}
           </h2>
           <p class="modal-subtitle">
             {{
               isEditMode()
                 ? 'Change the details you need, then save.'
-                : !sourceMode() && seededFromSource()
-                  ? 'Check the essentials. Everything else is optional.'
-                  : sourceMode()
-                    ? 'Find the book first and let Nostos fill what it can.'
-                    : 'Add your own copy with only the details that matter.'
+                : sourceMode()
+                  ? 'Search the free catalogues, then choose the edition you want.'
+                  : seededFromSource()
+                    ? 'Check the essentials. Everything else is optional.'
+                    : 'Upload a local file, identify a physical book, or enter the details yourself.'
             }}
           </p>
         </div>
@@ -80,36 +82,10 @@
             }
           }
 
-          @if (!isEditMode() && (sourceMode() || flowIntent() === 'manual')) {
-            <div class="add-mode-switch" role="group" aria-label="Add book method">
-              <button
-                type="button"
-                class="add-mode-button"
-                [class.active]="sourceMode()"
-                [attr.aria-pressed]="sourceMode()"
-                [disabled]="!!runningAcquisition()"
-                (click)="showSourceMode()"
-              >
-                <nostos-icon name="magnifying-glass" [size]="15"></nostos-icon>
-                <span>Find a book</span>
-              </button>
-              <button
-                type="button"
-                class="add-mode-button"
-                [class.active]="!sourceMode()"
-                [attr.aria-pressed]="!sourceMode()"
-                [disabled]="!!runningAcquisition()"
-                (click)="showManualMode()"
-              >
-                <nostos-icon name="pencil-simple" [size]="15"></nostos-icon>
-                <span>Add manually</span>
-              </button>
-            </div>
-          }
-
           <!-- Acquisition-first add / direct edit. The full bibliographic record
                is one shallow disclosure away, never the default task. -->
-          <div class="review-flow" [hidden]="sourceMode()">
+          @if (!sourceMode()) {
+          <div class="review-flow">
             @if (awaitingLocalFile()) {
               <section class="acquisition-start" aria-labelledby="local-upload-heading">
                 <span class="acquisition-start__icon" aria-hidden="true">
@@ -190,12 +166,11 @@
                 <section
                   class="manual-file"
                   aria-labelledby="manual-file-heading"
-                  [hidden]="form.type === 'physical'"
                 >
                   <div class="section-heading">
                     <div>
-                      <h3 id="manual-file-heading">Book file</h3>
-                      <p>Optional. Choose the local file now, or add only the library record.</p>
+                      <h3 id="manual-file-heading">Book file (optional)</h3>
+                      <p>EPUB, PDF, TXT, MOBI or audiobook file. Choosing one sets the book type automatically.</p>
                     </div>
                   </div>
                   <label
@@ -275,7 +250,7 @@
                 </div>
 
                 @if (isEditMode() || flowIntent() === 'manual') {
-                  <app-form-field label="Format" forId="book-type">
+                  <app-form-field label="Book type" forId="book-type">
                     <app-dropdown
                       controlId="book-type"
                       controlSize="compact"
@@ -659,10 +634,12 @@
               </details>
             }
           </div>
+          }
 
           <!-- Unified discovery: providers are provenance on results, not a
                choice the reader must make before searching. -->
-          <div class="tab-content" [hidden]="!sourceMode()">
+          @if (sourceMode()) {
+          <div class="tab-content source-discovery">
             @if (providersError()) {
               <p class="source-hint">{{ providersError() }}</p>
             }
@@ -939,10 +916,21 @@
               </div>
             }
           </div>
+          }
         </div>
       </form>
 
-      @if (!sourceMode()) {
+      @if (sourceMode()) {
+        <app-dialog-actions shellActions>
+          <button appButton type="button" variant="secondary" (click)="closeModal.emit()">
+            Cancel
+          </button>
+          <button appButton type="button" variant="secondary" (click)="showManualMode()">
+            <nostos-icon name="pencil-simple" [size]="14"></nostos-icon>
+            Add manually
+          </button>
+        </app-dialog-actions>
+      } @else {
         <app-dialog-actions shellActions>
           @if (isEditMode()) {
             <button
