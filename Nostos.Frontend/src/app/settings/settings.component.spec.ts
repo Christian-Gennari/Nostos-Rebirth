@@ -442,7 +442,7 @@ describe('SettingsComponent backup-only surface', () => {
     expect(cloudAuthServiceMock.getSession).toHaveBeenCalledTimes(1);
     const accountTab = Array.from(
       fixture.nativeElement.querySelectorAll('.settings-nav-item'),
-    ).find((item) => (item.textContent ?? '').includes('Account')) as HTMLButtonElement | undefined;
+    ).find((item: any) => (item.textContent ?? '').includes('Account')) as HTMLButtonElement | undefined;
     expect(accountTab).toBeTruthy();
 
     accountTab!.click();
@@ -454,7 +454,7 @@ describe('SettingsComponent backup-only surface', () => {
     expect(card.textContent).toContain('Reader');
     expect(card.textContent).toContain('reader@example.test');
 
-    const signOut = Array.from(card.querySelectorAll('button')).find((button) =>
+    const signOut = Array.from(card.querySelectorAll('button')).find((button: any) =>
       (button.textContent ?? '').includes('Sign out'),
     ) as HTMLButtonElement;
     signOut.click();
@@ -565,7 +565,7 @@ describe('SettingsComponent backup-only surface', () => {
       fixture.debugElement
         .queryAll(By.css('.settings-nav-copy'))
         .map((item) => item.nativeElement.textContent.trim()),
-    ).toEqual(['Library & data', 'Assistant', 'Appearance']);
+    ).toEqual(['Library & data', 'Assistant', 'Account', 'Appearance']);
 
     expect(fixture.nativeElement.querySelector('#library-data')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('[data-testid="ereader-access-card"]')).toBeTruthy();
@@ -661,7 +661,7 @@ describe('SettingsComponent backup-only surface', () => {
       fixture.debugElement
         .queryAll(By.css('.settings-nav-copy'))
         .map((item) => item.nativeElement.textContent.trim()),
-    ).toEqual(['Library & data', 'Assistant', 'Appearance']);
+    ).toEqual(['Library & data', 'Assistant', 'Account', 'Appearance']);
     expect(fixture.nativeElement.querySelector('#library-data')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('[data-testid="cloud-portable-export-card"]')).toBeTruthy();
     expect(fixture.nativeElement.querySelector('[data-testid="ereader-access-card"]')).toBeNull();
