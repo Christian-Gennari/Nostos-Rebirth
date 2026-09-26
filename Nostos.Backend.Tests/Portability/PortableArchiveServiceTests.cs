@@ -159,6 +159,55 @@ public sealed class PortableArchiveServiceTests
     }
 
     [Fact]
+    public async Task Export_to_non_seekable_stream_avoids_synchronous_io()
+    {
+        // Regression for #554: Kestrel's response stream is non-seekable and
+        // rejects synchronous writes. ZipArchive finalization on a non-seekable
+        // stream writes ZIP data descriptors synchronously, which previously
+        // aborted the export mid-response.
+        await using var source = await LocalPortableTestLibrary.CreateAsync();
+        var ids = await PortableArchiveTestSupport.PopulateRepresentativeAsync(
+            source.Db,
+            source.Storage);
+
+        var response = new SyncIoForbiddenStream();
+
+        var exported = await source.Portability().ExportAsync(response);
+
+        exported.FormatVersion.Should().Be(1);
+        exported.Counts.Books.Should().Be(4);
+        exported.MediaFiles.Should().Be(5);
+
+        using var archiveBytes = new MemoryStream(response.WrittenBytes);
+        using (var archive = new ZipArchive(
+            archiveBytes,
+            ZipArchiveMode.Read,
+            leaveOpen: true))
+        {
+            archive.GetEntry("data/library.json").Should().NotBeNull();
+            archive.GetEntry("manifest.json").Should().NotBeNull();
+        }
+
+        await using var destination = await LocalPortableTestLibrary.CreateAsync();
+        archiveBytes.Position = 0;
+        var imported = await destination.Portability().ImportAsync(archiveBytes);
+
+        imported.IntegrityVerified.Should().BeTrue();
+        imported.Counts.Should().Be(exported.Counts);
+        imported.MediaFiles.Should().Be(exported.MediaFiles);
+
+        destination.Db.ChangeTracker.Clear();
+        (await destination.Db.Books.CountAsync()).Should().Be(4);
+        (await destination.Db.BookCollections.CountAsync()).Should().Be(3);
+        (await destination.Db.WritingNotes.CountAsync()).Should().Be(1);
+
+        (await PortableArchiveTestSupport.ReadBookAsync(
+            destination.Storage,
+            ids.EpubBookId))
+            .Should().Equal(Encoding.UTF8.GetBytes("EPUB-CONTENT-PORTABLE"));
+    }
+
+    [Fact]
     public async Task Export_excludes_secrets_provider_paths_and_generated_caches()
     {
         await using var source = await LocalPortableTestLibrary.CreateAsync();
@@ -643,6 +692,65 @@ public sealed class PortableArchiveServiceTests
             throw new IOException("Injected failure after durable media write.");
         }
     }
+
+    private sealed class SyncIoForbiddenStream : Stream
+    {
+        private readonly MemoryStream _inner = new();
+
+        public byte[] WrittenBytes => _inner.ToArray();
+
+        public override bool CanRead => false;
+        public override bool CanSeek => false;
+        public override bool CanWrite => true;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush() => throw SyncIoDisallowed();
+
+        public override Task FlushAsync(CancellationToken cancellationToken) =>
+            _inner.FlushAsync(cancellationToken);
+
+        public override int Read(byte[] buffer, int offset, int count) =>
+            throw new NotSupportedException();
+
+        public override long Seek(long offset, SeekOrigin origin) =>
+            throw new NotSupportedException();
+
+        public override void SetLength(long value) =>
+            throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) =>
+            throw SyncIoDisallowed();
+
+        public override void Write(ReadOnlySpan<byte> buffer) =>
+            throw SyncIoDisallowed();
+
+        public override void WriteByte(byte value) => throw SyncIoDisallowed();
+
+        public override Task WriteAsync(
+            byte[] buffer,
+            int offset,
+            int count,
+            CancellationToken cancellationToken) =>
+            _inner.WriteAsync(buffer, offset, count, cancellationToken);
+
+        public override ValueTask WriteAsync(
+            ReadOnlyMemory<byte> buffer,
+            CancellationToken cancellationToken = default) =>
+            _inner.WriteAsync(buffer, cancellationToken);
+
+        private static InvalidOperationException SyncIoDisallowed() =>
+            new(
+                "Synchronous operations are disallowed. "
+                + "Call WriteAsync or set AllowSynchronousIO to true instead.");
+    }
+
     private sealed class RecordingBookTextScheduler : IBookTextIngestionScheduler
     {
         public List<(Guid BookId, string FileName)> Scheduled { get; } = [];

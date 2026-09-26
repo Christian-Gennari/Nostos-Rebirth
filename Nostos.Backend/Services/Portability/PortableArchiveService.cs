@@ -83,10 +83,31 @@ public sealed class PortableArchiveService(
 
             var media = new List<PortableArchiveMediaEntry>();
 
+            // A non-seekable destination (an HTTP response body) cannot be used
+            // as the archive target directly: ZipArchiveMode.Create on a
+            // non-seekable stream writes ZIP data descriptors, and finalizing
+            // them performs synchronous writes. Kestrel disallows synchronous IO
+            // on response streams, so the export would abort mid-response.
+            // Stage the archive in a seekable temp file and copy it out
+            // asynchronously after the archive is fully finalized.
+            var stageArchive = !destination.CanSeek;
+            var archivePath = Path.Combine(tempRoot, "export.nostos");
+            Stream archiveTarget = destination;
+            if (stageArchive)
+            {
+                archiveTarget = new FileStream(
+                    archivePath,
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None,
+                    CopyBufferSize,
+                    FileOptions.Asynchronous | FileOptions.SequentialScan);
+            }
+
             using (var archive = new ZipArchive(
-                destination,
+                archiveTarget,
                 ZipArchiveMode.Create,
-                leaveOpen: true))
+                leaveOpen: !stageArchive))
             {
                 var dataEntry = archive.CreateEntry(
                     PortableArchiveFormat.DataPath,
@@ -147,6 +168,21 @@ public sealed class PortableArchiveService(
                     manifestStream,
                     manifest,
                     JsonOptions,
+                    cancellationToken);
+            }
+
+            if (stageArchive)
+            {
+                await using var staged = new FileStream(
+                    archivePath,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.Read,
+                    CopyBufferSize,
+                    FileOptions.Asynchronous | FileOptions.SequentialScan);
+                await staged.CopyToAsync(
+                    destination,
+                    CopyBufferSize,
                     cancellationToken);
             }
 
