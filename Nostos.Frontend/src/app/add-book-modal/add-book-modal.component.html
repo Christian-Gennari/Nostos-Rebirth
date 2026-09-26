@@ -186,8 +186,12 @@
                 <div class="upload-status" role="status">Uploading... {{ uploadProgress() }}%</div>
               }
 
-              @if (!isEditMode() && flowIntent() === 'manual' && form.type !== 'physical') {
-                <section class="manual-file" aria-labelledby="manual-file-heading">
+              @if (!isEditMode() && flowIntent() === 'manual') {
+                <section
+                  class="manual-file"
+                  aria-labelledby="manual-file-heading"
+                  [hidden]="form.type === 'physical'"
+                >
                   <div class="section-heading">
                     <div>
                       <h3 id="manual-file-heading">Book file</h3>
@@ -220,22 +224,24 @@
               }
 
               @if (
-                !isEditMode() &&
-                (flowIntent() === 'physical' ||
-                  (flowIntent() === 'manual' && form.type === 'physical'))
+                !isEditMode() && (flowIntent() === 'physical' || flowIntent() === 'manual')
               ) {
-                <section class="quick-identifier" aria-labelledby="physical-lookup-heading">
+                <section
+                  class="quick-identifier"
+                  aria-labelledby="physical-lookup-heading"
+                  [hidden]="flowIntent() === 'manual' && form.type !== 'physical'"
+                >
                   <div class="section-heading">
                     <div>
                       <h3 id="physical-lookup-heading">Identify by ISBN</h3>
                       <p>Optional. Fetch what Nostos can, then review the result below.</p>
                     </div>
                   </div>
-                  <app-form-field label="ISBN" forId="book-isbn">
+                  <app-form-field label="ISBN" forId="book-isbn-quick">
                     <div class="input-group-fetch">
                       <input
                         #isbnInput
-                        id="book-isbn"
+                        id="book-isbn-quick"
                         appInput
                         controlSize="compact"
                         type="text"
@@ -543,12 +549,14 @@
                     </app-form-field>
                   </section>
 
-                  @if (
-                    isEditMode() ||
-                    (flowIntent() !== 'physical' &&
-                      !(flowIntent() === 'manual' && form.type === 'physical'))
-                  ) {
-                    <section class="metadata-group" aria-labelledby="identifier-metadata-heading">
+                  @if (isEditMode() || flowIntent() !== 'physical') {
+                    <section
+                      class="metadata-group"
+                      aria-labelledby="identifier-metadata-heading"
+                      [hidden]="
+                        !isEditMode() && flowIntent() === 'manual' && form.type === 'physical'
+                      "
+                    >
                       <div class="section-heading">
                         <div>
                           <h3 id="identifier-metadata-heading">Identifiers</h3>
