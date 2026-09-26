@@ -368,7 +368,7 @@ interface PendingTransientRestore {
   selector: 'app-markdown-editor',
   standalone: true,
   imports: [FormsModule],
-  template: ` <textarea id="markdown-tinymce-editor" [(ngModel)]="htmlContent"></textarea> `,
+  template: ` <textarea id="markdown-tinymce-editor" [class.editor-starting]="editorStarting" [(ngModel)]="htmlContent"></textarea> `,
   styles: [
     `
       :host {
@@ -390,6 +390,16 @@ interface PendingTransientRestore {
         border: 0;
         outline: 0;
         resize: none;
+      }
+
+      /* The textarea is TinyMCE's attachment target, not a second editor.
+         Its bound HTML can arrive while the lazy TinyMCE script is still
+         loading, so keep the themed startup surface but suppress native text
+         until TinyMCE has either initialized or failed. */
+      :host > textarea.editor-starting {
+        color: transparent;
+        -webkit-text-fill-color: transparent;
+        caret-color: transparent;
       }
 
       /* Oxide briefly mounts a throbber over the editing area during init.
@@ -595,6 +605,7 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   typewriter = input<boolean>(false);
 
   htmlContent = '';
+  editorStarting = true;
   private editorId = 'markdown-tinymce-editor';
 
   private turndownService = new TurndownService({
@@ -801,20 +812,30 @@ export class MarkdownEditorComponent implements OnInit, OnDestroy {
   private async initEditor(): Promise<void> {
     if (this.editor || this.destroyed) return;
 
-    const tinyMce = await this.tinyMceLoader.load();
-    if (this.destroyed || this.editor) return;
+    this.editorStarting = true;
+    try {
+      const tinyMce = await this.tinyMceLoader.load();
+      if (this.destroyed || this.editor) return;
 
-    this.tinyMce = tinyMce;
-    await Promise.resolve(
-      tinyMce.init({
-        selector: `#${this.editorId}`,
-        ...this.editorConfig,
-      }),
-    );
+      this.tinyMce = tinyMce;
+      await Promise.resolve(
+        tinyMce.init({
+          selector: `#${this.editorId}`,
+          ...this.editorConfig,
+        }),
+      );
 
-    if (this.destroyed && this.editor) {
-      tinyMce.remove(this.editor);
-      this.editor = null;
+      if (this.destroyed && this.editor) {
+        tinyMce.remove(this.editor);
+        this.editor = null;
+      }
+    } catch (error) {
+      // Keep the lazy loader retryable and restore the native fallback surface
+      // if startup fails instead of leaving an invisible textarea behind.
+      this.editorInit = null;
+      throw error;
+    } finally {
+      this.editorStarting = false;
     }
   }
 
