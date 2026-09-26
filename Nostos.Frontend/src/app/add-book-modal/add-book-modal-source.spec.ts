@@ -236,7 +236,19 @@ describe('AddBookModal — From a Source', () => {
   });
 
   it('lets manual digital intake choose a file without creating another top-level path', async () => {
-    component.showManualMode();
+    // Follow the same route as a Library user: Add Book opens in provider
+    // discovery, then manual intake is chosen inside the sheet. This also keeps
+    // the open/reset effect settled before the format is changed.
+    fixture.componentRef.setInput('sourceFirst', true);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const manualMode = Array.from(
+      fixture.nativeElement.querySelectorAll('.add-mode-button') as NodeListOf<HTMLButtonElement>,
+    ).find((button) => button.textContent?.trim() === 'Add manually');
+    expect(manualMode).toBeTruthy();
+
+    manualMode!.click();
     fixture.detectChanges();
     await fixture.whenStable();
 
